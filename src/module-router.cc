@@ -151,6 +151,10 @@ class ModuleRouter : public Module, public ModuleToolbox, public ForkContextList
 										->get<ConfigBoolean>("accept-domain-registrations")
 										->read();
 		mAllowTargetFactorization = mc->get<ConfigBoolean>("allow-target-factorization")->read();
+
+		mRelayRegsToDomains =  cr->get<GenericStruct>("inter-domain-connections")
+									->get<ConfigBoolean>("relay-reg-to-domains")
+									->read();
 	}
 
 	virtual void onUnload() {
@@ -204,6 +208,7 @@ class ModuleRouter : public Module, public ModuleToolbox, public ForkContextList
 	bool mGenerateContactEvenOnFilledAor;
 	bool mAllowDomainRegistrations;
 	bool mAllowTargetFactorization;
+	bool mRelayRegsToDomains;
 	string mPreroute;
 };
 
@@ -395,7 +400,7 @@ void ModuleRouter::onContactRegistered(const std::string &uid, Record *aor, cons
 	SofiaAutoHome home;
 	sip_path_t *path = NULL;
 	sip_contact_t *contact = NULL;
-	
+
 	if (aor == NULL) {
 		SLOGE << "aor was null...";
 		return;
@@ -913,9 +918,13 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipExce
 		return;
 	}
 
-	// Don't route registers
-	if (sip->sip_request->rq_method == sip_method_register)
-		return;
+	/*unless in a specific case, REGISTER don't go into the router logic*/
+	if (sip->sip_request->rq_method == sip_method_register){
+		if (!mRelayRegsToDomains || sip->sip_from->a_url->url_user == NULL){
+			return;
+		}
+		LOGD("Router: routing REGISTER to domain controller");
+	}
 
 	/*see if we can route other requests */
 	/*acks shall not have their request uri rewritten:
@@ -931,7 +940,7 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipExce
 			ev->createIncomingTransaction();
 			sendReply(ev, SIP_100_TRYING);
 			auto onRoutingListener = make_shared<OnFetchForRoutingListener>(this, ev, sipurl);
-			
+
 			if (mPreroute.empty()) {
 				/*the unstandard X-Target-Uris header gives us a list of SIP uri to which the request is to be forked.*/
 				sip_unknown_t *h = ModuleToolbox::getCustomHeaderByName(ev->getSip(), "X-Target-Uris");

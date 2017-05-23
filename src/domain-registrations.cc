@@ -91,6 +91,9 @@ DomainRegistrationManager::DomainRegistrationManager(Agent *agent) : mAgent(agen
 		 "Interval in seconds for sending \\r\\n\\r\\n keepalives throug the outgoing domain registration connection."
 		 "A value of zero disables keepalives.",
 		 "30"},
+		{Boolean, "relay-reg-to-domains",
+		 "Relay UAs registration requests to the flexisip server which has registered that specific user's domain",
+		"false"},
 		config_item_end};
 
 	mDomainRegistrationArea->addChildrenValues(configs);

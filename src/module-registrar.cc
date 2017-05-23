@@ -194,8 +194,14 @@ class ModuleRegistrar : public Module, public ModuleToolbox {
 		mSigaction.sa_flags = SA_SIGINFO;
 		sigaction(SIGUSR1, &mSigaction, NULL);
 		sigaction(SIGUSR2, &mSigaction, NULL);
-		
+
 		mParamsToRemove = GenericManager::get()->getRoot()->get<GenericStruct>("module::Forward")->get<ConfigStringList>("params-to-remove")->read();
+
+		mRelayRegsToDomains = GenericManager::get()
+										   ->getRoot()
+										   ->get<GenericStruct>("inter-domain-connections")
+										   ->get<ConfigBoolean>("relay-reg-to-domains")
+										   ->read();
 	}
 
 	virtual void onUnload() {
@@ -250,6 +256,8 @@ class ModuleRegistrar : public Module, public ModuleToolbox {
 	int mStaticRecordsTimeout;
 	int mStaticRecordsVersion;
 	bool mAssumeUniqueDomains;
+	bool mRelayRegsToDomains;
+
 	struct sigaction mSigaction;
 	static void sighandler(int signum, siginfo_t *info, void *ptr);
 	static ModuleInfo<ModuleRegistrar> sInfo;
@@ -619,7 +627,10 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipE
 	}
 
 	// Handle modifications
-	if (!mUpdateOnResponse) {
+	/* Domain registration must not be routed to domain controller, of course
+	 * (note: here reg-on-response=true has priority over relay-reg-for-domains, disrupting
+	 *  relay for domains functionality...) */
+	if (!mUpdateOnResponse && (!mRelayRegsToDomains || sipurl->url_user == NULL) ) {
 		if ('*' == sip->sip_contact->m_url[0].url_scheme[0]) {
 			auto listener = make_shared<OnRequestBindListener>(this, ev);
 			mStats.mCountClear->incrStart();
@@ -666,7 +677,7 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipE
 }
 
 void ModuleRegistrar::onResponse(shared_ptr<ResponseSipEvent> &ev) throw(FlexisipException) {
-	if (!mUpdateOnResponse)
+	if (!mUpdateOnResponse && !mRelayRegsToDomains)
 		return;
 	const shared_ptr<MsgSip> &reMs = ev->getMsgSip();
 	sip_t *reSip = reMs->getSip();
@@ -798,7 +809,7 @@ void ModuleRegistrar::readStaticRecords() {
 				sip_contact_t *url = sip_contact_make(&home, from.c_str());
 				sip_contact_t *contact = sip_contact_make(&home, contact_header.c_str());
 				int expire = mStaticRecordsTimeout + 5; // 5s to avoid race conditions
-				
+
 				if (!url || !contact) {
 					LOGF("Static records line %s doesn't respect the expected format: <identity> <identity>,<identity>", line.c_str());
 					continue;
