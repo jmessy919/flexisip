@@ -49,6 +49,10 @@ void ForkBasicContext::onResponse(const shared_ptr<BranchInfo> &br, const shared
 				mDecisionTimer = NULL;
 			}
 		} else {
+			if (isUrgent(code, sUrgentCodes)){
+				forwardResponse(br);
+				return;
+			}
 			if (allBranchesAnswered()) {
 				finishIncomingTransaction();
 			}
