@@ -630,7 +630,7 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipE
 	/* Domain registration must not be routed to domain controller, of course
 	 * (note: here reg-on-response=true has priority over relay-reg-for-domains, disrupting
 	 *  relay for domains functionality...) */
-	if (!mUpdateOnResponse && (!mRelayRegsToDomains || sipurl->url_user == NULL) ) {
+	if (!mUpdateOnResponse || sipurl->url_user == NULL ) {
 		if ('*' == sip->sip_contact->m_url[0].url_scheme[0]) {
 			auto listener = make_shared<OnRequestBindListener>(this, ev);
 			mStats.mCountClear->incrStart();
