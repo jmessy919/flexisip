@@ -154,11 +154,14 @@ int DomainRegistrationManager::load() {
 			LOGE("Empty URI in domain registration definition.");
 			goto error;
 		}
+		if (uri[0] == '<') uri = uri.substr(1, uri.size()-1);
+		
 		url_t *url = url_make(home.home(), uri.c_str());
 		if (!url) {
 			LOGE("Bad URI '%s' in domain registration definition.", uri.c_str());
 			goto error;
 		}
+		
 		/*extract the certificate directory parameter if given, and remove it before passing the URI to the
 		 * DomainRegistration object*/
 		char clientCertdir[256] = {0};
