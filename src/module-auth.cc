@@ -558,15 +558,6 @@ class Authentication : public Module {
 		if (isTlsClientAuthenticated(ev))
 			return;
 
-		// Check for the existence of username, which is required for proceeding with digest authentication in flexisip.
-		// Reject if absent.
-		if (sip->sip_from->a_url->url_user == NULL) {
-			LOGI("From has no username, cannot authenticate.");
-			SLOGUE << "Registration failure, username not found: " << url_as_string(ms->getHome(), sip->sip_from->a_url);
-			ev->reply(403, "Username must be provided", SIPTAG_SERVER_STR(getAgent()->getServerString()), TAG_END());
-			return;
-		}
-
 		// Create incoming transaction if not already exists
 		// Necessary in qop=auth to prevent nonce count chaos
 		// with retransmissions.
@@ -878,7 +869,7 @@ void Authentication::flexisip_auth_check_digest(auth_mod_t *am, auth_status_t *a
 		return;
 	}
 
-	if (!ar->ar_username || !as->as_user_uri->url_user || !ar->ar_realm || !as->as_user_uri->url_host) {
+	if (!ar->ar_username || !ar->ar_realm || !as->as_user_uri->url_host) {
 		as->as_status = 403, as->as_phrase = "Authentication info missing";
 		SLOGUE << "Registration failure, authentication info are missing: usernames " << 
 			ar->ar_username << "/" << as->as_user_uri->url_user << ", hosts " << ar->ar_realm << "/" << as->as_user_uri->url_host;
@@ -920,8 +911,11 @@ void Authentication::flexisip_auth_check_digest(auth_mod_t *am, auth_status_t *a
 			module->mNonceStore.updateNc(ar->ar_nonce, nnc);
 		}
 	}
-
-	AuthDbBackend::get()->getPassword(as->as_user_uri->url_user, as->as_user_uri->url_host, ar->ar_username, listener);
+	if(as->as_user_uri->url_user) {
+		AuthDbBackend::get()->getPassword(as->as_user_uri->url_user, as->as_user_uri->url_host, ar->ar_username, listener);
+	} else {
+		AuthDbBackend::get()->getPassword("", as->as_user_uri->url_host, ar->ar_username, listener);
+	}
 }
 
 /** Authenticate a request with @b Digest authentication scheme.
@@ -963,9 +957,13 @@ void Authentication::flexisip_auth_method_digest(auth_mod_t *am, auth_status_t *
 		// Retrieve the password in the hope it will be in cache when the remote UAC
 		// sends back its request; this time with the expected authentication credentials.
 		if (listener->mImmediateRetrievePass) {
-			SLOGD << "Searching for " << as->as_user_uri->url_user
+			SLOGD << "Searching for " << (as->as_user_uri->url_user ? as->as_user_uri->url_user : as->as_user_uri->url_host)
 				  << " password to have it when the authenticated request comes";
-			AuthDbBackend::get()->getPassword(as->as_user_uri->url_user, as->as_user_uri->url_host, as->as_user_uri->url_user, NULL);
+			if(as->as_user_uri->url_user) {
+				AuthDbBackend::get()->getPassword(as->as_user_uri->url_user, as->as_user_uri->url_host, as->as_user_uri->url_user, NULL);
+			} else {
+				AuthDbBackend::get()->getPassword("", as->as_user_uri->url_host, "", NULL);
+			}
 		}
 		listener->finish();
 		return;

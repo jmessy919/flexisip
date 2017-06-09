@@ -27,6 +27,7 @@
 #include <sofia-sip/sip_util.h>
 #include <sofia-sip/sip_tag.h>
 #include <sofia-sip/nta_tport.h>
+#include <sofia-sip/auth_client.h>
 
 #include <fstream>
 #include <sstream>
@@ -125,12 +126,12 @@ int DomainRegistrationManager::load() {
 		LOGE("Cannot open domain registration configuration file '%s'", configFile.c_str());
 		return -1;
 	}
-	
+
 	LOGD("Loading domain registration configuration from %s", configFile.c_str());
 	do {
 		SofiaAutoHome home;
 		string line;
-		string domain, uri;
+		string domain, uri, pwd;
 		bool is_a_comment = false;
 		getline(ifs, line);
 
@@ -148,14 +149,18 @@ int DomainRegistrationManager::load() {
 		istringstream istr(line);
 		istr >> domain;
 		istr >> uri;
+		istr >> pwd;
 		if (domain.empty())
 			continue; /*empty line */
 		if (uri.empty()) {
 			LOGE("Empty URI in domain registration definition.");
 			goto error;
 		}
+		if (pwd.empty()) {
+			pwd = "";
+		}
+
 		if (uri[0] == '<') uri = uri.substr(1, uri.size()-1);
-		
 		url_t *url = url_make(home.home(), uri.c_str());
 		if (!url) {
 			LOGE("Bad URI '%s' in domain registration definition.", uri.c_str());
@@ -168,11 +173,10 @@ int DomainRegistrationManager::load() {
 		if (url_param(url->url_params, "tls-certificates-dir", clientCertdir, sizeof(clientCertdir)) > 0) {
 			url->url_params = url_strip_param_string(su_strdup(home.home(), url->url_params), "tls-certificates-dir");
 		}
-		auto dr = make_shared<DomainRegistration>(*this, domain, url, clientCertdir, lineIndex);
+		auto dr = make_shared<DomainRegistration>(*this, domain, pwd, url, clientCertdir, lineIndex);
 		lineIndex++;
 		mRegistrations.push_back(dr);
 	} while (!ifs.eof() && !ifs.bad());
-
 	for_each(mRegistrations.begin(), mRegistrations.end(), mem_fn(&DomainRegistration::start));
 	return 0;
 error:
@@ -198,9 +202,9 @@ const url_t *DomainRegistrationManager::getPublicUri(const tport_t *tport) const
 	return NULL;
 }
 
-DomainRegistration::DomainRegistration(DomainRegistrationManager &mgr, const string &localDomain,
+DomainRegistration::DomainRegistration(DomainRegistrationManager &mgr, const string &localDomain, string pwd,
 									   const url_t *parent_proxy, const string &clientCertdir, int lineIndex)
-	: mManager(mgr){
+	: mManager(mgr) {
 	char transport[64] = {0};
 	tp_name_t tpn = {0};
 	bool usingTls;
@@ -210,7 +214,7 @@ DomainRegistration::DomainRegistration(DomainRegistrationManager &mgr, const str
 	su_home_init(&mHome);
 	mFrom = url_format(&mHome, "%s:%s", parent_proxy->url_type == url_sips ? "sips" : "sip", localDomain.c_str());
 	mProxy = url_hdup(&mHome, parent_proxy);
-
+	mPwd = strdup(pwd.c_str());
 	url_param(parent_proxy->url_params, "transport", transport, sizeof(transport) - 1);
 
 	usingTls = parent_proxy->url_type == url_sips || strcasecmp(transport, "tls") == 0;
@@ -344,7 +348,7 @@ void DomainRegistration::responseCallback(nta_outgoing_t *orq, const sip_t *resp
 			nextSchedule = 1;
 			SLOGUE << "Domain registration error for " << url_as_string(home.home(), mFrom);
 		}else{
-			nextSchedule = 30;
+			nextSchedule = (resp->sip_status->st_status == 401) ? 0 : 30;
 			SLOGUE << "Domain registration error for " << url_as_string(home.home(), mFrom) << " : " << resp->sip_status->st_status;
 		}
 		LOGD("Domain registration for %s failed, will retry in %i seconds", mFrom->url_host, nextSchedule);
@@ -356,6 +360,22 @@ void DomainRegistration::responseCallback(nta_outgoing_t *orq, const sip_t *resp
 				tport_shutdown(mCurrentTport, 2);
 				return;
 			}
+		} else if (resp->sip_status->st_status == 401) {
+			const sip_t *sip = resp;
+			const char* user = "";
+			const char* realm = msg_params_find(sip->sip_www_authenticate->au_params, "realm=");
+			const char* pwd = mPwd;
+			msg_t *msg = nta_outgoing_getrequest(orq);
+			auth_client_t *aucs = NULL;
+			auc_challenge(&aucs, &mHome, sip->sip_www_authenticate,
+								  sip_authorization_class);
+			auc_all_credentials(&aucs, "DIGEST", realm, user, pwd);
+			sip = sip_object(msg);
+			msg_header_t *return_headers = nullptr;
+			auc_authorization_headers(&aucs,&mHome,"REGISTER",(url_t *)sip->sip_request->rq_url,
+										 sip->sip_payload,
+										 &return_headers);
+			mSip = return_headers;
 		}
 	} else {
 		tport_t *tport = nta_outgoing_transport(orq);
@@ -397,7 +417,6 @@ void DomainRegistration::setContact(msg_t *msg) {
 
 void DomainRegistration::start() {
 	msg_t *msg;
-
 	if (mTimer) {
 		su_timer_destroy(mTimer);
 		mTimer = NULL;
@@ -406,6 +425,10 @@ void DomainRegistration::start() {
 	msg = nta_msg_create(mManager.mAgent->getSofiaAgent(), 0);
 	if (nta_msg_request_complete(msg, mLeg, sip_method_register, NULL, (url_string_t *)mProxy) != 0) {
 		LOGE("nta_msg_request_complete() failed");
+	}
+	if(mSip) {
+		msg_header_insert(msg, msg_object(msg), msg_header_copy(&mHome, mSip));
+		mSip = NULL;
 	}
 	msg_header_insert(msg, msg_object(msg), (msg_header_t *)sip_expires_create(msg_home(msg), 600));
 	setContact(msg);
