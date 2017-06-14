@@ -245,12 +245,15 @@ time_t Record::latestExpire() const {
 	return latest;
 }
 
-time_t Record::latestExpire(const std::string &route) const {
+time_t Record::latestExpire(Agent *ag) const {
+	SofiaAutoHome home;
 	time_t latest = 0;
 	for (auto it = mContacts.begin(); it != mContacts.end(); ++it) {
 		if ((*it)->mPath.empty() || (*it)->mExpireAt <= latest)
 			continue;
-		if (*(*it)->mPath.begin() == route)
+		std::string paths = *(*it)->mPath.begin();
+		url_t *url = url_format(home.home(), "%s", paths.c_str());
+		if (ag->isUs(url))
 			latest = (*it)->mExpireAt;
 	}
 	return latest;
@@ -448,7 +451,7 @@ void RegistrarDb::notifyContactListener(const std::string &key, const std::strin
 
 void RegistrarDb::LocalRegExpire::update(const Record &record) {
 	unique_lock<mutex> lock(mMutex);
-	time_t latest = record.latestExpire(mPreferedRoute);
+	time_t latest = record.latestExpire(sUnique->mAgent);
 	if (latest > 0) {
 		auto it = mRegMap.find(record.getKey());
 		if (it != mRegMap.end()) {
@@ -546,6 +549,7 @@ RegistrarDb *RegistrarDb::initialize(Agent *ag){
 				"Supported implementation is 'internal'.", dbImplementation.c_str());
 #endif
 	}
+	sUnique->mAgent = ag;
 	return sUnique;
 }
 

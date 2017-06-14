@@ -26,6 +26,7 @@
 #include <cstring>
 
 #include "stats.hh"
+#include "registrardb.hh"
 #include "log/logmanager.hh"
 
 Stats::Stats(const std::string &name) {
@@ -41,7 +42,7 @@ void Stats::start() {
 void Stats::stop() {
 	if (mRunning) {
 		mRunning = false;
-		shutdown(local_socket, SHUT_RDWR);
+		shutdown(mLocalSocket, SHUT_RDWR);
 #if __APPLE__
 		pthread_kill(mThread, SIGINT);
 #else
@@ -49,6 +50,43 @@ void Stats::stop() {
 #endif
 	}
 }
+
+class StatFetchListener : public RegistrarDbListener {
+	friend class Stats;
+private:
+	SofiaAutoHome mHome;
+	unsigned int mSocket;
+	std::string mAddress;
+
+public:
+	void onRecordFound(Record *r) {
+		std::ostringstream answer;
+		if(r) {
+			std::list<std::shared_ptr<ExtendedContact>> contacts = r->getExtendedContacts();
+			answer << "Identities of " << mAddress << " :";
+			for(std::list<std::shared_ptr<ExtendedContact>>::iterator iter = contacts.begin(); iter != contacts.end(); ++iter) {
+				answer << "\r\n\t <" << iter->get()->mSipUri << ">+sip.instance=" << iter->get()->mUniqueId << ";expire=" << iter->get()->mExpireAt;
+			}
+		} else {
+			answer << "No identity were found for user : " << mAddress;
+		}
+		send(mSocket, answer.str().c_str(), answer.str().length(), 0);
+		close(mSocket);
+	}
+	void onError() {
+		std::ostringstream answer;
+		answer << "Error while fetching identities of  user :" << mAddress;
+		send(mSocket, answer.str().c_str(), answer.str().length(), 0);
+		close(mSocket);
+	}
+
+	void onInvalid() {
+		std::ostringstream answer;
+		answer << "Error : Invalid user : " << mAddress;
+		send(mSocket, answer.str().c_str(), answer.str().length(), 0);
+		close(mSocket);
+	}
+};
 
 static void split(const std::string &s, char delim, std::vector<std::string> &elems) {
 	std::stringstream ss;
@@ -134,11 +172,14 @@ static void updateLogsVerbosity(GenericManager *manager) {
 
 void Stats::parseAndAnswer(unsigned int socket, const std::string& query) {
 	std::vector<std::string> query_split = split(query, ' ');
-	std::string answer = "Error: unknown error";
+	std::ostringstream answer;
+	answer << "Error: unknown error";
 	int size = query_split.size();
-	
+
 	if (size < 2) {
-		answer = "Error: at least 2 arguments were expected, got " + std::to_string(size);
+		answer.str("");
+		answer.clear();
+		answer << "Error: at least 2 arguments were expected, got " << std::to_string(size);
 	} else {
 		std::string command = query_split.front();
 		std::string arg = query_split.at(1);
@@ -152,80 +193,100 @@ void Stats::parseAndAnswer(unsigned int socket, const std::string& query) {
 		} else {
 			entry = find(root, arg_split);
 		}
-		
-		if (entry) {
-			if (strcmp("GET", command.c_str()) == 0) {
+
+		answer.str("");
+		answer.clear();
+		if (entry || "DUMP" == command) {
+			if ("GET" == command) {
 				GenericStruct *gstruct = dynamic_cast<GenericStruct *>(entry);
 				if (gstruct) {
-					answer = printSection(gstruct, false);
+					answer << printSection(gstruct, false);
 				} else {
-					answer = printEntry(entry, false);
+					answer << printEntry(entry, false);
 				}
-			} else if (strcmp("LIST", command.c_str()) == 0) {
+			} else if ("LIST" == command) {
 				GenericStruct *gstruct = dynamic_cast<GenericStruct *>(entry);
 				if (gstruct) {
-					answer = printSection(gstruct, true);
+					answer << printSection(gstruct, true);
 				} else {
-					answer = printEntry(entry, true);
+					answer << printEntry(entry, true);
 				}
-			} else if (strcmp("SET", command.c_str()) == 0) {
+			} else if ("SET" == command) {
 				if (size < 3) {
-					answer = "Error: at least 3 arguments were expected, got " + std::to_string(size);
+					answer << "Error: at least 3 arguments were expected, got " << std::to_string(size);
 				} else {
 					std::string value = query_split.at(2);
 					ConfigValue *config_value = dynamic_cast<ConfigValue *>(entry);
-					if (config_value && strcmp("global/debug", arg.c_str()) == 0) {
+					if (config_value && "global/debug" == arg) {
 						config_value->set(value);
 						updateLogsVerbosity(manager);
-						answer = "debug : " + value;
-					} else if (config_value && strcmp("global/log-level", arg.c_str()) == 0) {
+						answer << "debug : " << value;
+					} else if (config_value && "global/log-level" == arg) {
 						config_value->set(value);
 						updateLogsVerbosity(manager);
-						answer = "log-level : " + value;
-					} else if (config_value && strcmp("global/syslog-level", arg.c_str()) == 0) {
+						answer << "log-level : " << value;
+					} else if (config_value && "global/syslog-level" == arg) {
 						config_value->set(value);
 						updateLogsVerbosity(manager);
-						answer = "syslog-level : " + value;
+						answer << "syslog-level : " << value;
 					} else {
-						answer = "Only debug, log-level and syslog-level from global can be updated while flexisip is running";
+						answer << "Only debug, log-level and syslog-level from global can be updated while flexisip is running";
 					}
 				}
+			} else if ("DUMP" == command) {
+				if ("all" == arg) {
+					std::map<std::string,time_t> myMap = RegistrarDb::get()->getLocalExpiresMap();
+					answer << "List of all registered users :";
+					for(std::map<std::string,time_t>::iterator iter = myMap.begin(); iter != myMap.end(); ++iter) {
+						answer << "\r\n\t sip:" << iter->first;
+					}
+				} else {
+					auto listener = make_shared<StatFetchListener>();
+					listener->mSocket = socket;
+					listener->mAddress = arg;
+					url_t *user = url_format(listener->mHome.home(), "%s", arg.c_str());
+					RegistrarDb::get()->fetch(user, listener, true);
+					return;
+				}
 			} else {
-				answer = "Error: unknown command " + command;
+				answer << "Error: unknown command " << command;
 			}
 		} else {
-			answer = "Error: " + arg + " not found";
+			answer << "Error: " << arg << " not found";
 		}
 	}
-	
-	send(socket, answer.c_str(), answer.length(), 0);
+	send(socket, answer.str().c_str(), answer.str().length(), 0);
+	close(socket);
 }
 
 void Stats::run() {
-	if ((local_socket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+	int remote_socket;
+	unsigned int remote_length;
+	struct sockaddr_un local, remote;
+	if ((mLocalSocket = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
 		LOGE("Socket error %i : %s", errno, std::strerror(errno));
 		stop();
 	}
+	memset(&local, 0, sizeof(local));
 	local.sun_family = AF_UNIX;
 	int pid = getpid();
 	std::string path = "/tmp/flexisip-" + mName + "-" + std::to_string(pid);
 	SLOGD << "Statistics socket is at " << path;
-	strcpy(local.sun_path, path.c_str());
+	strncpy(local.sun_path, path.c_str(), sizeof(local.sun_path) -1);
 	unlink(local.sun_path);
-	local_length = strlen(local.sun_path) + sizeof(local.sun_family);
-	if (::bind(local_socket, (struct sockaddr *)&local, local_length) == -1) {
+	if (::bind(mLocalSocket, (struct sockaddr *)&local, sizeof(local)) == -1) {
 		LOGE("Bind error%i : %s", errno, std::strerror(errno));
 		stop();
 	}
 
-	if (listen(local_socket, 1) == -1) {
+	if (listen(mLocalSocket, 1) == -1) {
 		LOGE("Listen error %i : %s", errno, std::strerror(errno));
 		stop();
 	}
 	
 	while (mRunning) {
 		remote_length = sizeof(remote);
-		if ((remote_socket = accept(local_socket, (struct sockaddr *)&remote, &remote_length)) == -1) {
+		if ((remote_socket = accept(mLocalSocket, (struct sockaddr *)&remote, &remote_length)) == -1) {
 			if (mRunning) LOGE("Accept error %i : %s", errno, std::strerror(errno));
 			continue;
 		}
@@ -243,9 +304,8 @@ void Stats::run() {
 		    }
 		    finished = true;
 		} while (!finished && mRunning);
-		close(remote_socket);
 	}
-	close(local_socket);
+	close(mLocalSocket);
 	unlink(path.c_str());
 }
 

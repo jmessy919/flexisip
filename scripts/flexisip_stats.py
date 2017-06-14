@@ -5,6 +5,7 @@ import sys
 
 def print_usage():
 	print 'Usage: ./flexisip_stats.py [-p/--pid <pid>] [-s/--server "proxy"/"presence"] <GET/SET/LIST> <"all"/path_to_value> [value_to_set]'
+	print 'Or: ./flexisip_stats.py [-p/--pid <pid>] [-s/--server "proxy"/"presence"] DUMP <"all"/user>'
 
 def getpid(serverType):
 	from subprocess import check_output, CalledProcessError
@@ -57,8 +58,8 @@ def main():
 		print_usage()
 		sys.exit(2)
 		
-	if not args[0] in ['GET', 'SET', 'LIST']:
-		print 'Error: command must be either GET, SET or LIST'
+	if not args[0] in ['GET', 'SET', 'LIST', 'DUMP']:
+		print 'Error: command must be either GET, SET, LIST or DUMP'
 		print_usage()
 		sys.exit(2)
 		

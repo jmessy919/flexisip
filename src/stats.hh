@@ -22,6 +22,7 @@
 #include <sys/un.h>
 #include <pthread.h>
 #include <string>
+#include "module.hh"
 #include "configmanager.hh"
 
 class Stats {
@@ -40,10 +41,7 @@ class Stats {
 	std::string mName;
 	bool mRunning;
 	pthread_t mThread;
-	int local_socket, remote_socket;
-	unsigned int remote_length;
-	struct sockaddr_un local, remote;
-	int local_length;
+	int mLocalSocket;
 };
 
 #endif

@@ -200,7 +200,7 @@ class Record {
 		return sMaxContacts;
 	}
 	time_t latestExpire() const;
-	time_t latestExpire(const std::string &route) const;
+	time_t latestExpire(Agent *ag) const;
 	static std::list<std::string> route_to_stl(su_home_t *home, const sip_route_s *route);
 	void appendContactsFrom(Record *src);
 	static std::string defineKeyFromUrl(const url_t *aor);
@@ -288,7 +288,10 @@ class RegistrarDb {
 	unsigned long countLocalActiveRecords() {
 		return mLocalRegExpire->countActives();
 	}
-	
+
+	std::map<std::string, time_t> getLocalExpiresMap() {
+		return mLocalRegExpire->getMap();
+	}
 	void notifyContactListener(const std::string &key, const std::string &uid);
 	virtual void subscribe(const std::string &topic, const std::shared_ptr<ContactRegisteredListener> &listener);
 	virtual void unsubscribe(const std::string &topic);
@@ -315,6 +318,9 @@ class RegistrarDb {
 			std::lock_guard<std::mutex> lock(mMutex);
 			mRegMap.clear();
 		}
+		std::map<std::string, time_t> getMap() {
+			return mRegMap;
+		}
 	};
 	virtual void doBind(const BindParameters &params, const std::shared_ptr<RegistrarDbListener> &listener) = 0;
 	virtual void doClear(const sip_t *sip, const std::shared_ptr<RegistrarDbListener> &listener) = 0;
@@ -331,6 +337,7 @@ class RegistrarDb {
 	LocalRegExpire *mLocalRegExpire;
 	bool mUseGlobalDomain;
 	static RegistrarDb *sUnique;
+	Agent *mAgent;
 };
 
 #endif
