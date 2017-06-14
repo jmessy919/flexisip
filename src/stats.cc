@@ -241,6 +241,9 @@ void Stats::parseAndAnswer(unsigned int socket, const std::string& query) {
 						answer << "\r\n\t sip:" << iter->first;
 					}
 				} else {
+					if(arg.at(0) == '<') {
+						arg = arg.substr(1, arg.length()-2);
+					}
 					auto listener = make_shared<StatFetchListener>();
 					listener->mSocket = socket;
 					listener->mAddress = arg;
