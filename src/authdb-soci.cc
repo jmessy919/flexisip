@@ -69,8 +69,10 @@ void SociAuthDB::declareConfig(GenericStruct *mc) {
 		{String, "soci-connection-string", "The configuration parameters of the Soci backend.\n"
 										   "The basic format is \"key=value key2=value2\". For a mysql backend, this "
 										   "is a valid config: \"db=mydb user=user password='pass' host=myhost.com\".\n"
+										   "And : \"/Path/To/My/DB_File.db\", is a valid config for sqlite3.\n"
 										   "Please refer to the Soci documentation of your backend, for intance: "
-										   "http://soci.sourceforge.net/doc/3.2/backends/mysql.html",
+										   "http://soci.sourceforge.net/doc/3.2/backends/mysql.html\n"
+										   "http://soci.sourceforge.net/doc/3.2/backends/sqlite3.html",
 		 "db=mydb user=myuser password='mypass' host=myhost.com"},
 
 		{Integer, "soci-max-queue-size",
