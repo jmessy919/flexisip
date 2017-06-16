@@ -244,7 +244,7 @@ void Stats::parseAndAnswer(unsigned int socket, const std::string& query) {
 					if(arg.at(0) == '<') {
 						arg = arg.substr(1, arg.length()-2);
 					}
-					auto listener = make_shared<StatFetchListener>();
+					auto listener = std::make_shared<StatFetchListener>();
 					listener->mSocket = socket;
 					listener->mAddress = arg;
 					url_t *user = url_format(listener->mHome.home(), "%s", arg.c_str());
