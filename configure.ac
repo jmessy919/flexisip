@@ -239,21 +239,26 @@ AC_ARG_WITH(soci,
 
 if test x$soci != "xno"; then
 
-	SOCI_LIBS="-L$soci_prefix/lib -lsoci_core -lsoci_mysql"
+	SOCI_LIBS="-L$soci_prefix/lib -lsoci_core"
 	SOCI_CFLAGS="-I$soci_prefix/include/soci"
 
 	LIBS_save=$LIBS
 	LIBS="$LIBS $SOCI_LIBS"
 	AC_CHECK_LIB(soci_core, soci_create_session,[soci_core_ok=ok], [AC_MSG_WARN([Linking against libsoci_core failed.])])
-	AC_CHECK_LIB(soci_mysql, register_factory_mysql,[soci_mysql_ok=ok], [AC_MSG_WARN([Linking against libsoci_mysql failed.])])
 	LIBS=$LIBS_save
 
 	CPPFLAGS_save=$CPPFLAGS
 	CPPFLAGS="$CPPFLAGS $MYSQL_CFLAGS $SOCI_CFLAGS"
 	AC_LANG_PUSH([C++])
-	AC_CHECK_HEADERS([soci.h mysql/soci-mysql.h],[soci_headers_ok=ok],[AC_MSG_WARN([soci headers not found])])
+	AC_CHECK_HEADERS([soci.h],[soci_headers_ok=ok],[AC_MSG_WARN([soci headers not found])])
 	AC_LANG_POP([C++])
 	CPPFLAGS=$CPPFLAGS_save
+
+	if test $have_mysql == "yes"; then
+		SOCI_LIBS="$SOCI_LIBS -lsoci_mysql"
+		AC_CHECK_LIB(soci_mysql, register_factory_mysql,[soci_mysql_ok=ok], [AC_MSG_WARN([Linking against libsoci_mysql failed.])])
+		AC_CHECK_HEADERS([mysql/soci-mysql.h],[soci_headers_ok=ok],[AC_MSG_WARN([soci-mysql headers not found])])
+	fi
 
 	if test $soci_core_ok$soci_mysql_ok$soci_headers_ok$have_mysql != "okokokyes"; then
 		if test x$soci = "xauto"; then

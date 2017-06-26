@@ -17,7 +17,10 @@
 */
 
 #include "authdb.hh"
+#include "flexisip-config.h"
+#ifdef HAVE_SOCI_MYSQL
 #include "mysql/soci-mysql.h"
+#endif
 #include <thread>
 
 using namespace soci;
@@ -109,8 +112,10 @@ SociAuthDB::SociAuthDB() : conn_pool(NULL) {
 		for (size_t i = 0; i < poolSize; i++) {
 			conn_pool->at(i).open(backend, connection_string);
 		}
+#ifdef HAVE_SOCI_MYSQL
 	} catch (soci::mysql_soci_error const & e) {
 		SLOGE << "[SOCI] connection pool open MySQL error: " << e.err_num_ << " " << e.what() << endl;
+#endif
 	} catch (exception const &e) {
 		SLOGE << "[SOCI] connection pool open error: " << e.what() << endl;
 	}
@@ -127,8 +132,10 @@ void SociAuthDB::reconnectSession(soci::session &session) {
 		session.close();
 		session.reconnect();
 		SLOGD << "[SOCI] Session " << session.get_backend_name() << " successfully reconnected";
+#ifdef HAVE_SOCI_MYSQL
 	} catch (soci::mysql_soci_error const & e) {
 		SLOGE << "[SOCI] reconnectSession MySQL error: " << e.err_num_ << " " << e.what() << endl;
+#endif
 	} catch (exception const &e) {
 		SLOGE << "[SOCI] reconnectSession error: " << e.what() << endl;
 	}
@@ -165,6 +172,7 @@ void SociAuthDB::getPasswordWithPool(const std::string &id, const std::string &d
 				listener->onResult(pass.empty() ? PASSWORD_NOT_FOUND : PASSWORD_FOUND, pass);
 			}
 			errorCount = 0;
+#ifdef HAVE_SOCI_MYSQL
 		} catch (mysql_soci_error const &e) {
 			errorCount++;
 			stop = steady_clock::now();
@@ -181,6 +189,7 @@ void SociAuthDB::getPasswordWithPool(const std::string &id, const std::string &d
 				SLOGE << "[SOCI] retrying mysql error " << e.err_num_;
 				retry = true;
 			}
+#endif
 		} catch (exception const &e) {
 			errorCount++;
 			stop = steady_clock::now();
@@ -222,6 +231,7 @@ void SociAuthDB::getUserWithPhoneWithPool(const std::string &phone, const std::s
 		if (listener){
 			listener->onResult(user.empty() ? PASSWORD_NOT_FOUND : PASSWORD_FOUND, user);
 		}
+#ifdef HAVE_SOCI_MYSQL
 	} catch (mysql_soci_error const &e) {
 
 		stop = steady_clock::now();
@@ -229,7 +239,7 @@ void SociAuthDB::getUserWithPhoneWithPool(const std::string &phone, const std::s
 		if (listener) listener->onResult(PASSWORD_NOT_FOUND, user);
 
 		if (sql) reconnectSession(*sql);
-
+#endif
 	} catch (exception const &e) {
 		stop = steady_clock::now();
 		SLOGE << "[SOCI] getUserWithPhoneWithPool error after " << DURATION_MS(start, stop) << "ms : " << e.what();
@@ -294,6 +304,7 @@ void SociAuthDB::getUsersWithPhonesWithPool(list<tuple<std::string,std::string,A
 		if (listener){
 			listener->onResults(phones, users);
 		}
+#ifdef HAVE_SOCI_MYSQL
 	} catch (mysql_soci_error const &e) {
 		stop = steady_clock::now();
 		SLOGE << "[SOCI] getUsersWithPhonesWithPool MySQL error after " << DURATION_MS(start, stop) << "ms : " << e.err_num_ << " " << e.what();
@@ -302,7 +313,7 @@ void SociAuthDB::getUsersWithPhonesWithPool(list<tuple<std::string,std::string,A
 		if (listener) listener->onResults(phones, users);
 		
 		if (sql) reconnectSession(*sql);
-		
+#endif
 	} catch (exception const &e) {
 		stop = steady_clock::now();
 		SLOGE << "[SOCI] getUsersWithPhonesWithPool error after " << DURATION_MS(start, stop) << "ms : " << e.what();

@@ -222,8 +222,13 @@ if(ENABLE_PRESENCE)
 endif()
 
 if(ENABLE_SOCI)
-	find_package(Soci REQUIRED COMPONENTS mysql)
+	find_package(Soci COMPONENTS mysql)
 	find_path(SOCI_MYSQL_INCLUDES NAMES mysql.h PATH_SUFFIXES mysql)
+	if(SOCI_mysql_FOUND)
+		set(HAVE_SOCI_MYSQL ON)
+	else()
+		message(WARNING "SOCI mysql not found, using sqlite")
+	endif()
 endif()
 
 
