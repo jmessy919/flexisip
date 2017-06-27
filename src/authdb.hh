@@ -204,6 +204,8 @@ class SociAuthDB : public AuthDbBackend {
 	std::string get_password_request;
 	std::string get_user_with_phone_request;
 	std::string get_users_with_phones_request;
+	bool useDomain = false;
+	bool useAuthID = false;
 };
 
 #endif /* ENABLE_SOCI */

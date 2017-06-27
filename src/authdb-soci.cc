@@ -99,6 +99,10 @@ SociAuthDB::SociAuthDB() : conn_pool(NULL) {
 	connection_string = ma->get<ConfigString>("soci-connection-string")->read();
 	backend = ma->get<ConfigString>("soci-backend")->read();
 	get_password_request = ma->get<ConfigString>("soci-password-request")->read();
+	int a = get_password_request.find(":domain");
+	int b = get_password_request.find(":authid");
+	if(a > -1) useDomain = true;
+	if(b > -1) useAuthID = true;
 	get_user_with_phone_request = ma->get<ConfigString>("soci-user-with-phone-request")->read();
 	get_users_with_phones_request = ma->get<ConfigString>("soci-users-with-phones-request")->read();
 	unsigned int max_queue_size = (unsigned int)ma->get<ConfigInt>("soci-max-queue-size")->read();
@@ -163,8 +167,10 @@ void SociAuthDB::getPasswordWithPool(const std::string &id, const std::string &d
 
 			SLOGD << "[SOCI] Pool acquired in " << DURATION_MS(start, stop) << "ms";
 			start = stop;
-
-			*sql << get_password_request, into(pass), use(id, "id"), use(domain, "domain"), use(authid, "authid");
+			if(useDomain && useAuthID) *sql << get_password_request, into(pass), use(id, "id"), use(domain, "domain"), use(authid, "authid");
+			else if(useDomain) *sql << get_password_request, into(pass), use(id, "id"), use(domain, "domain");
+			else if(useAuthID) *sql << get_password_request, into(pass), use(id, "id"), use(authid, "authid");
+			else *sql << get_password_request, into(pass), use(id, "id");
 			stop = steady_clock::now();
 			SLOGD << "[SOCI] Got pass for " << id << " in " << DURATION_MS(start, stop) << "ms";
 			cachePassword(createPasswordKey(id, authid), domain, pass, mCacheExpire);
