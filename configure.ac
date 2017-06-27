@@ -258,9 +258,21 @@ if test x$soci != "xno"; then
 		SOCI_LIBS="$SOCI_LIBS -lsoci_mysql"
 		AC_CHECK_LIB(soci_mysql, register_factory_mysql,[soci_mysql_ok=ok], [AC_MSG_WARN([Linking against libsoci_mysql failed.])])
 		AC_CHECK_HEADERS([mysql/soci-mysql.h],[soci_headers_ok=ok],[AC_MSG_WARN([soci-mysql headers not found])])
+	else
+		AC_MSG_WARN([Soci without mysql, checking sqlite3 availability])
+
+		CPPFLAGS_save=$CPPFLAGS
+		CPPFLAGS="$CPPFLAGS $SOCI_CFLAGS"
+		AC_LANG_PUSH([C++])
+		AC_CHECK_HEADERS([sqlite3/soci-sqlite3.h],[soci_headers_ok=ok],[AC_MSG_WARN([soci-sqlite3 headers not found])])
+		AC_LANG_POP([C++])
+		CPPFLAGS=$CPPFLAGS_save
+
+		SOCI_LIBS="$SOCI_LIBS -lsoci_sqlite3"
+		AC_CHECK_LIB(soci_sqlite3, register_factory_sqlite3,[soci_mysql_ok=ok], [AC_MSG_WARN([Linking against libsoci_sqlite3 failed.])])
 	fi
 
-	if test $soci_core_ok$soci_mysql_ok$soci_headers_ok$have_mysql != "okokokyes"; then
+	if test $soci_core_ok$soci_mysql_ok$soci_headers_ok != "okokok"; then
 		if test x$soci = "xauto"; then
 			AC_MSG_WARN([Soci was not detected, disabling])
 			soci=no
