@@ -28,7 +28,6 @@
 typedef struct _belle_sip_uri belle_sip_uri_t;
 typedef struct belle_sip_source belle_sip_source_t;
 typedef struct belle_sip_main_loop belle_sip_main_loop_t;
-using namespace std;
 namespace flexisip {
 class PresentityManager;
 class PresenceInformationElement {
@@ -40,22 +39,22 @@ class PresenceInformationElement {
 	~PresenceInformationElement();
 	time_t getExpitationTime() const;
 	void setExpiresTimer(belle_sip_source_t *timer);
-	const std::unique_ptr<pidf::Tuple> &getTuple(const string &id) const;
-	const list<std::unique_ptr<pidf::Tuple>> &getTuples() const;
+	const std::unique_ptr<pidf::Tuple> &getTuple(const std::string &id) const;
+	const std::list<std::unique_ptr<pidf::Tuple>> &getTuples() const;
 	const data_model::Person getPerson() const;
 	// void addTuple(pidf::Tuple*);
 	// void removeTuple(pidf::Tuple*);
 	void clearTuples();
-	const string &getEtag();
-	void setEtag(const string &eTag);
+	const std::string &getEtag();
+	void setEtag(const std::string &eTag);
 
   private:
-	list<std::unique_ptr<pidf::Tuple>> mTuples;
+	std::list<std::unique_ptr<pidf::Tuple>> mTuples;
 	data_model::Person mPerson = data_model::Person("");
 	::xml_schema::dom::unique_ptr<xercesc::DOMDocument> mDomDocument; // needed to store extension nodes
 	belle_sip_main_loop_t *mBelleSipMainloop;
 	belle_sip_source_t *mTimer;
-	string mEtag;
+	std::string mEtag;
 };
 /*
  * Presence Information is the key class representy a presentity. This class can be either created bu a Publish for a
@@ -71,16 +70,23 @@ class PresentityPresenceInformationListener  {
 	PresentityPresenceInformationListener();
 	virtual ~PresentityPresenceInformationListener();
 	void setExpiresTimer(belle_sip_main_loop_t *ml, belle_sip_source_t *timer);
+	void enableExtendedNotify(bool enable);
+	bool extendedNotifyEnabled();
+	void enableBypass(bool enable);
+	bool bypassEnabled();
 	/*returns prsentity uri associated to this Listener*/
 	virtual const belle_sip_uri_t *getPresentityUri() const = 0;
 	/*invoked on changes*/
-	virtual void onInformationChanged(PresentityPresenceInformation &presenceInformation) = 0;
+	virtual void onInformationChanged(PresentityPresenceInformation &presenceInformation, bool extended) = 0;
 	/*invoked on expiration*/
 	virtual void onExpired(PresentityPresenceInformation &presenceInformation) = 0;
-
+	virtual const belle_sip_uri_t* getFrom() = 0;
+	virtual const belle_sip_uri_t* getTo() = 0;
   private:
 	belle_sip_main_loop_t *mBelleSipMainloop;
 	belle_sip_source_t *mTimer;
+	bool mExtendedNotify;
+	bool mBypassEnabled;
 };
 
 class PresentityPresenceInformation : public std::enable_shared_from_this<PresentityPresenceInformation> {
@@ -93,7 +99,7 @@ class PresentityPresenceInformation : public std::enable_shared_from_this<Presen
 	 * store tuples a new tupple;
 	 * @return new eTag
 	 * */
-	string putTuples(pidf::Presence::TupleSequence &tuples, data_model::Person &person, int expires);
+	std::string putTuples(pidf::Presence::TupleSequence &tuples, data_model::Person &person, int expires);
 
 	void setDefaultElement(const char* contact = NULL);
 
@@ -111,40 +117,41 @@ class PresentityPresenceInformation : public std::enable_shared_from_this<Presen
 	 *
 	 * @return new eTag
 	 * */
-	string updateTuples(pidf::Presence::TupleSequence &tuples, data_model::Person &person, string &eTag,
+	std::string updateTuples(pidf::Presence::TupleSequence &tuples, data_model::Person &person, std::string &eTag,
 						int expires) throw(FlexisipException);
 
 	/*
 	 * refresh a publish
 	 * @return new eTag
 	 * */
-	string refreshTuplesForEtag(const string &eTag, int expires) throw(FlexisipException);
+	std::string refreshTuplesForEtag(const std::string &eTag, int expires) throw(FlexisipException);
 
 	/*
 	* refresh a publish
 	* */
-	void removeTuplesForEtag(const string &eTag);
+	void removeTuplesForEtag(const std::string &eTag);
 
 	const belle_sip_uri_t *getEntity() const;
 
 	/**
 	 *add notity listener for an entity
 	 */
-	void addOrUpdateListener(const shared_ptr<PresentityPresenceInformationListener> &listener, int expires);
+	void addOrUpdateListener(const std::shared_ptr<PresentityPresenceInformationListener> &listener, int expires);
 
 	/**
 	 *add notity listener for an entity without expiration timer
 	 */
-	void addOrUpdateListener(const shared_ptr<PresentityPresenceInformationListener> &listener);
+	void addOrUpdateListener(const std::shared_ptr<PresentityPresenceInformationListener> &listener);
+	void addListenerIfNecessary(const std::shared_ptr<PresentityPresenceInformationListener> &listener);
 	/*
 	 * remove listener
 	 */
-	void removeListener(const shared_ptr<PresentityPresenceInformationListener> &listener);
+	void removeListener(const std::shared_ptr<PresentityPresenceInformationListener> &listener);
 
 	/*
 	 * return the presence information for this entity in a pidf serilized format
 	 */
-	string getPidf() throw(FlexisipException);
+	std::string getPidf(bool extended) throw(FlexisipException);
 
 	/*
 	 * return true if a presence info is already known from a publish
@@ -166,11 +173,22 @@ class PresentityPresenceInformation : public std::enable_shared_from_this<Presen
 	 */
 	size_t getNumberOfInformationElements() const;
 
+	/*
+	 * return all the listeners (I.E. subscribers) of this presence information
+	 */
+	std::list<std::shared_ptr<PresentityPresenceInformationListener>> getListeners() const;
+
+	/*
+	 * return if one of the subscribers subscribed for a presence information
+	 */
+	bool findPresenceInfo(std::shared_ptr<PresentityPresenceInformation> &info);
+
   private:
+	PresentityPresenceInformation(const PresentityPresenceInformation& other);
 	/*
 	 * tuples may be null
 	 */
-	string setOrUpdate(pidf::Presence::TupleSequence *tuples, data_model::Person *, const string *eTag,
+	std::string setOrUpdate(pidf::Presence::TupleSequence *tuples, data_model::Person *, const std::string *eTag,
 					   int expires) throw(FlexisipException);
 	/*
 	 *Notify all listener
@@ -184,7 +202,7 @@ class PresentityPresenceInformation : public std::enable_shared_from_this<Presen
 	std::map<std::string /*Etag*/, PresenceInformationElement *> mInformationElements;
 
 	// list of subscribers function to be called when a tuple changed
-	std::list<shared_ptr<PresentityPresenceInformationListener>> mSubscribers;
+	std::list<std::shared_ptr<PresentityPresenceInformationListener>> mSubscribers;
 	std::shared_ptr<PresenceInformationElement> mDefaultInformationElement; // purpose of this element is to have a
 																			// default presence status (I.E closed) when
 																			// all publish have expired.

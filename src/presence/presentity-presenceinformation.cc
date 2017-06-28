@@ -32,6 +32,7 @@
 using namespace pidf;
 using namespace rpid;
 using namespace data_model;
+using namespace std;
 
 namespace flexisip {
 
@@ -91,8 +92,19 @@ PresentityPresenceInformation::~PresentityPresenceInformation() {
 size_t PresentityPresenceInformation::getNumberOfListeners() const {
 	return mSubscribers.size();
 }
+std::list<shared_ptr<PresentityPresenceInformationListener>> PresentityPresenceInformation::getListeners() const {
+	return mSubscribers;
+}
 size_t PresentityPresenceInformation::getNumberOfInformationElements() const {
 	return mInformationElements.size();
+}
+bool PresentityPresenceInformation::findPresenceInfo(std::shared_ptr<PresentityPresenceInformation> &info) {
+	for (shared_ptr<PresentityPresenceInformationListener> listener : mSubscribers) {
+		if(belle_sip_uri_equals(listener->getTo(), info->getEntity())) {
+			return true;
+		}
+	}
+	return false;
 }
 string PresentityPresenceInformation::putTuples(pidf::Presence::TupleSequence &tuples,
 												data_model::Person &person, int expires) {
@@ -225,6 +237,25 @@ void PresentityPresenceInformation::addOrUpdateListener(const shared_ptr<Present
 	addOrUpdateListener(listener, -1);
 }
 
+void PresentityPresenceInformation::addListenerIfNecessary(const shared_ptr<PresentityPresenceInformationListener> &listener) {
+	// search if exist
+	string op;
+	bool listener_exist = false;
+	for (const shared_ptr<PresentityPresenceInformationListener> &existing_listener : mSubscribers) {
+		if (listener == existing_listener) {
+			listener_exist = true;
+			break;
+		}
+	}
+	if (listener_exist) {
+		op = "Updating";
+	} else {
+		// not found, adding
+		mSubscribers.push_back(listener);
+		op = "Adding";
+	}
+}
+
 void PresentityPresenceInformation::addOrUpdateListener(const shared_ptr<PresentityPresenceInformationListener> &listener,
 														int expires) {
 
@@ -275,7 +306,7 @@ void PresentityPresenceInformation::addOrUpdateListener(const shared_ptr<Present
 	 * MUST send a NOTIFY message immediately to communicate the current
 	 * resource state to the subscriber.
 	 */
-	listener->onInformationChanged(*this);
+	listener->onInformationChanged(*this, listener->extendedNotifyEnabled());
 }
 	
 void PresentityPresenceInformation::removeListener(const shared_ptr<PresentityPresenceInformationListener> &listener) {
@@ -289,7 +320,7 @@ void PresentityPresenceInformation::removeListener(const shared_ptr<PresentityPr
 	//			 Unsubscribing is handled in the same way as refreshing of a
 	//			 subscription, with the "Expires" header set to "0".  Note that a
 	//			 successful unsubscription will also trigger a final NOTIFY message.
-	listener->onInformationChanged(*this);
+	listener->onInformationChanged(*this, listener->extendedNotifyEnabled());
 }
 	
 bool PresentityPresenceInformation::hasDefaultElement() {
@@ -298,43 +329,48 @@ bool PresentityPresenceInformation::hasDefaultElement() {
 bool PresentityPresenceInformation::isKnown() {
 	return mInformationElements.size() > 0 || hasDefaultElement();
 }
-string PresentityPresenceInformation::getPidf() throw(FlexisipException) {
+string PresentityPresenceInformation::getPidf(bool extended) throw(FlexisipException) {
 	stringstream out;
 	try {
 		char *entity = belle_sip_uri_to_string(getEntity());
-		Person person = Person(entity);
 		pidf::Presence presence((string(entity)));
-		presence.setPerson(person);
 		belle_sip_free(entity);
 		list<string> tupleList;
 
-		for (auto element : mInformationElements) {
-			// copy pidf
-			for (const unique_ptr<pidf::Tuple> &tup : element.second->getTuples()) {
-				// check for multiple tupple id, may happend with buggy presence publisher
-				if (find(tupleList.begin(), tupleList.end(), tup.get()->getId()) == tupleList.end()) {
-					presence.getTuple().push_back(*tup);
-					tupleList.push_back(tup.get()->getId());
-				} else {
-					SLOGW << "Already existing tuple id [" << tup.get()->getId() << " for [" << *this << "], skipping";
+		if(extended) {
+			for (auto element : mInformationElements) {
+				// copy pidf
+				for (const unique_ptr<pidf::Tuple> &tup : element.second->getTuples()) {
+					// check for multiple tupple id, may happend with buggy presence publisher
+					if (find(tupleList.begin(), tupleList.end(), tup.get()->getId()) == tupleList.end()) {
+						presence.getTuple().push_back(*tup);
+						tupleList.push_back(tup.get()->getId());
+					} else {
+						SLOGW << "Already existing tuple id [" << tup.get()->getId() << " for [" << *this << "], skipping";
+					}
+				}
+				// copy extensions
+				Person dm_person = element.second->getPerson();
+				for(data_model::Person::ActivitiesIterator activity = dm_person.getActivities().begin(); activity != dm_person.getActivities().end();activity++) {
+					if(!presence.getPerson()) {
+						Person person = Person(dm_person.getId());
+						presence.setPerson(person);
+					}
+					presence.getPerson()->getActivities().push_back(*activity);
 				}
 			}
-			// copy extensions
-			Person dm_person = element.second->getPerson();
-			for(data_model::Person::ActivitiesIterator activity = dm_person.getActivities().begin(); activity != dm_person.getActivities().end();activity++) {
-				presence.getPerson()->getActivities().push_back(*activity);
-			}
-			/*for (auto extension : element.second->getExtensions()) {
-				presence.getAny().push_back(dynamic_cast<xercesc::DOMElement *>(
-					presence.getDomDocument().importNode(extension, true))); // might be optimized
-			}*/
 		}
-		if (mInformationElements.size() == 0 && mDefaultInformationElement != nullptr) {
+		if ((mInformationElements.size() == 0 || !extended) && mDefaultInformationElement != nullptr) {
 			// insering default tuple
 			presence.getTuple().push_back(*mDefaultInformationElement->getTuples().begin()->get());
+
 			// copy extensions
 			Person dm_person = mDefaultInformationElement->getPerson();
 			for(data_model::Person::ActivitiesIterator activity = dm_person.getActivities().begin(); activity != dm_person.getActivities().end();activity++) {
+				if(!presence.getPerson()) {
+					Person person = Person(dm_person.getId());
+					presence.setPerson(person);
+				}
 				presence.getPerson()->getActivities().push_back(*activity);
 			}
 		}
@@ -365,14 +401,26 @@ string PresentityPresenceInformation::getPidf() throw(FlexisipException) {
 
 void PresentityPresenceInformation::notifyAll() {
 	for (shared_ptr<PresentityPresenceInformationListener> listener : mSubscribers) {
-		listener->onInformationChanged(*this);
+		listener->onInformationChanged(*this, listener->extendedNotifyEnabled());
 	}
 	SLOGD << *this << " has notified [" << mSubscribers.size() << " ] listeners";
 }
-PresentityPresenceInformationListener::PresentityPresenceInformationListener() : mTimer(NULL) {
+PresentityPresenceInformationListener::PresentityPresenceInformationListener() : mTimer(NULL), mExtendedNotify(false), mBypassEnabled(false) {
 }
 PresentityPresenceInformationListener::~PresentityPresenceInformationListener() {
 	setExpiresTimer(mBelleSipMainloop, NULL);
+}
+bool PresentityPresenceInformationListener::extendedNotifyEnabled() {
+	return mExtendedNotify;
+}
+void PresentityPresenceInformationListener::enableExtendedNotify(bool enable) {
+	mExtendedNotify = this->bypassEnabled() || enable;
+}
+bool PresentityPresenceInformationListener::bypassEnabled() {
+	return mBypassEnabled;
+}
+void PresentityPresenceInformationListener::enableBypass(bool enable) {
+	mBypassEnabled = enable;
 }
 void PresentityPresenceInformationListener::setExpiresTimer(belle_sip_main_loop_t *ml, belle_sip_source_t *timer) {
 	if (mTimer) {
