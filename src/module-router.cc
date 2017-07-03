@@ -522,6 +522,7 @@ class ForkGroupSorter {
 		/*second step, form groups with non-adjacent contacts*/
 		for (auto it = mAllContacts.begin(); it != mAllContacts.end();) {
 			list<pair<sip_contact_t *, shared_ptr<ExtendedContact>>>::iterator sameDestinationIt;
+			list<string> *uriList = new list<string>();
 			ForkDestination dest;
 			ostringstream targetUris;
 			bool foundGroup = false;
@@ -533,7 +534,11 @@ class ForkGroupSorter {
 			// remove it and now search for other contacts that have the same route.
 			it = mAllContacts.erase(it);
 			while ((sameDestinationIt = findDestination(url)) != mAllContacts.end()) {
-				targetUris << ", <" << (*sameDestinationIt).second->mSipUri << ">";
+				string uri = (*sameDestinationIt).second->mSipUri;
+				if(find(uriList->begin(), uriList->end(), uri) != uriList->end()) {
+					uriList->push_back(uri);
+					targetUris << ", <" << uri << ">";
+				}
 				mAllContacts.erase(sameDestinationIt);
 				foundGroup = true;
 			}
