@@ -535,7 +535,7 @@ class ForkGroupSorter {
 			it = mAllContacts.erase(it);
 			while ((sameDestinationIt = findDestination(url)) != mAllContacts.end()) {
 				string uri = (*sameDestinationIt).second->mSipUri;
-				if(find(uriList->begin(), uriList->end(), uri) != uriList->end()) {
+				if(find(uriList->begin(), uriList->end(), uri) == uriList->end()) {
 					uriList->push_back(uri);
 					targetUris << ", <" << uri << ">";
 				}
