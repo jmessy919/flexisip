@@ -530,13 +530,19 @@ class ForkGroupSorter {
 			dest.mSipContact = (*it).first;
 			dest.mExtendedContact = (*it).second;
 			targetUris << "<" << dest.mExtendedContact->mSipUri << ">";
+			string destUri = dest.mExtendedContact->mSipUri;
+			string desTmp = destUri.substr(destUri.find(':') + 1);
+			string destUsername = desTmp.substr(0, desTmp.find('@'));
+			uriList->push_back(destUsername);
 			url_t *url = url_make(home.home(), (*it).second->mPath.back().c_str());
 			// remove it and now search for other contacts that have the same route.
 			it = mAllContacts.erase(it);
 			while ((sameDestinationIt = findDestination(url)) != mAllContacts.end()) {
 				string uri = (*sameDestinationIt).second->mSipUri;
-				if(find(uriList->begin(), uriList->end(), uri) == uriList->end()) {
-					uriList->push_back(uri);
+				string tmp = uri.substr(uri.find(':') + 1);
+				string username = tmp.substr(0, tmp.find('@'));
+				if(find(uriList->begin(), uriList->end(), username) == uriList->end()) {
+					uriList->push_back(username);
 					targetUris << ", <" << uri << ">";
 				}
 				mAllContacts.erase(sameDestinationIt);
