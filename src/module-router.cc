@@ -520,6 +520,7 @@ class ForkGroupSorter {
 				++it;
 		}
 		/*second step, form groups with non-adjacent contacts*/
+		mAllContacts.sort(cmpContact);
 		for (auto it = mAllContacts.begin(); it != mAllContacts.end();) {
 			list<pair<sip_contact_t *, shared_ptr<ExtendedContact>>>::iterator sameDestinationIt;
 			list<string> *uriList = new list<string>();
@@ -578,6 +579,10 @@ class ForkGroupSorter {
 			}
 		}
 		return mAllContacts.end();
+	}
+	static bool cmpContact(pair<sip_contact_t *, shared_ptr<ExtendedContact>> c1, pair<sip_contact_t *, shared_ptr<ExtendedContact>> c2) {
+		const char *p1= c1.first->m_url->url_port;
+		return !(p1 != NULL && strcmp(p1, "") != 0);
 	}
 	list<ForkDestination> mDestinations;
 	list<pair<sip_contact_t *, shared_ptr<ExtendedContact>>> mAllContacts;
