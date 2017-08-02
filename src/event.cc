@@ -117,6 +117,10 @@ void SipEvent::terminateProcessing() {
 	if (mState == STARTED || mState == SUSPENDED) {
 		mState = TERMINATED;
 		flushLog();
+		auto otr = dynamic_pointer_cast<OutgoingTransaction>(mIncomingAgent);
+		if(otr && otr->isTerminated()) {
+			otr->destroy();
+		}
 		mIncomingAgent.reset();
 		mOutgoingAgent.reset();
 	} else if (mState == TERMINATED) {

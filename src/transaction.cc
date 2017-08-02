@@ -150,7 +150,7 @@ int OutgoingTransaction::_callback(nta_outgoing_magic_t *magic, nta_outgoing_t *
 		msg_destroy(msg);
 
 		otr->mAgent->sendResponseEvent(sipevent);
-		if (sip->sip_status && sip->sip_status->st_status >= 200) {
+		if (sip->sip_status && sip->sip_status->st_status >= 200 && sipevent->isTerminated()) {
 			otr->destroy();
 		}
 	} else {
@@ -169,6 +169,11 @@ void OutgoingTransaction::destroy() {
 		mSofiaRef.reset(); // This must be the last instruction of this function because it may destroy this
 						   // OutgoingTransaction.
 	}
+}
+
+
+bool OutgoingTransaction::isTerminated() {
+	return (mSofiaRef == NULL);
 }
 
 IncomingTransaction::IncomingTransaction(Agent *agent) : Transaction(agent), mIncoming(NULL) {
@@ -279,4 +284,8 @@ void IncomingTransaction::destroy() {
 		mSofiaRef.reset(); // This MUST be the last instruction of this function, because it may destroy the
 						   // IncomingTransaction.
 	}
+}
+
+bool IncomingTransaction::isTerminated() {
+	return (mSofiaRef == NULL);
 }

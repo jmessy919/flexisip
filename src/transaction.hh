@@ -97,6 +97,7 @@ class Transaction {
 			mProperties.erase(it);
 		}
 	}
+	virtual bool isTerminated() = 0;
 };
 
 class OutgoingTransaction : public Transaction,
@@ -118,6 +119,8 @@ class OutgoingTransaction : public Transaction,
 	inline virtual Agent *getAgent() {
 		return Transaction::getAgent();
 	}
+	virtual bool isTerminated();
+	void destroy();
 	/// The incoming transaction from which the message comes from, if any.
 	std::shared_ptr<IncomingTransaction> mIncoming;
   private:
@@ -129,7 +132,6 @@ class OutgoingTransaction : public Transaction,
 	SofiaAutoHome mHome;
 	virtual void send(const std::shared_ptr<MsgSip> &msg, url_string_t const *u, tag_type_t tag, tag_value_t value,
 					  ...);
-	void destroy();
 	static int _callback(nta_outgoing_magic_t *magic, nta_outgoing_t *irq, const sip_t *sip);
 };
 
@@ -147,6 +149,7 @@ class IncomingTransaction : public Transaction,
 	inline virtual Agent *getAgent() {
 		return Transaction::getAgent();
 	}
+	virtual bool isTerminated();
 	/// The outgoing transaction that was eventually created to forward the message through a RequestSipEvent.
 	std::shared_ptr<OutgoingTransaction> mOutgoing;
 
