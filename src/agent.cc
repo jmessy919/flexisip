@@ -330,7 +330,7 @@ void Agent::start(const std::string &transport_override) {
 		if (*preferred == NULL) {
 			tp_name_t tp_priv_name = *name;
 			tp_priv_name.tpn_canon = tp_priv_name.tpn_host;
-			*preferred = ModuleToolbox::urlFromTportName(&mHome, &tp_priv_name);
+			*preferred = urlFromTportName(&mHome, &tp_priv_name);
 			// char prefUrl[266];
 			// url_e(prefUrl,sizeof(prefUrl),*preferred);
 			// LOGD("\tDetected %s preferred route to %s", isIpv6 ? "ipv6":"ipv4", prefUrl);
@@ -496,9 +496,9 @@ void Agent::loadConfig(GenericManager *cm) {
 	for (list<string>::iterator it = mAliases.begin(); it != mAliases.end(); ++it) {
 		LOGD("%s", (*it).c_str());
 	}
-	
+
 	RegistrarDb::initialize(this);
-	
+
 	list<Module *>::iterator it;
 	for (it = mModules.begin(); it != mModules.end(); ++it) {
 		// Check in all cases, even if not enabled,
@@ -951,6 +951,36 @@ int Agent::onIncomingMessage(msg_t *msg, const sip_t *sip) {
 	}
 	msg_destroy(msg);
 	return 0;
+}
+
+url_t* Agent::urlFromTportName(su_home_t* home, const tp_name_t* name, bool avoidMAddr) {
+	url_t *url = NULL;
+	url_type_e ut = url_sip;
+
+	if (strcasecmp(name->tpn_proto, "tls") == 0)
+		ut = url_sips;
+
+	url = (url_t *)su_alloc(home, sizeof(url_t));
+	url_init(url, ut);
+
+	if (strcasecmp(name->tpn_proto, "tcp") == 0)
+		url_param_add(home, url, "transport=tcp");
+
+	url->url_port = su_strdup(home, name->tpn_port);
+	url->url_host = su_strdup(home, name->tpn_canon);
+	if (
+		ut == url_sips
+		&& !avoidMAddr
+		&& (strcmp(name->tpn_host, name->tpn_canon) != 0)
+		&& GenericManager::get()->getGlobal()->get<ConfigBoolean>("use-maddr")->read()
+	) {
+		const string &resolvedIp = strchr(name->tpn_host, ':')
+			? mPublicResolvedIpV6
+			: mPublicResolvedIpV4;
+		url_param_add(home, url, su_sprintf(home, "maddr=%s", resolvedIp.c_str()));
+	}
+
+	return url;
 }
 
 int Agent::messageCallback(nta_agent_magic_t *context, nta_agent_t *agent, msg_t *msg, sip_t *sip) {
