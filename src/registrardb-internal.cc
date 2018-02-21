@@ -118,6 +118,7 @@ void RegistrarDbInternal::doClear(const sip_t *sip, const shared_ptr<RegistrarDb
 
 	mRecords.erase(it);
 	mLocalRegExpire->remove(key);
+	delete r;
 	listener->onRecordFound(NULL);
 }
 
