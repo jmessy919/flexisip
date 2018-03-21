@@ -78,7 +78,7 @@ void RegistrarDbInternal::doBind(const BindParameters &p, const shared_ptr<Regis
 
 void RegistrarDbInternal::doFetch(const url_t *url, const shared_ptr<RegistrarDbListener> &listener) {
 	string key(Record::defineKeyFromUrl(url));
-	
+
 	map<string, Record *>::iterator it = mRecords.find(key);
 	Record *r = NULL;
 	if (it != mRecords.end()) {
@@ -86,6 +86,7 @@ void RegistrarDbInternal::doFetch(const url_t *url, const shared_ptr<RegistrarDb
 		r->clean(getCurrentTime());
 		if (r->isEmpty()) {
 			mRecords.erase(it);
+			delete r;
 			r = NULL;
 		}
 	}
