@@ -272,6 +272,7 @@ DomainRegistration::DomainRegistration(DomainRegistrationManager &mgr, const str
 	mCurrentTport = NULL;
 	mTimer = NULL;
 	mExternalContact = NULL;
+	mOutgoing = NULL;
 
 	ostringstream domainRegistrationStatName;
 	domainRegistrationStatName<<"registration-status-"<<lineIndex;
@@ -468,6 +469,10 @@ void DomainRegistration::start() {
 		mTimer = NULL;
 	}
 
+	if (mOutgoing) {
+		nta_outgoing_destroy(mOutgoing);
+	}
+
 	msg = nta_msg_create(mManager.mAgent->getSofiaAgent(), 0);
 	if (nta_msg_request_complete(msg, mLeg, sip_method_register, NULL, (url_string_t *)mProxy) != 0) {
 		LOGE("nta_msg_request_complete() failed");
@@ -485,10 +490,10 @@ void DomainRegistration::start() {
 	LOGD("Domain registration about to be sent:\n%s", msg_as_string(&home, msg, msg_object(msg), 0, NULL));
 	su_home_deinit(&home);
 
-	nta_outgoing_t *outgoing =
+	mOutgoing =
 		nta_outgoing_mcreate(mManager.mAgent->getSofiaAgent(), sResponseCallback, (nta_outgoing_magic_t *)this, NULL,
 							 msg, NTATAG_TPORT(mPrimaryTport), TAG_END());
-	if (!outgoing) {
+	if (!mOutgoing) {
 		LOGE("Could not create outgoing transaction");
 		return;
 	}

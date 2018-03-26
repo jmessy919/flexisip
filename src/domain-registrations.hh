@@ -67,6 +67,7 @@ class DomainRegistration {
 	url_t *mFrom;
 	url_t *mProxy;
 	sip_contact_t *mExternalContact;
+	nta_outgoing_t *mOutgoing;
 };
 
 class DomainRegistrationManager {
