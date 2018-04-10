@@ -286,11 +286,11 @@ string Record::defineKeyFromUrl(const url_t *url) {
 void Record::insertOrUpdateBinding(const shared_ptr<ExtendedContact> &ec) {
 	// Try to locate an existing contact
 	shared_ptr<ExtendedContact> olderEc;
-	
+
 	if (sAssumeUniqueDomains && mIsDomain){
 		mContacts.clear();
 	}
-	
+
 	for (auto it = mContacts.begin(); it != mContacts.end(); ++it) {
 		if (0 == strcmp(ec->contactId(), (*it)->contactId())) {
 			LOGD("Removing older contact with same id %s", (*it)->contactId());
@@ -755,9 +755,14 @@ void RegistrarDb::fetchWithDomain(const url_t *url, const std::shared_ptr<Regist
 	url_t domainOnlyUrl = *url;
 	domainOnlyUrl.url_user = NULL;
 
-	auto agregator = make_shared<AgregatorRegistrarDbListener>(listener, 2);
-	fetch(url, agregator, recursive);
-	fetch(&domainOnlyUrl, agregator, false);
+	if (url->url_user) {
+		auto agregator = make_shared<AgregatorRegistrarDbListener>(listener, 2);
+		fetch(url, agregator, recursive);
+		fetch(&domainOnlyUrl, agregator, false);
+		return;
+	}
+
+	fetch(&domainOnlyUrl, listener, false);
 }
 
 RecordSerializer *RecordSerializer::create(const string &name) {
