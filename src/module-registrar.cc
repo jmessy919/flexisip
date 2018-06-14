@@ -261,7 +261,6 @@ class ModuleRegistrar : public Module, public ModuleToolbox {
 	struct sigaction mSigaction;
 	static void sighandler(int signum, siginfo_t *info, void *ptr);
 	static ModuleInfo<ModuleRegistrar> sInfo;
-	list<shared_ptr<ResponseContext>> mRespContexes;
 	bool mUseGlobalDomain;
 	int mExpireRandomizer;
 	std::list<std::string> mParamsToRemove;
@@ -659,8 +658,6 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipE
 		auto context = ResponseContext::createInTransaction(ev, maindelta, getModuleName());
 		// Contact route inserter should masquerade contact using domain
 		SLOGD << "Contacts :" << context->mContacts;
-		// Store a reference to the ResponseContext to prevent its destruction
-		mRespContexes.push_back(context);
 
 		// Cleaner contacts
 		su_home_t *home = ev->getMsgSip()->getHome();
@@ -729,10 +726,6 @@ void ModuleRegistrar::onResponse(shared_ptr<ResponseSipEvent> &ev) throw(Flexisi
 			listener->addStatCounter(mStats.mCountBind->finish);
 			RegistrarDb::get()->bind(reSip, maindelta, false, listener);
 		}
-	}
-	if (reSip->sip_status->st_status >= 200) {
-		/*for all final responses, drop the context anyway*/
-		mRespContexes.remove(context);
 	}
 }
 
