@@ -98,8 +98,8 @@ DomainRegistrationManager::DomainRegistrationManager(Agent *agent) : mAgent(agen
 		config_item_end};
 
 	mDomainRegistrationArea->addChildrenValues(configs);
-	
-	
+
+
 }
 
 DomainRegistrationManager::~DomainRegistrationManager() {
@@ -122,11 +122,11 @@ int DomainRegistrationManager::load() {
 	GenericStruct *domainRegistrationCfg =
 		GenericManager::get()->getRoot()->get<GenericStruct>("inter-domain-connections");
 	configFile = domainRegistrationCfg->get<ConfigString>("domain-registrations")->read();
-	
-	
+
+
 	mVerifyServerCerts = domainRegistrationCfg->get<ConfigBoolean>("verify-server-certs")->read();
 	mKeepaliveInterval = domainRegistrationCfg->get<ConfigInt>("keepalive-interval")->read();
-	
+
 	if (configFile.empty())
 		return 0;
 
@@ -175,7 +175,7 @@ int DomainRegistrationManager::load() {
 			LOGE("Bad URI '%s' in domain registration definition.", uri.c_str());
 			goto error;
 		}
-		
+
 		/*extract the certificate directory parameter if given, and remove it before passing the URI to the
 		 * DomainRegistration object*/
 		char clientCertdir[256] = {0};
@@ -353,7 +353,7 @@ void DomainRegistration::responseCallback(nta_outgoing_t *orq, const sip_t *resp
 			  << msg_as_string(home.home(), msg, msg_object(msg), 0, NULL);
 		msg_unref(msg);
 	}
-	
+
 	mRegistrationStatus->set(resp ? resp->sip_status->st_status : 408); /*if no response, it is a timeout*/
 
 	if (!resp || resp->sip_status->st_status != 200) {
@@ -399,6 +399,7 @@ void DomainRegistration::responseCallback(nta_outgoing_t *orq, const sip_t *resp
 										 sip->sip_payload,
 										 &return_headers);
 			mSip = return_headers;
+			msg_unref(msg);
 		}
 	} else {
 		int expire = getExpires(orq, resp);
@@ -419,7 +420,7 @@ void DomainRegistration::responseCallback(nta_outgoing_t *orq, const sip_t *resp
 		}
 		tport_t *tport = nta_outgoing_transport(orq);
 		unsigned int keepAliveInterval = mManager.mKeepaliveInterval * 1000;
-		
+
 		cleanCurrentTport();
 		mCurrentTport = tport;
 		tport_set_params(tport, TPTAG_SDWN_ERROR(1), TPTAG_KEEPALIVE(keepAliveInterval), TAG_END());
