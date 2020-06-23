@@ -921,6 +921,8 @@ static vector<string> split(const char *data, const char *delim) {
 void ModuleRouter::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipException) {
 	const shared_ptr<MsgSip> &ms = ev->getMsgSip();
 	sip_t *sip = ms->getSip();
+	const url_t *next_hop = nullptr;
+	bool isRoute = false;
 
 	// Handle SipEvent associated with a Stateful transaction
 	if (sip->sip_request->rq_method == sip_method_cancel) {
@@ -928,8 +930,8 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipExce
 		return;
 	}
 
-	if (sip->sip_route != NULL && !getAgent()->isUs(sip->sip_route->r_url)) {
-		SLOGD << "Route header found " << url_as_string(ms->getHome(), sip->sip_route->r_url)
+	if ((next_hop = ModuleToolbox::getNextHop(getAgent(), sip, &isRoute)) != NULL && isRoute) {
+		SLOGD << "Route header found " << url_as_string(ms->getHome(), next_hop)
 			  << " but not us, skipping";
 		return;
 	}

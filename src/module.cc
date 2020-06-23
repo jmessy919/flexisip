@@ -329,6 +329,19 @@ void ModuleToolbox::addRecordRouteIncoming(su_home_t *home, Agent *ag, const sha
 	addRecordRoute(home, ag, ev, tport.get());
 }
 
+const url_t *ModuleToolbox::getNextHop(Agent *ag, const sip_t *sip, bool *isRoute){
+	const sip_route_t *route = sip->sip_route;
+	while (route){
+		if (!ag->isUs(route->r_url)){
+			if (isRoute) *isRoute = true;
+			return route->r_url;
+		}
+		route = route->r_next;
+	}
+	if (isRoute) *isRoute = false;
+	return sip->sip_request->rq_url;
+}
+
 bool ModuleToolbox::fromMatch(const sip_from_t *from1, const sip_from_t *from2) {
 	if (url_cmp(from1->a_url, from2->a_url) == 0) {
 		if (from1->a_tag && from2->a_tag && strcmp(from1->a_tag, from2->a_tag) == 0)

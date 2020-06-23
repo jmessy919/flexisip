@@ -227,6 +227,8 @@ class ModuleToolbox {
 	static struct sip_route_s *prependNewRoutable(msg_t *msg, sip_t *sip, sip_route_t *&sipr, sip_route_t *value);
 	static void addPathHeader(Agent *ag, const std::shared_ptr<RequestSipEvent> &ev, const tport_t *tport,
 							  const char *uniq = NULL);
+	/* Return the next hop by skipping possible Route headers pointing to this proxy.*/
+	static const url_t *getNextHop(Agent *ag, const sip_t *sip, bool *isRoute);
 	/*these methods do host comparison taking into account that each one of argument can be an ipv6 address enclosed in
 	 * brakets*/
 	static bool urlHostMatch(const char *host1, const char *host2);

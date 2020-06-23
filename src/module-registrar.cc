@@ -582,6 +582,7 @@ void ModuleRegistrar::processUpdateRequest(shared_ptr<SipEventT> &ev, const sip_
 void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipException) {
 	const shared_ptr<MsgSip> &ms = ev->getMsgSip();
 	sip_t *sip = ms->getSip();
+	bool isRoute = false;
 
 	// Only handles registers
 	if (sip->sip_request->rq_method != sip_method_register)
@@ -591,6 +592,11 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipE
 	url_t *sipurl = sip->sip_from->a_url;
 	if (!sipurl->url_host || !isManagedDomain(sipurl))
 		return;
+	
+	if (ModuleToolbox::getNextHop(getAgent(), sip, &isRoute) != NULL && isRoute){
+		LOGD("Request has a route not pointing to this proxy, skipping.");
+		return;
+	}
 
 	// Handle fetching
 	if (sip->sip_contact == NULL) {
