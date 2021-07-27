@@ -217,7 +217,7 @@ void ConferenceServer::onChatRoomStateChanged(const shared_ptr<Core>& lc,
 	}
 }
 
-void ConferenceServer::onConferenceAddressGeneration(const shared_ptr<ChatRoom>& cr) {
+void ConferenceServer::onConferenceAddressGeneration (const shared_ptr<ChatRoom> & cr) {
 	shared_ptr<Config> config = mCore->getConfig();
 	string uuid = config->getString("misc", "uuid", "");
 	shared_ptr<Address> confAddr = cr->getConferenceAddress()->clone();
