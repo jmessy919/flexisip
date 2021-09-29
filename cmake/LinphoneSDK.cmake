@@ -92,7 +92,8 @@ if(ENABLE_TRANSCODER OR ENABLE_B2BUA)
 	set(ENABLE_G729 OFF) # Disable for license conformity
 	set(ENABLE_G729B_CNG OFF) # Disable for license conformity
 	set(ENABLE_RESAMPLE ON)
-	set(ENABLE_VIDEO ${ENABLE_B2BUA}N)
+	#TODO: enable video is b2bua or conference
+	set(ENABLE_VIDEO ON)
 
 	set(ENABLE_VPX OFF)
 	set(ENABLE_FFMPEG OFF)
@@ -166,7 +167,7 @@ if(ENABLE_CONFERENCE)
 	set(ENABLE_TUTORIALS OFF)
 	set(ENABLE_UPDATE_CHECK OFF)
 	set(ENABLE_VCARD OFF)
-	set(ENABLE_VIDEO OFF)
+	set(ENABLE_VIDEO ON)
 	set(ENABLE_VPX OFF)
 	set(ENABLE_FFMPEG OFF)
 	set(ENABLE_GL OFF)
