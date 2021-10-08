@@ -78,6 +78,9 @@ endif()
 if(ENABLE_CONFERENCE)
 	string(APPEND FLEXISIP_SERVICES " flexisip-conference")
 endif()
+if(ENABLE_B2BUA)
+	string(APPEND FLEXISIP_SERVICES " flexisip-b2bua")
+endif()
 
 
 # List of files to mark as config files. That prevent them to be replaced by package update.
