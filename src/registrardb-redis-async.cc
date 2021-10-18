@@ -29,7 +29,11 @@
 
 #include <flexisip/configmanager.hh>
 
+#ifndef INTERNAL_LIBHIREDIS
 #include <hiredis/hiredis.h>
+#else
+#include <hiredis.h>
+#endif
 
 #include "registrardb-redis-sofia-event.h"
 #include <sofia-sip/sip_protos.h>
@@ -48,7 +52,7 @@ using namespace flexisip;
 RegistrarDbRedisAsync::RegistrarDbRedisAsync(Agent *ag, RedisParameters params)
 	: RegistrarDb{ag}, mSerializer{RecordSerializer::get()}, mParams{params}, mRoot{ag->getRoot()} {}
 
-RegistrarDbRedisAsync::RegistrarDbRedisAsync(const string &preferredRoute, su_root_t *root, RecordSerializer *serializer, RedisParameters params)
+RegistrarDbRedisAsync::RegistrarDbRedisAsync(const string &preferredRoute, const std::shared_ptr<sofiasip::SuRoot>& root, RecordSerializer *serializer, RedisParameters params)
 	: RegistrarDb{nullptr}, mSerializer{serializer}, mParams{params}, mRoot{root} {}
 
 RegistrarDbRedisAsync::~RegistrarDbRedisAsync() {
@@ -407,13 +411,13 @@ bool RegistrarDbRedisAsync::connect() {
 	redisAsyncSetDisconnectCallback(mContext, sDisconnectCallback);
 	redisAsyncSetDisconnectCallback(mSubscribeContext, sSubscribeDisconnectCallback);
 
-	if (REDIS_OK != redisSofiaAttach(mContext, mRoot)) {
+	if (REDIS_OK != redisSofiaAttach(mContext, mRoot->getCPtr())) {
 		LOGE("Redis Connection error - %p", mContext);
 		redisAsyncDisconnect(mContext);
 		mContext = nullptr;
 		return false;
 	}
-	if (REDIS_OK != redisSofiaAttach(mSubscribeContext, mRoot)) {
+	if (REDIS_OK != redisSofiaAttach(mSubscribeContext, mRoot->getCPtr())) {
 		LOGE("Redis Connection error - %p", mSubscribeContext);
 		redisAsyncDisconnect(mSubscribeContext);
 		mSubscribeContext = nullptr;
