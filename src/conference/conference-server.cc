@@ -337,12 +337,12 @@ void ConferenceServer::onCallStateChanged(const std::shared_ptr<linphone::Core> 
 	bool iceNegotiationOngoing = false;
 	if (remoteParams->audioEnabled()) {
 		auto audioStats = call->getAudioStats();
-		auto iceState = audioStats->getIceState();
+		auto & iceState = audioStats->getIceState();
 		iceNegotiationOngoing |= (iceState == linphone::IceState::InProgress);
 	}
 	if (remoteParams->videoEnabled()) {
 		auto videoStats = call->getVideoStats();
-		auto iceState = videoStats->getIceState();
+		auto & iceState = videoStats->getIceState();
 		iceNegotiationOngoing |= (iceState == linphone::IceState::InProgress);
 	}
 	auto it = mConferences.find(to->getUsername());
