@@ -97,6 +97,14 @@ public:
 		mProperties.erase(name);
 		mWeakProperties.erase(name);
 	}
+	
+	/* 
+	 * Used by SipEvent that reference Transactions. Indeed, SipEvent in SUSPENDED state
+	 * might reference transaction that are in terminated state.
+	 * We need the transaction to keep its properties until the SipEvent reaches the TERMINATED state.
+	 */
+	void preserveProperties();
+	void disposeProperties();
 
 protected:
 	struct Property {
@@ -119,15 +127,12 @@ protected:
 	};
 
 	Property _getProperty(const std::string& name) const noexcept;
-
-	void looseProperties() noexcept {
-		mProperties.clear();
-		mWeakProperties.clear();
-	}
-
+	void looseProperties() noexcept;
 	Agent* mAgent{nullptr};
 	std::unordered_map<std::string, Property> mProperties{};
 	std::unordered_map<std::string, WProperty> mWeakProperties{};
+	int mPropertiesPreservedCounter{0};
+	bool mPropertiesDisposable{false};
 };
 
 class OutgoingTransaction : public Transaction,

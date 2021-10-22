@@ -44,6 +44,24 @@ Transaction::Property Transaction::_getProperty(const std::string& name) const n
 	}
 }
 
+void Transaction::looseProperties() noexcept {
+	if (mPropertiesPreservedCounter == 0){
+		mProperties.clear();
+		mWeakProperties.clear();
+	}else mPropertiesDisposable = true;
+}
+
+void Transaction::preserveProperties(){
+	mPropertiesPreservedCounter++;
+}
+
+void Transaction::disposeProperties(){
+	mPropertiesPreservedCounter--;
+	if (mPropertiesPreservedCounter == 0 && mPropertiesDisposable){
+		looseProperties();
+	}
+}
+
 static string getRandomBranch() {
 	uint8_t digest[SU_MD5_DIGEST_SIZE];
 	char branch[(SU_MD5_DIGEST_SIZE * 8 + 4) / 5 + 1];
