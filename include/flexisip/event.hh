@@ -150,6 +150,10 @@ class SipEvent : public std::enable_shared_from_this<SipEvent> {
 	std::shared_ptr<OutgoingAgent> mOutgoingAgent;
 	std::shared_ptr<EventLog> mEventLog;
 	Agent *mAgent;
+	// Request transactions to preserve their properties.
+	void preserveTransactions();
+	// Instruct transactions that they can dispose of their properties.
+	void disposeTransactions();
 
 	enum State {
 		STARTED,

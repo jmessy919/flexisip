@@ -25,6 +25,8 @@
 #include <sofia-sip/su_tagarg.h>
 #include <sofia-sip/msg_addr.h>
 
+#include "bctoolbox/defs.h"
+
 using namespace std;
 
 namespace flexisip {
@@ -158,23 +160,45 @@ void SipEvent::setEventLog(const std::shared_ptr<EventLog> &log) {
 	}
 }
 
+void SipEvent::preserveTransactions(){
+	shared_ptr<Transaction> tr = getIncomingTransaction();
+	if (tr) tr->preserveProperties();
+	tr = getOutgoingTransaction();
+	if (tr) tr->preserveProperties();
+}
+
+void SipEvent::disposeTransactions(){
+	shared_ptr<Transaction> tr = dynamic_pointer_cast<Transaction>(mIncomingAgent);
+	if (tr) tr->disposeProperties();
+	tr = dynamic_pointer_cast<Transaction>(mOutgoingAgent);
+	if (tr) tr->disposeProperties();
+}
+
 void SipEvent::terminateProcessing() {
 	LOGD("Terminate SipEvent %p", this);
-	if (mState == STARTED || mState == SUSPENDED) {
-		mState = TERMINATED;
-		flushLog();
-		mIncomingAgent.reset();
-		mOutgoingAgent.reset();
-	} else if (mState == TERMINATED) {
-		LOGE("SipEvent::terminateProcessing(): event is already terminated. Please fix your code.");
-	} else {
-		LOGA("Can't terminateProcessing: wrong state %s", stateStr(mState).c_str());
+	switch(mState){
+		case SUSPENDED:
+			disposeTransactions();
+			BCTBX_NO_BREAK;
+		case STARTED:
+			mState = TERMINATED;
+			flushLog();
+			mIncomingAgent.reset();
+			mOutgoingAgent.reset();
+		break;
+		case TERMINATED:
+			LOGE("SipEvent::terminateProcessing(): event is already terminated. Please fix your code.");
+		break;
+		default:
+			LOGA("Can't terminateProcessing: wrong state %s", stateStr(mState).c_str());
+		break;
 	}
 }
 
 void SipEvent::suspendProcessing() {
 	LOGD("Suspend SipEvent %p", this);
 	if (mState == STARTED) {
+		preserveTransactions();
 		mState = SUSPENDED;
 	} else {
 		LOGA("Can't suspendProcessing: wrong state %s", stateStr(mState).c_str());
