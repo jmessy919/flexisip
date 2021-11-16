@@ -28,12 +28,13 @@ namespace flexisip {
 
 class B2buaServer : public ServiceServer
 , public std::enable_shared_from_this<B2buaServer>
-, public linphone::CoreListener {
+, public linphone::CoreListener, public linphone::ConferenceListener {
 	public:
-		B2buaServer (su_root_t *root);
+		B2buaServer (const std::shared_ptr<sofiasip::SuRoot>& root);
 		~B2buaServer ();
 
-
+        void onConferenceStateChanged(const std::shared_ptr<linphone::Core> & core, const std::shared_ptr<linphone::Conference> & conference,
+            linphone::Conference::State state) override;
 		void onCallStateChanged(const std::shared_ptr<linphone::Core > &core, const std::shared_ptr<linphone::Call> &call,
 			linphone::Call::State state, const std::string &message) override;
 
@@ -43,8 +44,8 @@ class B2buaServer : public ServiceServer
 		void _stop () override;
 
 	private:
-	static constexpr const char *callKey = "b2bua::peerCall";
-	static constexpr const char *confKey = "b2bua::conf";
+	static constexpr const char *confKey = "b2bua::confData";
+    static constexpr const char *callKey = "b2bua::peerCall";
 	class Init {
 	public:
 		Init();

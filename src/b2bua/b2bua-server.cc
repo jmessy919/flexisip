@@ -24,16 +24,50 @@ using namespace std;
 using namespace linphone;
 
 namespace flexisip {
+struct b2buaServerConfData {
+public:
+    std::shared_ptr<linphone::Call> legA;
+    std::shared_ptr<linphone::Call> legB;
+    std::shared_ptr<linphone::Conference> conf;
+};
+
 
 B2buaServer::Init B2buaServer::sStaticInit; // The Init object is instanciated to load the config
 
-B2buaServer::B2buaServer (su_root_t *root) : ServiceServer(root) {}
+B2buaServer::B2buaServer (const std::shared_ptr<sofiasip::SuRoot>& root) : ServiceServer(root) {}
 
 B2buaServer::~B2buaServer () {}
 
+void B2buaServer::onConferenceStateChanged(const std::shared_ptr<linphone::Core> & core, const std::shared_ptr<linphone::Conference> & conference,
+            linphone::Conference::State state){
+    SLOGD<<"b2bua server onConferenceStateChanged to "<<(int)state;
+	switch (state) {
+        case linphone::Conference::State::None:
+            break;
+        case linphone::Conference::State::Instantiated:
+            break;
+        case linphone::Conference::State::CreationPending:
+            break;
+        case linphone::Conference::State::Created:
+            break;
+        case linphone::Conference::State::CreationFailed:
+            break;
+        case linphone::Conference::State::TerminationPending:
+            break;
+        case linphone::Conference::State::Terminated:
+            break;
+        case linphone::Conference::State::TerminationFailed:
+            break;
+        case linphone::Conference::State::Deleted:
+            break;
+        default:
+            break;
+    }
+}
+
 void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &core, const std::shared_ptr<linphone::Call> &call,
 			linphone::Call::State state, const std::string &message) {
-	LOGD("b2bua server onCallStateChanged: %d", (int)state);
+    SLOGD<<"b2bua server onCallStateChanged to "<<(int)state;
 	switch (state) {
 		case linphone::Call::State::IncomingReceived:
 			{
@@ -43,18 +77,41 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			auto outgoingCallParams = mCore->createCallParams(call);
 			// add this custom header so this call will not be intercepted by the b2bua
 			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
-			//TODO: copy the From header from incoming to the outgoing call
 			outgoingCallParams->addCustomHeader("From", call->getRemoteAddress()->asString()+";tag=tototo");
 
-            auto b2bua_legB_call = new std::shared_ptr<linphone::Call>;
-            *b2bua_legB_call = mCore->inviteAddressWithParams(call->getToAddress(),  outgoingCallParams);
+            auto confData = new b2buaServerConfData();
 
-            auto b2bua_legA_call = new std::shared_ptr<linphone::Call>;
-            *b2bua_legA_call = call;
+            // create a conference and attach it
+			auto conferenceParams = mCore->createConferenceParams();
+			conferenceParams->setVideoEnabled(false);
+			conferenceParams->setLocalParticipantEnabled(false); // b2bua core is not part of it
+            conferenceParams->setOneParticipantConferenceEnabled(true);
 
-			// store ref to call in each other
-			call->setData<std::shared_ptr<linphone::Call>>(B2buaServer::callKey, *b2bua_legB_call);
-			(*b2bua_legB_call)->setData<std::shared_ptr<linphone::Call>>(B2buaServer::callKey, *b2bua_legA_call);
+            auto conference = mCore->createConferenceWithParams(conferenceParams);
+            conference->addListener(shared_from_this());
+
+
+			// Add legB to the conference and invite it
+            auto callee = call->getToAddress()->clone();
+			conference->inviteParticipants(std::list<shared_ptr<linphone::Address>>{callee}, outgoingCallParams);
+            // retrieve the call we just added
+            SLOGD<<"JOHAN: get participantList";
+            auto participantB = conference->getParticipantList().front();
+            auto legB = mCore->getCallByRemoteAddress2(participantB->getAddress());
+            SLOGD<<"JOHAN: get participantList: call "<<legB<<" to "<<participantB->getAddress();
+
+            conference->addParticipant(call); // add legA to the conference, but do not answer now
+
+
+            // store shared pointer to the conference and each call
+            confData->conf=conference;
+            confData->legA = call;
+            confData->legB = legB;
+
+            // store ref on each other call
+            call->setData<flexisip::b2buaServerConfData>(B2buaServer::confKey, *confData);
+            legB->setData<flexisip::b2buaServerConfData>(B2buaServer::confKey, *confData);
+            SLOGD<<"B2bua: End of Incoming call received, conf data is "<< confData;
 			}
 			break;
 		case linphone::Call::State::PushIncomingReceived:
@@ -67,44 +124,26 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			// TODO: forward the ringing to the original caller
 			break;
 		case linphone::Call::State::OutgoingEarlyMedia:
+        {
+            // LegB call sends early media: do the same on legA
+            auto conference = call->getConference();
+            auto confData = conference->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+            SLOGD<<"b2bua server onCallStateChanged OutGoing Early media from legB";
+            confData.legA->acceptEarlyMedia();
+        }
 			break;
 		case linphone::Call::State::Connected:
 			break;
 		case linphone::Call::State::StreamsRunning:
         {
-            LOGD("b2bua server onCallStateChanged StreamRunning");
-			// Do we have a ref to a peer call (it shall always be the case)
-			if (!call->dataExists(B2buaServer::callKey)) {
-				LOGE("B2bua Stream running but no peer call found, terminate it");
-				call->terminate();
-				return;
-			}
-			auto peerCall = call->getData<std::shared_ptr<linphone::Call>>(B2buaServer::callKey);
-
-			// Do we have a conference associated to this call?
-			if (!call->dataExists(B2buaServer::confKey)) { // No conference, this is legB answering to our call
-				// create a conference
-				auto conferenceParams = mCore->createConferenceParams();
-				conferenceParams->setVideoEnabled(false);
-				conferenceParams->setLocalParticipantEnabled(false); // b2bua core is not part of it
-				auto conference = new std::shared_ptr<linphone::Conference>;
-                *conference = mCore->createConferenceWithParams(conferenceParams);
-				// Add legB
-				(*conference)->addParticipant(call);
-                (*conference)->addParticipant(peerCall);
-				// reference conferences in both calls
-				call->setData<std::shared_ptr<linphone::Conference>>(B2buaServer::confKey, *conference);
-				peerCall->setData<std::shared_ptr<linphone::Conference>>(B2buaServer::confKey, *conference);
-				// answer legA
-                auto incomingCallParams = mCore->createCallParams(nullptr);
-                // add this custom header so this call will not be intercepted by the b2bua
-                incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
-				peerCall->acceptWithParams(incomingCallParams);
-			} else { // This is legA sending 200Ok after we accepted the call, add it to the conference
-				//auto conference = call->getData<std::shared_ptr<linphone::Conference>>(B2buaServer::confKey);
-				//conference->addParticipant(call);
-                LOGD("b2bua server onCallStateChanged StreamRunning: leg A stream runnning");
-			}
+            // Is this the legB call?
+            if (call->getDir() == linphone::Call::Dir::Outgoing) {
+                SLOGD<<"b2bua server onCallStateChanged Stream Running: leg B Stream running";
+                // Answer the legA call
+                //auto conference = call->getConference();
+                auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+                confData.legA->accept();
+            }
         }
 			break;
 		case linphone::Call::State::Pausing:
@@ -119,23 +158,37 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			break;
 		case linphone::Call::State::End:
         {
-            if (call->dataExists(B2buaServer::callKey)) { // This is the first call ending
-                // Get the other call
-                auto peerCall = call->getData<std::shared_ptr<linphone::Call>>(B2buaServer::callKey);
-                // Unset the callKey so it is not linked to this call anymore
-                peerCall->unsetData(B2buaServer::callKey);
-                // terminate it
-                peerCall->terminate();
-
-                // Get the conference and terminate it
-                auto conference = call->getData<std::shared_ptr<linphone::Conference>>(B2buaServer::confKey);
-                conference->terminate();
+            // Get the conference and terminate it if still needed
+            auto conference = call->getConference();
+            SLOGD<<"B2bua end call";
+            if (conference != nullptr) {
+                if (conference->dataExists(B2buaServer::confKey)) {
+                    auto &confData = conference->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+                    delete(&confData);
+                    conference->unsetData(B2buaServer::confKey);
+                    conference->terminate();
+                    SLOGD<<"B2bua end call: terminate conference over";
+                }
+            } else {
+                    SLOGD<<"B2bua end call: not in a conf";
+                    if (call->dataExists(B2buaServer::confKey)) {
+                        SLOGD<<"B2bua end call: There is a confData in that ending call";
+                        auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+                        confData.legA->unsetData(B2buaServer::confKey);
+                        confData.legB->unsetData(B2buaServer::confKey);
+                        confData.conf->unsetData(B2buaServer::confKey);
+                        confData.conf->terminate();
+                        delete(&confData);
+                    } else {
+                        SLOGD<<"B2bua end call: There is NO confData in that ending call";
+                    }
             }
         }
 			break;
 		case linphone::Call::State::PausedByRemote:
 			break;
 		case linphone::Call::State::UpdatedByRemote:
+
 			break;
 		case linphone::Call::State::IncomingEarlyMedia:
 			break;
@@ -166,6 +219,7 @@ void B2buaServer::_init () {
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
 	mCore->setUseFiles(true); //No sound card shall be used in calls
 	mCore->enableEchoCancellation(false);
+    mCore->setPrimaryContact("sip:b2bua@192.168.1.100"); //TODO: get the primary contact from config, do we really need one?
 
 	// random port for UDP audio stream
 	mCore->setAudioPort(-1);

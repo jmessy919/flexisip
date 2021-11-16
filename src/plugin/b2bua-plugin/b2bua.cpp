@@ -111,9 +111,10 @@ void B2bua::onUnload() {
 void B2bua::onRequest(shared_ptr<RequestSipEvent> &ev) {
 	sip_t *sip = ev->getSip();
 	SLOGD<<"B2bua onRequest, request method is "<<sip_method_name(sip->sip_request->rq_method, "UNKNOWN METHOD");
-	if (sip->sip_request->rq_method == sip_method_invite) {
+	if (sip->sip_request->rq_method == sip_method_invite || sip->sip_request->rq_method == sip_method_cancel) {
 		// Do we have the "flexisip-b2bua" custom header? If no, we must intercept the call. TODO: have more control on intercepted call using configuration
 		sip_unknown_t *header = ModuleToolbox::getCustomHeaderByName(sip, "flexisip-b2bua");
+
 		if (header == NULL) {
 			cleanAndPrependRoute(
 				this->getAgent(),

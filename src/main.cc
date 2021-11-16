@@ -1023,7 +1023,7 @@ int main(int argc, char *argv[]) {
 #endif //ENABLE_B2BUA
 	}
 
-	if (run) root_run(root);
+	if (run) root->run();
 
 	a->unloadConfig();
 	a.reset();
