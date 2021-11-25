@@ -79,8 +79,6 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
 			outgoingCallParams->addCustomHeader("From", call->getRemoteAddress()->asString()+";tag=tototo");
 
-            auto confData = new b2buaServerConfData();
-
             // create a conference and attach it
 			auto conferenceParams = mCore->createConferenceParams();
 			conferenceParams->setVideoEnabled(false);
@@ -91,19 +89,16 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
             conference->addListener(shared_from_this());
 
 
-			// Add legB to the conference and invite it
+			// create legB and add it to the conference
             auto callee = call->getToAddress()->clone();
-			conference->inviteParticipants(std::list<shared_ptr<linphone::Address>>{callee}, outgoingCallParams);
-            // retrieve the call we just added
-            SLOGD<<"JOHAN: get participantList";
-            auto participantB = conference->getParticipantList().front();
-            auto legB = mCore->getCallByRemoteAddress2(participantB->getAddress());
-            SLOGD<<"JOHAN: get participantList: call "<<legB<<" to "<<participantB->getAddress();
+            auto legB = mCore->inviteAddressWithParams(callee, outgoingCallParams);
+            // conference->addParticipant(legB); TODO: call SHOOLD be added here to the conf to avoid RE-INVITE if added at StreamRunning state
 
-            conference->addParticipant(call); // add legA to the conference, but do not answer now
-
+            // add legA to the conference, but do not answer now
+            conference->addParticipant(call);
 
             // store shared pointer to the conference and each call
+            auto confData = new b2buaServerConfData();
             confData->conf=conference;
             confData->legA = call;
             confData->legB = legB;
@@ -127,7 +122,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
         {
             // LegB call sends early media: do the same on legA
             auto conference = call->getConference();
-            auto confData = conference->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+            auto &confData = conference->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
             SLOGD<<"b2bua server onCallStateChanged OutGoing Early media from legB";
             confData.legA->acceptEarlyMedia();
         }
@@ -140,8 +135,10 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
             if (call->getDir() == linphone::Call::Dir::Outgoing) {
                 SLOGD<<"b2bua server onCallStateChanged Stream Running: leg B Stream running";
                 // Answer the legA call
+                // TODO: this shall work if legB is already in the conf, but it is not yet possible. Instead get the conf from stored data, add legB to the conf and answer leg A
                 //auto conference = call->getConference();
                 auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+                confData.conf->addParticipant(call);
                 confData.legA->accept();
             }
         }
@@ -158,30 +155,21 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			break;
 		case linphone::Call::State::End:
         {
-            // Get the conference and terminate it if still needed
-            auto conference = call->getConference();
             SLOGD<<"B2bua end call";
-            if (conference != nullptr) {
-                if (conference->dataExists(B2buaServer::confKey)) {
-                    auto &confData = conference->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
-                    delete(&confData);
-                    conference->unsetData(B2buaServer::confKey);
-                    conference->terminate();
-                    SLOGD<<"B2bua end call: terminate conference over";
-                }
+            // If there are some data in that call, it is the first one to end
+            if (call->dataExists(B2buaServer::confKey)) {
+                SLOGD<<"B2bua end call: There is a confData in that ending call";
+                auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+                // unset data everywhere it wasa stored
+                confData.legA->unsetData(B2buaServer::confKey);
+                confData.legB->unsetData(B2buaServer::confKey);
+                confData.conf->unsetData(B2buaServer::confKey);
+                // terminate the conf
+                confData.conf->terminate();
+                // memory cleaning
+                delete(&confData);
             } else {
-                    SLOGD<<"B2bua end call: not in a conf";
-                    if (call->dataExists(B2buaServer::confKey)) {
-                        SLOGD<<"B2bua end call: There is a confData in that ending call";
-                        auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
-                        confData.legA->unsetData(B2buaServer::confKey);
-                        confData.legB->unsetData(B2buaServer::confKey);
-                        confData.conf->unsetData(B2buaServer::confKey);
-                        confData.conf->terminate();
-                        delete(&confData);
-                    } else {
-                        SLOGD<<"B2bua end call: There is NO confData in that ending call";
-                    }
+                SLOGD<<"B2bua end call: There is NO confData in that ending call";
             }
         }
 			break;
