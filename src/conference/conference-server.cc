@@ -128,7 +128,10 @@ void ConferenceServer::_init () {
 
 	loadFactoryUris();
 	bool defaultProxyConfigSet = false;
-	for (const auto& conferenceFactoryUri : mFactoryUris) {
+	std::list<std::string> uris{};
+	uris.insert(uris.begin(), mFactoryUris.begin(), mFactoryUris.end());
+	uris.insert(uris.begin(), mFocusUris.begin(), mFocusUris.end());
+	for (const auto &conferenceFactoryUri : uris){
 		auto addrProxy = Factory::get()->createAddress(conferenceFactoryUri);
 		auto proxy = mCore->createProxyConfig();
 		proxy->setIdentityAddress(addrProxy);
@@ -193,14 +196,17 @@ void ConferenceServer::loadFactoryUris() {
 	auto config = GenericManager::get()->getRoot()->get<GenericStruct>("conference-server");
 	auto conferenceFactoryUriSetting = config->get<ConfigString>("conference-factory-uri");
 	auto conferenceFactoryUrisSetting = config->get<ConfigStringList>("conference-factory-uris");
+	auto conferenceFocusUrisSetting = config->get<ConfigStringList>("conference-focus-uris");
 	auto conferenceFactoryUri = conferenceFactoryUriSetting->read();
 	auto conferenceFactoryUris = conferenceFactoryUrisSetting->read();
+	auto conferenceFocusUris = conferenceFocusUrisSetting->read();
 
 	if (!conferenceFactoryUri.empty()) conferenceFactoryUris.push_back(conferenceFactoryUri);
 	if (conferenceFactoryUris.empty()) {
 		LOGF("'%s' parameter must be set!", conferenceFactoryUrisSetting->getCompleteName().c_str());
 	}
 	mFactoryUris = conferenceFactoryUris;
+	mFocusUris = conferenceFocusUris;
 }
 
 void ConferenceServer::onRegistrarDbWritable(bool writable) {
