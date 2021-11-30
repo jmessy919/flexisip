@@ -99,7 +99,7 @@ ForkMessageContextSociRepository::ForkMessageContextSociRepository(const string&
 				HEX(SUBSTR(_bin,  1, 2)),
 				HEX(SUBSTR(_bin,  9, 2)),
 				HEX(SUBSTR(_bin, 11))));)sql";
-	} catch (const exception& e) {
+	} catch (const runtime_error& e) {
 		LOGF("ForkMessageContextSociRepository - A problem occurred during database creation. Fix it or disable "
 		     "save-fork-late-message-in-db before restart. \nException : %s",
 		     e.what());
