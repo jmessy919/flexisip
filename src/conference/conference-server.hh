@@ -127,6 +127,7 @@ namespace flexisip {
 		ParticipantRegistrationSubscriptionHandler mSubscriptionHandler;
 		MediaConfig mMediaConfig;
 		std::list<std::string> mFactoryUris{};
+		std::list<std::string> mFocusUris{};
 		std::list<std::string> mLocalDomains{};
 		bool mAddressesBound = false;
 		bool mCheckCapabilities = false;
