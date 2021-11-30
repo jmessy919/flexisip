@@ -39,74 +39,75 @@ B2buaServer::B2buaServer (const std::shared_ptr<sofiasip::SuRoot>& root) : Servi
 B2buaServer::~B2buaServer () {}
 
 void B2buaServer::onConferenceStateChanged(const std::shared_ptr<linphone::Core> & core, const std::shared_ptr<linphone::Conference> & conference,
-            linphone::Conference::State state){
-    SLOGD<<"b2bua server onConferenceStateChanged to "<<(int)state;
+			linphone::Conference::State state){
+	SLOGD<<"b2bua server onConferenceStateChanged to "<<(int)state;
 	switch (state) {
-        case linphone::Conference::State::None:
-            break;
-        case linphone::Conference::State::Instantiated:
-            break;
-        case linphone::Conference::State::CreationPending:
-            break;
-        case linphone::Conference::State::Created:
-            break;
-        case linphone::Conference::State::CreationFailed:
-            break;
-        case linphone::Conference::State::TerminationPending:
-            break;
-        case linphone::Conference::State::Terminated:
-            break;
-        case linphone::Conference::State::TerminationFailed:
-            break;
-        case linphone::Conference::State::Deleted:
-            break;
-        default:
-            break;
+		case linphone::Conference::State::None:
+			break;
+		case linphone::Conference::State::Instantiated:
+			break;
+		case linphone::Conference::State::CreationPending:
+			break;
+		case linphone::Conference::State::Created:
+			break;
+		case linphone::Conference::State::CreationFailed:
+			break;
+		case linphone::Conference::State::TerminationPending:
+			break;
+		case linphone::Conference::State::Terminated:
+			break;
+		case linphone::Conference::State::TerminationFailed:
+			break;
+		case linphone::Conference::State::Deleted:
+			break;
+		default:
+			break;
     }
 }
 
 void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &core, const std::shared_ptr<linphone::Call> &call,
 			linphone::Call::State state, const std::string &message) {
-    SLOGD<<"b2bua server onCallStateChanged to "<<(int)state;
+	SLOGD<<"b2bua server onCallStateChanged to "<<(int)state;
 	switch (state) {
 		case linphone::Call::State::IncomingReceived:
 			{
-			//TODO: Here we already sent a 100 Trying and a 180 Ringing that shall not be done before receiving answers from the legB call
 			LOGD("b2bua server onCallStateChanged incomingReceived, to %s from %s", call->getToAddress()->asString().c_str(), call->getRemoteAddress()->asString().c_str());
 			// Create outgoing call using parameters created from the incoming call in order to avoid duplicating the callId
-			auto outgoingCallParams = mCore->createCallParams(call);
+			auto outgoingCallParams = mCore->createCallParams(nullptr); //(call);
 			// add this custom header so this call will not be intercepted by the b2bua
 			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
-			outgoingCallParams->addCustomHeader("From", call->getRemoteAddress()->asString()+";tag=tototo");
+			//outgoingCallParams->addCustomHeader("From", call->getRemoteAddress()->asString()+";tag=tototo");
+			outgoingCallParams->setFromHeader(call->getRemoteAddress()->asString());
 
-            // create a conference and attach it
+			// create a conference and attach it
 			auto conferenceParams = mCore->createConferenceParams();
 			conferenceParams->setVideoEnabled(false);
 			conferenceParams->setLocalParticipantEnabled(false); // b2bua core is not part of it
-            conferenceParams->setOneParticipantConferenceEnabled(true);
+			conferenceParams->setOneParticipantConferenceEnabled(true);
 
-            auto conference = mCore->createConferenceWithParams(conferenceParams);
-            conference->addListener(shared_from_this());
+			auto conference = mCore->createConferenceWithParams(conferenceParams);
+			conference->addListener(shared_from_this());
 
 
 			// create legB and add it to the conference
-            auto callee = call->getToAddress()->clone();
-            auto legB = mCore->inviteAddressWithParams(callee, outgoingCallParams);
-            // conference->addParticipant(legB); TODO: call SHOOLD be added here to the conf to avoid RE-INVITE if added at StreamRunning state
+			auto callee = call->getToAddress()->clone();
+			auto legB = mCore->inviteAddressWithParams(callee, outgoingCallParams);
 
-            // add legA to the conference, but do not answer now
-            conference->addParticipant(call);
+			conference->addParticipant(legB); // TODO: call SHOULD be added here to the conf to avoid RE-INVITE if added at StreamRunning state
 
-            // store shared pointer to the conference and each call
-            auto confData = new b2buaServerConfData();
-            confData->conf=conference;
-            confData->legA = call;
-            confData->legB = legB;
+			// add legA to the conference, but do not answer now
+			conference->addParticipant(call);
 
-            // store ref on each other call
-            call->setData<flexisip::b2buaServerConfData>(B2buaServer::confKey, *confData);
-            legB->setData<flexisip::b2buaServerConfData>(B2buaServer::confKey, *confData);
-            SLOGD<<"B2bua: End of Incoming call received, conf data is "<< confData;
+			// store shared pointer to the conference and each call
+			auto confData = new b2buaServerConfData();
+			confData->conf=conference;
+			confData->legA = call;
+			confData->legB = legB;
+
+			// store ref on each other call
+			call->setData<flexisip::b2buaServerConfData>(B2buaServer::confKey, *confData);
+			legB->setData<flexisip::b2buaServerConfData>(B2buaServer::confKey, *confData);
+			SLOGD<<"B2bua: End of Incoming call received, conf data is "<< confData;
 			}
 			break;
 		case linphone::Call::State::PushIncomingReceived:
@@ -116,67 +117,108 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::OutgoingProgress:
 			break;
 		case linphone::Call::State::OutgoingRinging:
-			// TODO: forward the ringing to the original caller
+		{
+			// This is legB getting its ring from callee, relay it to the legA call
+			auto &confData = call ->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			SLOGD<<"b2bua server onCallStateChanged OutGoingRinging from legB";
+			confData.legA->notifyRinging();
+		}
 			break;
 		case linphone::Call::State::OutgoingEarlyMedia:
-        {
-            // LegB call sends early media: do the same on legA
-            auto conference = call->getConference();
-            auto &confData = conference->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
-            SLOGD<<"b2bua server onCallStateChanged OutGoing Early media from legB";
-            confData.legA->acceptEarlyMedia();
-        }
+		{
+			// LegB call sends early media: relay a 180
+			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			SLOGD<<"b2bua server onCallStateChanged OutGoing Early media from legB";
+			confData.legA->notifyRinging();
+		}
 			break;
 		case linphone::Call::State::Connected:
 			break;
 		case linphone::Call::State::StreamsRunning:
-        {
-            // Is this the legB call?
-            if (call->getDir() == linphone::Call::Dir::Outgoing) {
-                SLOGD<<"b2bua server onCallStateChanged Stream Running: leg B Stream running";
-                // Answer the legA call
-                // TODO: this shall work if legB is already in the conf, but it is not yet possible. Instead get the conf from stored data, add legB to the conf and answer leg A
-                //auto conference = call->getConference();
-                auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
-                confData.conf->addParticipant(call);
-                confData.legA->accept();
-            }
-        }
+		{
+			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			SLOGD<<"legA is "<<((confData.legA->getDir() == linphone::Call::Dir::Outgoing)?"Outgoing":"Incoming");
+			SLOGD<<"legB is "<<((confData.legB->getDir() == linphone::Call::Dir::Outgoing)?"Outgoing":"Incoming");
+
+			// Is this the legB call?
+			if (call->getDir() == linphone::Call::Dir::Outgoing) {
+				SLOGD<<"b2bua server onCallStateChanged Stream Running: leg B Stream running";
+				// Answer the legA call
+				if (confData.legA->getState() == linphone::Call::State::Paused) { // If peer call was paused, resume it
+					SLOGD<<"b2bua server onCallStateChanged Stream Running: leg A is paused, resume it";
+					confData.legA->resume();
+				} else { // accept the call if it is not already running
+					if (confData.legA->getState() != linphone::Call::State::StreamsRunning) {
+						SLOGD<<"b2bua server onCallStateChanged Stream Running: leg A is not paused nor Stream running"<<int(confData.legA->getState())<<" accept it";
+						auto incomingCallParams = mCore->createCallParams(confData.legA);
+						// add this custom header so this call will not be intercepted by the b2bua
+						incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+						confData.legA->acceptWithParams(incomingCallParams);
+					}
+				}
+			} else { // This is legA
+				SLOGD<<"b2bua server onCallStateChanged Stream Running: leg A Stream running";
+				// if we are resuming(legB is in pause), resume also legB
+				if (confData.legB->getState() == linphone::Call::State::Paused) { // If peer call was paused, resume it
+					SLOGD<<"b2bua server onCallStateChanged Stream Running: leg B is paused, resume it";
+					confData.legB->resume();
+				}
+			}
+		}
 			break;
 		case linphone::Call::State::Pausing:
 			break;
 		case linphone::Call::State::Paused:
 			break;
 		case linphone::Call::State::Resuming:
+		{
+			// When call is resuming, it means we paused it and so it left the conference
+			// reinsert it when resuming
+			SLOGD<<"B2bua resuming call, insert it back in the conference";
+			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			confData.conf->addParticipant(call);
+		}
 			break;
 		case linphone::Call::State::Referred:
 			break;
 		case linphone::Call::State::Error:
 			break;
 		case linphone::Call::State::End:
-        {
-            SLOGD<<"B2bua end call";
-            // If there are some data in that call, it is the first one to end
-            if (call->dataExists(B2buaServer::confKey)) {
-                SLOGD<<"B2bua end call: There is a confData in that ending call";
-                auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
-                // unset data everywhere it wasa stored
-                confData.legA->unsetData(B2buaServer::confKey);
-                confData.legB->unsetData(B2buaServer::confKey);
-                confData.conf->unsetData(B2buaServer::confKey);
-                // terminate the conf
-                confData.conf->terminate();
-                // memory cleaning
-                delete(&confData);
-            } else {
-                SLOGD<<"B2bua end call: There is NO confData in that ending call";
-            }
-        }
+		{
+			SLOGD<<"B2bua end call";
+			// If there are some data in that call, it is the first one to end
+			if (call->dataExists(B2buaServer::confKey)) {
+				SLOGD<<"B2bua end call: There is a confData in that ending call";
+				auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+				// unset data everywhere it wasa stored
+				confData.legA->unsetData(B2buaServer::confKey);
+				confData.legB->unsetData(B2buaServer::confKey);
+				confData.conf->unsetData(B2buaServer::confKey);
+				// terminate the conf
+				confData.conf->terminate();
+				// memory cleaning
+				delete(&confData);
+			} else {
+				SLOGD<<"B2bua end call: There is NO confData in that ending call";
+			}
+		}
 			break;
 		case linphone::Call::State::PausedByRemote:
+		{
+			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			SLOGD<<"legA is "<<((confData.legA->getDir() == linphone::Call::Dir::Outgoing)?"Outgoing":"Incoming");
+			SLOGD<<"legB is "<<((confData.legB->getDir() == linphone::Call::Dir::Outgoing)?"Outgoing":"Incoming");
+			// Is this the legB call?
+			if (call->getDir() == linphone::Call::Dir::Outgoing) {
+				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg B";
+				confData.legA->pause();
+			} else { // This is legA, pause legB
+				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg A";
+				confData.legB->pause();
+			}
+		}
 			break;
 		case linphone::Call::State::UpdatedByRemote:
-
 			break;
 		case linphone::Call::State::IncomingEarlyMedia:
 			break;
@@ -188,7 +230,6 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			break;
 		case linphone::Call::State::EarlyUpdatedByRemote:
 			break;
-
 		default:
 			break;
 	}
@@ -207,7 +248,8 @@ void B2buaServer::_init () {
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
 	mCore->setUseFiles(true); //No sound card shall be used in calls
 	mCore->enableEchoCancellation(false);
-    mCore->setPrimaryContact("sip:b2bua@192.168.1.100"); //TODO: get the primary contact from config, do we really need one?
+	mCore->setPrimaryContact("sip:b2bua@192.168.1.100"); //TODO: get the primary contact from config, do we really need one?
+	mCore->enableAutoSendRinging(false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
 
 	// random port for UDP audio stream
 	mCore->setAudioPort(-1);
