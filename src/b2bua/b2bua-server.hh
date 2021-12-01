@@ -45,7 +45,6 @@ class B2buaServer : public ServiceServer
 
 	private:
 	static constexpr const char *confKey = "b2bua::confData";
-    static constexpr const char *callKey = "b2bua::peerCall";
 	class Init {
 	public:
 		Init();

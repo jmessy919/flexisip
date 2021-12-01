@@ -133,36 +133,36 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		}
 			break;
 		case linphone::Call::State::Connected:
+		{
+			// If legB is in connected state, answer legA call
+			if (call->getDir() == linphone::Call::Dir::Outgoing) {
+				SLOGD<<"b2bua server onCallStateChanged Connected: leg B -> answer legA";
+				auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+				auto incomingCallParams = mCore->createCallParams(confData.legA);
+				// add this custom header so this call will not be intercepted by the b2bua
+				incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				confData.legA->acceptWithParams(incomingCallParams);
+			}
+		}
 			break;
 		case linphone::Call::State::StreamsRunning:
 		{
 			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
-			SLOGD<<"legA is "<<((confData.legA->getDir() == linphone::Call::Dir::Outgoing)?"Outgoing":"Incoming");
-			SLOGD<<"legB is "<<((confData.legB->getDir() == linphone::Call::Dir::Outgoing)?"Outgoing":"Incoming");
-
-			// Is this the legB call?
+			std::shared_ptr<linphone::Call> peerCall = nullptr;
+			// get peerCall
 			if (call->getDir() == linphone::Call::Dir::Outgoing) {
-				SLOGD<<"b2bua server onCallStateChanged Stream Running: leg B Stream running";
-				// Answer the legA call
-				if (confData.legA->getState() == linphone::Call::State::Paused) { // If peer call was paused, resume it
-					SLOGD<<"b2bua server onCallStateChanged Stream Running: leg A is paused, resume it";
-					confData.legA->resume();
-				} else { // accept the call if it is not already running
-					if (confData.legA->getState() != linphone::Call::State::StreamsRunning) {
-						SLOGD<<"b2bua server onCallStateChanged Stream Running: leg A is not paused nor Stream running"<<int(confData.legA->getState())<<" accept it";
-						auto incomingCallParams = mCore->createCallParams(confData.legA);
-						// add this custom header so this call will not be intercepted by the b2bua
-						incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
-						confData.legA->acceptWithParams(incomingCallParams);
-					}
-				}
-			} else { // This is legA
-				SLOGD<<"b2bua server onCallStateChanged Stream Running: leg A Stream running";
-				// if we are resuming(legB is in pause), resume also legB
-				if (confData.legB->getState() == linphone::Call::State::Paused) { // If peer call was paused, resume it
-					SLOGD<<"b2bua server onCallStateChanged Stream Running: leg B is paused, resume it";
-					confData.legB->resume();
-				}
+				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg B";
+				peerCall = confData.legA;
+			} else { // This is legA, pause legB
+				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg A";
+				peerCall = confData.legB;
+			}
+			// if we are in StreamsRunning but peer is sendonly we likely arrived here after resuming from pausedByRemote
+			// update peer back to recvsend
+			if (peerCall->getCurrentParams()->getAudioDirection() == linphone::MediaDirection::SendOnly) {
+				auto peerCallParams = peerCall->getCurrentParams()->copy();
+				peerCallParams->setAudioDirection(linphone::MediaDirection::SendRecv);
+				peerCall->update(peerCallParams);
 			}
 		}
 			break;
@@ -171,13 +171,6 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::Paused:
 			break;
 		case linphone::Call::State::Resuming:
-		{
-			// When call is resuming, it means we paused it and so it left the conference
-			// reinsert it when resuming
-			SLOGD<<"B2bua resuming call, insert it back in the conference";
-			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
-			confData.conf->addParticipant(call);
-		}
 			break;
 		case linphone::Call::State::Referred:
 			break;
@@ -205,17 +198,21 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			break;
 		case linphone::Call::State::PausedByRemote:
 		{
+			// Paused by remote: do not pause peer call as it will kick it out of the conference
+			// just switch the media direction to sendOnly
 			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
-			SLOGD<<"legA is "<<((confData.legA->getDir() == linphone::Call::Dir::Outgoing)?"Outgoing":"Incoming");
-			SLOGD<<"legB is "<<((confData.legB->getDir() == linphone::Call::Dir::Outgoing)?"Outgoing":"Incoming");
+			std::shared_ptr<linphone::Call> peerCall = nullptr;
 			// Is this the legB call?
 			if (call->getDir() == linphone::Call::Dir::Outgoing) {
 				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg B";
-				confData.legA->pause();
+				peerCall = confData.legA;
 			} else { // This is legA, pause legB
 				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg A";
-				confData.legB->pause();
+				peerCall = confData.legB;
 			}
+			auto peerCallParams = peerCall->getCurrentParams()->copy();
+			peerCallParams->setAudioDirection(linphone::MediaDirection::SendOnly);
+			peerCall->update(peerCallParams);
 		}
 			break;
 		case linphone::Call::State::UpdatedByRemote:
