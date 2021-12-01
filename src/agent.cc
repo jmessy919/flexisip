@@ -1048,10 +1048,11 @@ void Agent::injectResponseEvent(shared_ptr<ResponseSipEvent> ev) {
  * So we prefer an early abort with a stack trace.
  * Indeed, incoming tport is global in sofia and will be overwritten
  */
-static tport_t* getIncomingTport(const msg_t* orig, Agent* ag) {
-	tport_t* primaries = nta_agent_tports(ag->getSofiaAgent());
-	tport_t* tport = tport_delivered_by(primaries, orig);
-	if (!tport) LOGA("tport not found");
+tport_t *Agent::getIncomingTport(const msg_t *orig) {
+	tport_t *primaries = nta_agent_tports(getSofiaAgent());
+	tport_t *tport = tport_delivered_by(primaries, orig);
+	if (!tport)
+		LOGA("tport not found");
 	return tport;
 }
 
@@ -1064,10 +1065,10 @@ int Agent::onIncomingMessage(msg_t* msg, const sip_t* sip) {
 	// Assuming sip is derived from msg
 	auto ms = make_shared<MsgSip>(msg);
 	if (sip->sip_request) {
-		auto ev = make_shared<RequestSipEvent>(shared_from_this(), ms, getIncomingTport(msg, this));
+		auto ev = make_shared<RequestSipEvent>(shared_from_this(), ms, getIncomingTport(msg));
 		sendRequestEvent(ev);
 	} else {
-		auto ev = make_shared<ResponseSipEvent>(shared_from_this(), ms);
+		auto ev = make_shared<ResponseSipEvent>(shared_from_this(), ms,getIncomingTport(msg));
 		sendResponseEvent(ev);
 	}
 	printEventTailSeparator();

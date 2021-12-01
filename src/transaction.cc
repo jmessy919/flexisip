@@ -176,7 +176,7 @@ int OutgoingTransaction::_callback(nta_outgoing_magic_t* magic, nta_outgoing_t* 
 		msg_t* msg = nta_outgoing_getresponse(otr->mOutgoing);
 		auto oagent = dynamic_pointer_cast<OutgoingAgent>(otr->shared_from_this());
 		auto msgsip = make_shared<MsgSip>(msg);
-		shared_ptr<ResponseSipEvent> sipevent = make_shared<ResponseSipEvent>(oagent, msgsip);
+		shared_ptr<ResponseSipEvent> sipevent = make_shared<ResponseSipEvent>(oagent, msgsip,otr->mAgent->getIncomingTport(msg));
 		msg_destroy(msg);
 
 		otr->mAgent->sendResponseEvent(sipevent);
