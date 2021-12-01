@@ -98,6 +98,7 @@ void ConferenceServer::_init () {
 	configLinphone->setBool("rtp", "rtcp_enabled", true);
 	configLinphone->setBool("rtp", "rtcp_mux", true);
 	configLinphone->setBool("video", "dont_check_codecs", true);
+	configLinphone->setBool("net", "enable_nat_helper",false);// to make sure contact address is not fixed by belle-sip
 
 	mCore = linphone::Factory::get()->createCoreWithConfig(configLinphone, nullptr);
 
@@ -128,23 +129,21 @@ void ConferenceServer::_init () {
 
 	loadFactoryUris();
 	bool defaultProxyConfigSet = false;
-	std::list<std::string> uris{};
-	uris.insert(uris.begin(), mFactoryUris.begin(), mFactoryUris.end());
-	uris.insert(uris.begin(), mFocusUris.begin(), mFocusUris.end());
-	for (const auto &conferenceFactoryUri : uris){
-		auto addrProxy = Factory::get()->createAddress(conferenceFactoryUri);
+	for (const auto &conferenceServerUris : mConfServerUris){
+		auto factoryUri = Factory::get()->createAddress(conferenceServerUris.first);
+		auto focusUri= Factory::get()->createAddress(conferenceServerUris.second);
 		auto proxy = mCore->createProxyConfig();
-		proxy->setIdentityAddress(addrProxy);
+		proxy->setIdentityAddress(focusUri);
 		proxy->setRoute(config->get<ConfigString>("outbound-proxy")->read());
 		proxy->setServerAddr(config->get<ConfigString>("outbound-proxy")->read());
 		proxy->enableRegister(false);
-		proxy->setConferenceFactoryUri(conferenceFactoryUri);
+		proxy->setConferenceFactoryUri(factoryUri->asString());
 		mCore->addProxyConfig(proxy);
 		if (!defaultProxyConfigSet) {
 			defaultProxyConfigSet = true;
 			mCore->setDefaultProxyConfig(proxy);
 		}
-		mLocalDomains.push_back(addrProxy->getDomain());
+		mLocalDomains.push_back(factoryUri->getDomain());
 	}
 
 	/* Get additional local domains */
@@ -203,10 +202,20 @@ void ConferenceServer::loadFactoryUris() {
 
 	if (!conferenceFactoryUri.empty()) conferenceFactoryUris.push_back(conferenceFactoryUri);
 	if (conferenceFactoryUris.empty()) {
-		LOGF("'%s' parameter must be set!", conferenceFactoryUrisSetting->getCompleteName().c_str());
+		SLOGI <<  conferenceFactoryUrisSetting->getCompleteName() << " parameter must be set!";
 	}
-	mFactoryUris = conferenceFactoryUris;
-	mFocusUris = conferenceFocusUris;
+	auto focus_it = conferenceFocusUris.begin();
+	for (auto factoryUri :conferenceFactoryUris) {
+		if (focus_it != conferenceFocusUris.end()) {
+			mConfServerUris.push_back({factoryUri,*focus_it++});
+		} else if (mMediaConfig.audioEnabled  || mMediaConfig.videoEnabled) {
+			LOGF("Number of factory uri [%lu] must match number of focus uri [%lu]",conferenceFactoryUri.size(),conferenceFocusUris.size());
+		} else {
+			SLOGW <<"No focus uri provided using factory uri: [" <<factoryUri<<"]";
+			mConfServerUris.push_back({factoryUri,factoryUri});
+		}
+	}
+	
 }
 
 void ConferenceServer::onRegistrarDbWritable(bool writable) {
@@ -283,23 +292,35 @@ void ConferenceServer::bindConference() {
 	auto config = GenericManager::get()->getRoot()->get<GenericStruct>("conference-server");
 	if (config && config->get<ConfigBoolean>("enabled")->read()) {
 
-		for (string conferenceFactoryUri : mFactoryUris) {
+		for (auto conferenceFactoryUri : mConfServerUris){
 			try {
 				BindingParameters parameter;
-				sip_contact_t* sipContact = sip_contact_create(
-				    mHome.home(),
-				    reinterpret_cast<const url_string_t*>(url_make(mHome.home(), mTransport.str().c_str())), nullptr);
-				SipUri from(conferenceFactoryUri);
-
+				sip_contact_t* sipContact = sip_contact_create(mHome.home(),
+					reinterpret_cast<const url_string_t*>(url_make(mHome.home(), mTransport.str().c_str())), nullptr);
+				SipUri factory(conferenceFactoryUri.first);
+				SipUri focus(conferenceFactoryUri.second);
+				
 				parameter.callId = "CONFERENCE";
 				parameter.path = mPath;
 				parameter.globalExpire = numeric_limits<int>::max();
 				parameter.alias = false;
 				parameter.version = 0;
 
-				RegistrarDb::get()->bind(from, sipContact, parameter, listener);
-			} catch (const sofiasip::InvalidUrlError& e) {
-				LOGF("'conference-server' value isn't a SIP URI [%s]", conferenceFactoryUri.c_str());
+				RegistrarDb::get()->bind(
+					factory,
+					sipContact,
+					parameter,
+					listener
+				);
+				RegistrarDb::get()->bind(
+					focus,
+					sipContact,
+					parameter,
+					listener
+				);
+				
+			} catch (const sofiasip::InvalidUrlError &e) {
+				LOGF("'conference-server' value isn't a SIP URI [%s]", e.getUrl().c_str());
 			}
 		}
 	}
@@ -411,7 +432,6 @@ ConferenceServer::Init::Init() {
 	     "They are assumed to be local domains already.\n"
 	     "Ex: local-domains=sip.linphone.org conf.linphone.org linhome.org",
 	     ""},
-
 	    {String, "database-backend",
 	     "Choose the type of backend that linphone will use for the connection.\n"
 	     "Depending on your Soci package and the modules you installed, the supported databases are: "

@@ -126,8 +126,7 @@ namespace flexisip {
 		std::map<std::string, std::shared_ptr<Conference> > mConferences{};
 		ParticipantRegistrationSubscriptionHandler mSubscriptionHandler;
 		MediaConfig mMediaConfig;
-		std::list<std::string> mFactoryUris{};
-		std::list<std::string> mFocusUris{};
+		std::list<std::pair<std::string,std::string>> mConfServerUris{};
 		std::list<std::string> mLocalDomains{};
 		bool mAddressesBound = false;
 		bool mCheckCapabilities = false;

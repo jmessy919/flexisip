@@ -31,14 +31,24 @@ public:
 
 	~NatHelper() {
 	}
-
+	bool needToBeFixed(const shared_ptr<SipEvent> &ev) {
+		const shared_ptr<MsgSip> &ms = ev->getMsgSip();
+		sip_contact_t *ct = ms->getSip()->sip_contact;
+		tport_t *primary = tport_parent(ev->getIncomingTport().get());
+		return ct
+				&& !url_has_param(ct->m_url, mContactVerifiedParam.c_str())
+				&& !url_has_param(ct->m_url,"gr")
+				&& !msg_params_find(ct->m_params, "isfocus")
+				&& getAgent()->getInternalTport() != primary;
+	}
 	virtual void onRequest(shared_ptr<RequestSipEvent> &ev) {
 		shared_ptr<MsgSip> ms = ev->getMsgSip();
 		sip_t *sip = ms->getSip();
 		sip_request_t *rq = sip->sip_request;
 		/* if we receive a request whose first via is wrong (received or rport parameters are present),
 		fix any possible Contact headers with the same wrong ip address and ports */
-		fixContactFromVia(ms->getHome(), sip, sip->sip_via);
+		if (needToBeFixed(ev))
+			fixContactFromVia(ms->getHome(), sip, sip->sip_via);
 
 		// processing of requests that may establish a dialog.
 		if (rq->rq_method == sip_method_invite || rq->rq_method == sip_method_subscribe) {
@@ -69,7 +79,8 @@ public:
 			if (st->st_status >= 200 && st->st_status <= 299) {
 				sip_contact_t *ct = ms->getSip()->sip_contact;
 				if (ct) {
-					if (!url_has_param(ct->m_url, mContactVerifiedParam.c_str()) && !url_has_param(ct->m_url,"gr") && !msg_params_find(ct->m_params, "isfocus")) {
+					
+					if (needToBeFixed(ev)) {
 						fixContactInResponse(ms->getHome(), ms->getMsg(), ms->getSip());
 						url_param_add(ms->getHome(), ct->m_url, mContactVerifiedParam.c_str());
 					} else if (ms->getSip()->sip_via && ms->getSip()->sip_via->v_next && !ms->getSip()->sip_via->v_next->v_next) {
