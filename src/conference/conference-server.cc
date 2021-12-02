@@ -205,8 +205,7 @@ void ConferenceServer::loadFactoryUris() {
 		} else if (mMediaConfig.audioEnabled  || mMediaConfig.videoEnabled) {
 			LOGF("Number of factory uri [%lu] must match number of focus uri [%lu]",conferenceFactoryUri.size(),conferenceFocusUris.size());
 		} else {
-			SLOGW <<"No focus uri provided using factory uri: [" <<factoryUri<<"]";
-			mConfServerUris.push_back({factoryUri,factoryUri});
+			mConfServerUris.push_back({factoryUri,""});
 		}
 	}
 	
@@ -251,10 +250,10 @@ void ConferenceServer::onParticipantRegistrationUnsubscriptionRequested(
 void ConferenceServer::bindAddresses() {
 	if (mAddressesBound) return;
 
+	// Bind the conference factory address in the registrar DB
+	bindConference();
+	
 	if (mMediaConfig.textEnabled){
-		// Bind the conference factory address in the registrar DB
-		bindConference();
-
 		// Binding loaded chat room
 		for (const auto &chatRoom : mCore->getChatRooms()) {
 			if (chatRoom->getPeerAddress()->getUriParam("gr").empty()){
@@ -292,7 +291,7 @@ void ConferenceServer::bindConference() {
 				sip_contact_t* sipContact = sip_contact_create(mHome.home(),
 					reinterpret_cast<const url_string_t*>(url_make(mHome.home(), mTransport.str().c_str())), nullptr);
 				SipUri factory(conferenceFactoryUri.first);
-				SipUri focus(conferenceFactoryUri.second);
+				
 				
 				parameter.callId = "CONFERENCE";
 				parameter.path = mPath;
@@ -306,12 +305,15 @@ void ConferenceServer::bindConference() {
 					parameter,
 					listener
 				);
-				RegistrarDb::get()->bind(
-					focus,
-					sipContact,
-					parameter,
-					listener
-				);
+				if (!conferenceFactoryUri.second.empty()){
+					SipUri focus(conferenceFactoryUri.second);
+					RegistrarDb::get()->bind(
+						focus,
+						sipContact,
+						parameter,
+						listener
+					);
+				}
 				
 			} catch (const sofiasip::InvalidUrlError &e) {
 				LOGF("'conference-server' value isn't a SIP URI [%s]", e.getUrl().c_str());

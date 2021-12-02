@@ -1223,7 +1223,7 @@ void RegistrarDb::bind(const MsgSip &sipMsg, const BindingParameters &parameter,
 		listener->onError();
 		return;
 	}
-
+	LOGI("RegistrarDb: binding %s", SipUri(sipMsg.getSip()->sip_from->a_url).str().c_str());
 	doBind(msgCopy, parameter.globalExpire, parameter.alias, parameter.version, listener);
 }
 
