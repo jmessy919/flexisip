@@ -403,7 +403,7 @@ void ConferenceServer::initStaticConferences(){
 	shared_ptr<linphone::Address> confUri = identity->clone();
 	for (i = 0 ; i < 10 ; ++i){
 		ostringstream ostr;
-		ostr << "video-conference-" << i;
+		ostr << "video-conference2-" << i;
 		confUri->setUsername(ostr.str());
 		createConference(confUri);
 	}
