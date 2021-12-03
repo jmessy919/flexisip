@@ -122,20 +122,32 @@ void ConferenceServer::_init () {
 	mCore->setNatPolicy(natPolicy);
 
 	loadFactoryUris();
-	bool defaultProxyConfigSet = false;
+	
+	auto outboundProxy = config->get<ConfigString>("outbound-proxy")->read();
+	auto outboundProxyAddress = Factory::get()->createAddress(outboundProxy);
+	if (!outboundProxyAddress){
+		LOGF("Invalid outbound-proxy value '%s'", outboundProxy.c_str());
+	}
+	bool defaultAccountSet = false;
 	for (const auto &conferenceServerUris : mConfServerUris){
 		auto factoryUri = Factory::get()->createAddress(conferenceServerUris.first);
-		auto focusUri= Factory::get()->createAddress(conferenceServerUris.second);
-		auto proxy = mCore->createProxyConfig();
-		proxy->setIdentityAddress(focusUri);
-		proxy->setRoute(config->get<ConfigString>("outbound-proxy")->read());
-		proxy->setServerAddr(config->get<ConfigString>("outbound-proxy")->read());
-		proxy->enableRegister(false);
-		proxy->setConferenceFactoryUri(factoryUri->asString());
-		mCore->addProxyConfig(proxy);
-		if (!defaultProxyConfigSet) {
-			defaultProxyConfigSet = true;
-			mCore->setDefaultProxyConfig(proxy);
+		auto accountParams = mCore->createAccountParams();
+		
+		if (!conferenceServerUris.second.empty()){
+			auto focusUri= Factory::get()->createAddress(conferenceServerUris.second);
+			accountParams->setIdentityAddress(focusUri);
+		}else{
+			accountParams->setIdentityAddress(factoryUri);
+		}
+		accountParams->setServerAddress(outboundProxyAddress);
+		accountParams->setRegisterEnabled(false);
+		accountParams->setOutboundProxyEnabled(true);
+		accountParams->setConferenceFactoryUri(factoryUri->asString());
+		auto account = mCore->createAccount(accountParams);
+		mCore->addAccount(account);
+		if (!defaultAccountSet){
+			defaultAccountSet = true;
+			mCore->setDefaultAccount(account);
 		}
 		mLocalDomains.push_back(factoryUri->getDomain());
 	}
@@ -251,7 +263,7 @@ void ConferenceServer::bindAddresses() {
 	if (mAddressesBound) return;
 
 	// Bind the conference factory address in the registrar DB
-	bindConference();
+	bindFactoryUris();
 	
 	if (mMediaConfig.textEnabled){
 		// Binding loaded chat room
@@ -264,12 +276,15 @@ void ConferenceServer::bindAddresses() {
 		}
 	}
 	if (mMediaConfig.audioEnabled || mMediaConfig.videoEnabled){
+		/* Bind focus URIs */
+		bindFocusUris();
+		/* Initialize static conferences - to be removed */
 		initStaticConferences();
 	}
 	mAddressesBound = true;
 }
 
-void ConferenceServer::bindConference() {
+void ConferenceServer::bindFactoryUris() {
 	class FakeListener : public ContactUpdateListener {
 		void onRecordFound(const shared_ptr<Record>& r) override {
 		}
@@ -282,43 +297,92 @@ void ConferenceServer::bindConference() {
 		}
 	};
 	shared_ptr<FakeListener> listener = make_shared<FakeListener>();
-	auto config = GenericManager::get()->getRoot()->get<GenericStruct>("conference-server");
-	if (config && config->get<ConfigBoolean>("enabled")->read()) {
 
-		for (auto conferenceFactoryUri : mConfServerUris){
-			try {
-				BindingParameters parameter;
-				sip_contact_t* sipContact = sip_contact_create(mHome.home(),
-					reinterpret_cast<const url_string_t*>(url_make(mHome.home(), mTransport.str().c_str())), nullptr);
-				SipUri factory(conferenceFactoryUri.first);
-				
-				
-				parameter.callId = "CONFERENCE";
-				parameter.path = mPath;
-				parameter.globalExpire = numeric_limits<int>::max();
-				parameter.alias = false;
-				parameter.version = 0;
+	for (auto conferenceFactoryUri : mConfServerUris){
+		try {
+			BindingParameters parameter;
+			sip_contact_t* sipContact = sip_contact_create(mHome.home(),
+				reinterpret_cast<const url_string_t*>(url_make(mHome.home(), mTransport.str().c_str())), nullptr);
+			SipUri factory(conferenceFactoryUri.first);
+			
+			
+			parameter.callId = "CONFERENCE";
+			parameter.path = mPath;
+			parameter.globalExpire = numeric_limits<int>::max();
+			parameter.alias = false;
+			parameter.version = 0;
 
-				RegistrarDb::get()->bind(
-					factory,
-					sipContact,
-					parameter,
-					listener
-				);
-				if (!conferenceFactoryUri.second.empty()){
-					SipUri focus(conferenceFactoryUri.second);
-					RegistrarDb::get()->bind(
-						focus,
-						sipContact,
-						parameter,
-						listener
-					);
-				}
-				
-			} catch (const sofiasip::InvalidUrlError &e) {
-				LOGF("'conference-server' value isn't a SIP URI [%s]", e.getUrl().c_str());
-			}
+			RegistrarDb::get()->bind(
+				factory,
+				sipContact,
+				parameter,
+				listener
+			);
+			
+		} catch (const sofiasip::InvalidUrlError &e) {
+			LOGF("'conference-server' value isn't a SIP URI [%s]", e.getUrl().c_str());
 		}
+	}
+}
+
+void ConferenceServer::bindFocusUris() {
+	class FocusListener : public ContactUpdateListener {
+	public:
+		FocusListener(const shared_ptr<Account> &account) : mAccount(account){
+		}
+		void onRecordFound(const shared_ptr<Record> &r) override {
+			if (r->getExtendedContacts().empty()) {
+				LOGF("Focus address bind failed.");
+				return;
+			}
+			const shared_ptr<ExtendedContact> ec = r->getExtendedContacts().front();
+			url_t *pub_gruu = r->getPubGruu(ec, mHome.home());
+			if (!pub_gruu) {
+				LOGF("Focus binding does not have public gruu.");
+				return;
+			}
+			shared_ptr<linphone::Address> gruuAddr = linphone::Factory::get()->createAddress(
+				url_as_string(mHome.home(), pub_gruu));
+			LOGI("Focus address [%s] is bound.", gruuAddr->asStringUriOnly().c_str());
+			mAccount->setContactAddress(gruuAddr);
+		}
+		void onError() override {}
+		void onInvalid() override {}
+		void onContactUpdated(const shared_ptr<ExtendedContact> &ec) override {
+			SLOGD << "ConferenceServer: ExtendedContact contactId=" << ec->contactId() << " callId=" << ec->callId();
+		}
+	private:
+		shared_ptr<Account> mAccount;
+	};
+	string uuid = mCore->getConfig()->getString("misc", "uuid", "");
+	
+	for (auto account : mCore->getAccountList()){
+		BindingParameters parameter;
+		auto identityAddress = account->getParams()->getIdentityAddress();
+		auto factoryAddress = Factory::get()->createAddress(account->getParams()->getConferenceFactoryUri());
+		
+		if (identityAddress->equal(factoryAddress)) continue;
+		
+		sip_contact_t* sipContact = sip_contact_create(mHome.home(),
+			reinterpret_cast<const url_string_t*>(url_make(mHome.home(), mTransport.str().c_str())),
+		!uuid.empty() ? su_strdup(mHome.home(), ("+sip.instance=" + UriUtils::grToUniqueId(uuid) ).c_str()) : nullptr, nullptr);
+		
+		parameter.callId = "CONFERENCE";
+		parameter.path = mPath;
+		parameter.globalExpire = numeric_limits<int>::max();
+		parameter.alias = false;
+		parameter.version = 0;
+		parameter.withGruu = true;
+
+		SipUri focus(account->getParams()->getIdentityAddress()->asStringUriOnly());
+		shared_ptr<FocusListener> listener = make_shared<FocusListener>(account);
+		RegistrarDb::get()->bind(
+			focus,
+			sipContact,
+			parameter,
+			listener
+		);
+			
 	}
 }
 
@@ -394,8 +458,8 @@ void ConferenceServer::createConference(const shared_ptr<const linphone::Address
 void ConferenceServer::initStaticConferences(){
 	int i;
 
-	shared_ptr<linphone::ProxyConfig> proxyConfig = mCore->getDefaultProxyConfig();
-	shared_ptr<const linphone::Address> identity = proxyConfig->getIdentityAddress();
+	shared_ptr<linphone::Account> account = mCore->getDefaultAccount();
+	shared_ptr<const linphone::Address> identity = account->getParams()->getIdentityAddress();
 	shared_ptr<linphone::Address> confUri = identity->clone();
 	for (i = 0 ; i < 10 ; ++i){
 		ostringstream ostr;

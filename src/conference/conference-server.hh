@@ -52,9 +52,10 @@ namespace flexisip {
 		);
 
 		/**
-		 * Bind conference on the registrardb
+		 * Bind conference factory uris and focus uris on the registrardb
 		**/
-		void bindConference ();
+		void bindFactoryUris ();
+		void bindFocusUris();
 
 		bool capabilityCheckEnabled()const{
 			return mCheckCapabilities;
