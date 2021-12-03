@@ -41,22 +41,25 @@ shared_ptr<ForkMessageContext> ForkMessageContext::make(Agent* agent,
                                                         const std::shared_ptr<RequestSipEvent>& event,
                                                         const std::shared_ptr<ForkContextConfig>& cfg,
                                                         const std::weak_ptr<ForkContextListener>& listener,
-                                                        const std::weak_ptr<StatPair>& counter,
-                                                        bool isProxyfied) {
+                                                        const std::weak_ptr<StatPair>& counter) {
 	// new because make_shared require a public constructor.
-	shared_ptr<ForkMessageContext> shared{
-	    new ForkMessageContext(agent, event, cfg, listener, counter, false, isProxyfied)};
+	shared_ptr<ForkMessageContext> shared{new ForkMessageContext(agent, event, cfg, listener, counter, false)};
 	return shared;
 }
 
 shared_ptr<ForkMessageContext> ForkMessageContext::make(Agent* agent,
-                                                        const std::shared_ptr<RequestSipEvent>& event,
                                                         const std::shared_ptr<ForkContextConfig>& cfg,
                                                         const std::weak_ptr<ForkContextListener>& listener,
                                                         const std::weak_ptr<StatPair>& counter,
                                                         ForkMessageContextDb& forkFromDb) {
+	auto msgSipFromDB =
+	    make_shared<MsgSip>(msg_make(sip_default_mclass(), 0, forkFromDb.request.c_str(), forkFromDb.request.size()));
+	auto requestSipEventFromDb =
+	    RequestSipEvent::makeRestored(agent->shared_from_this(), msgSipFromDB, agent->findModule("Router"));
+
 	// new because make_shared require a public constructor.
-	shared_ptr<ForkMessageContext> shared{new ForkMessageContext(agent, event, cfg, listener, counter, true, true)};
+	shared_ptr<ForkMessageContext> shared{
+	    new ForkMessageContext(agent, requestSipEventFromDb, cfg, listener, counter, true)};
 	shared->mIsMessage = forkFromDb.isMessage;
 	shared->mFinished = forkFromDb.isFinished;
 	shared->mDeliveredCount = forkFromDb.deliveredCount;
@@ -85,8 +88,7 @@ ForkMessageContext::ForkMessageContext(Agent* agent,
                                        const std::shared_ptr<ForkContextConfig>& cfg,
                                        const std::weak_ptr<ForkContextListener>& listener,
                                        const std::weak_ptr<StatPair>& counter,
-                                       bool isRestored,
-                                       bool isProxyfied)
+                                       bool isRestored)
     : ForkContextBase(agent, event, cfg, listener, counter, isRestored) {
 	if (!isRestored) {
 		LOGD("New ForkMessageContext %p", this);
@@ -107,7 +109,7 @@ ForkMessageContext::~ForkMessageContext() {
 }
 
 bool ForkMessageContext::shouldFinish() {
-	return mCfg->mForkLate ? false : true; // the messaging fork context controls its termination in late forking mode.
+	return !mCfg->mForkLate; // the messaging fork context controls its termination in late forking mode.
 }
 
 void ForkMessageContext::checkFinished() {
@@ -298,11 +300,16 @@ ForkMessageContextDb ForkMessageContext::getDbObject() {
 	dbObject.expirationDate = *gmtime(&mExpirationDate);
 	dbObject.request = mEvent->getMsgSip()->print();
 	dbObject.dbKeys.insert(dbObject.dbKeys.end(), mKeys.begin(), mKeys.end());
-	for (const auto& waitingBranch  : mWaitingBranches) {
+	for (const auto& waitingBranch : mWaitingBranches) {
 		dbObject.dbBranches.push_back(waitingBranch->getDbObject());
 	}
 
 	return dbObject;
+}
+
+void ForkMessageContext::clearReferences() {
+	ForkContextBase::clearReferences();
+	mLateTimer.reset();
 }
 
 void ForkMessageContext::restoreBranch(const BranchInfoDb& dbBranch) {

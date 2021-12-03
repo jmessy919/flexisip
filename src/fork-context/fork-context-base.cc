@@ -386,9 +386,17 @@ const shared_ptr<RequestSipEvent> & ForkContextBase::getEvent() {
 }
 
 void ForkContextBase::onFinished() {
+	clearReferences();
+
+	if (auto listener = mListener.lock()) {
+		listener->onForkContextFinished(shared_from_this());
+	}
+}
+
+
+void ForkContextBase::clearReferences() {
 	mFinishTimer.reset();
 
-	// force references to be loosed immediately, to avoid circular dependencies.
 	mEvent.reset();
 	mIncoming.reset();
 
@@ -397,10 +405,6 @@ void ForkContextBase::onFinished() {
 
 	for_each(mCurrentBranches.begin(), mCurrentBranches.end(), mem_fn(&BranchInfo::clear));
 	mCurrentBranches.clear();
-
-	if (auto listener = mListener.lock()) {
-		listener->onForkContextFinished(shared_from_this());
-	}
 }
 
 void ForkContextBase::setFinished() {

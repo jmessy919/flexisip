@@ -139,6 +139,11 @@ public:
 		return mFinished;
 	};
 
+	/**
+	 *	Force references to be loosed immediately, to avoid circular dependencies.
+	 */
+	virtual void clearReferences();
+
 	static const int sUrgentCodes[];
 	static const int sAllCodesUrgent[];
 };
