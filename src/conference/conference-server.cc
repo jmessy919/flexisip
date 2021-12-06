@@ -91,6 +91,9 @@ void ConferenceServer::_init () {
 		configLinphone->setString("storage", "uri", "null");
 		
 	}
+
+// TODO: delete - set preferred layout to Grid
+	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::Grid));
 	configLinphone->setInt("misc", "max_calls", 1000);
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
 	configLinphone->setInt("sound", "conference_rate", 48000);
