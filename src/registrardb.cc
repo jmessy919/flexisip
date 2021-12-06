@@ -159,7 +159,7 @@ string Record::extractUniqueId(const sip_contact_t *contact) {
 	return "";
 }
 
-const shared_ptr<ExtendedContact> Record::extractContactByUniqueId(string uid) {
+const shared_ptr<ExtendedContact> Record::extractContactByUniqueId(const string &uid) {
 	const auto contacts = getExtendedContacts();
 	for (auto it = contacts.begin(); it != contacts.end(); ++it) {
 		const shared_ptr<ExtendedContact> ec = *it;

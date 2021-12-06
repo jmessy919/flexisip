@@ -16,6 +16,9 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sstream>
+#include <fstream>
+
 #include <belle-sip/utils.h>
 
 #include <flexisip/configmanager.hh>
@@ -102,6 +105,9 @@ void ConferenceServer::_init () {
 	configLinphone->setBool("rtp", "rtcp_mux", true);
 	configLinphone->setBool("video", "dont_check_codecs", true);
 	configLinphone->setBool("net", "enable_nat_helper",false);// to make sure contact address is not fixed by belle-sip
+	
+	string uuid = readUuid();
+	if (!uuid.empty()) configLinphone->setString("misc", "uuid", uuid); 
 
 	mCore = linphone::Factory::get()->createCoreWithConfig(configLinphone, nullptr);
 
@@ -168,6 +174,13 @@ void ConferenceServer::_init () {
 	Status err = mCore->start();
 	if (err == -2) LOGF("Linphone Core couldn't start because the connection to the database has failed");
 	if (err < 0) LOGF("Linphone Core starting failed");
+	
+	if (uuid.empty()){
+		// In case no uuid was set in persistent state directory, take the one randomly choosen by Liblinphone.
+		writeUuid(configLinphone->getString("misc", "uuid", ""));
+	}else if (configLinphone->getString("misc", "uuid", "") != uuid){
+		LOGF("Unconsistent uuid");
+	}
 
 	RegistrarDb::get()->addStateListener(shared_from_this());
 	if (RegistrarDb::get()->isWritable()){
@@ -244,11 +257,15 @@ void ConferenceServer::onChatRoomStateChanged(const shared_ptr<Core>& lc,
 
 void ConferenceServer::onConferenceAddressGeneration (const shared_ptr<ChatRoom> & cr) {
 	shared_ptr<Config> config = mCore->getConfig();
-	string uuid = config->getString("misc", "uuid", "");
 	shared_ptr<Address> confAddr = cr->getConferenceAddress()->clone();
 	LOGI("Conference address is %s", confAddr->asString().c_str());
-	shared_ptr<ConferenceAddressGenerator> generator =
-	    make_shared<ConferenceAddressGenerator>(cr, confAddr, uuid, mPath, this);
+	shared_ptr<ConferenceAddressGenerator> generator = make_shared<ConferenceAddressGenerator>(
+		cr,
+		confAddr,
+		getUuid(),
+		mPath,
+		this
+	);
 	generator->run();
 }
 
@@ -331,17 +348,21 @@ void ConferenceServer::bindFactoryUris() {
 void ConferenceServer::bindFocusUris() {
 	class FocusListener : public ContactUpdateListener {
 	public:
-		FocusListener(const shared_ptr<Account> &account) : mAccount(account){
+		FocusListener(const shared_ptr<Account> &account, const string &uuid) : mAccount(account), mUuid(uuid){
 		}
 		void onRecordFound(const shared_ptr<Record> &r) override {
 			if (r->getExtendedContacts().empty()) {
 				LOGF("Focus address bind failed.");
 				return;
 			}
-			const shared_ptr<ExtendedContact> ec = r->getExtendedContacts().front();
+			shared_ptr<ExtendedContact> ec = r->extractContactByUniqueId(UriUtils::grToUniqueId(mUuid));
+			if (!ec){
+				LOGA("Focus uri was not recorded in registrar database.");
+				return;
+			}
 			url_t *pub_gruu = r->getPubGruu(ec, mHome.home());
 			if (!pub_gruu) {
-				LOGF("Focus binding does not have public gruu.");
+				LOGA("Focus binding does not have public gruu.");
 				return;
 			}
 			shared_ptr<linphone::Address> gruuAddr = linphone::Factory::get()->createAddress(
@@ -356,8 +377,9 @@ void ConferenceServer::bindFocusUris() {
 		}
 	private:
 		shared_ptr<Account> mAccount;
+		const string mUuid;
 	};
-	string uuid = mCore->getConfig()->getString("misc", "uuid", "");
+	string uuid = getUuid();
 	
 	for (auto account : mCore->getAccountList()){
 		BindingParameters parameter;
@@ -378,7 +400,7 @@ void ConferenceServer::bindFocusUris() {
 		parameter.withGruu = true;
 
 		SipUri focus(account->getParams()->getIdentityAddress()->asStringUriOnly());
-		shared_ptr<FocusListener> listener = make_shared<FocusListener>(account);
+		shared_ptr<FocusListener> listener = make_shared<FocusListener>(account, uuid);
 		RegistrarDb::get()->bind(
 			focus,
 			sipContact,
@@ -535,6 +557,43 @@ ConferenceServer::Init::Init() {
 	s->get<ConfigString>("conference-factory-uri")
 	    ->setDeprecated({"2020-09-30", "2.1.0",
 	                     "Use 'conference-factory-uris' instead, that allows to declare multiple factory uris."});
+}
+
+string ConferenceServer::getUuidFilePath()const{
+	return string(DEFAULT_VAR_LIB_DIR) + string("/flexisip/") + string(sUuidFile);
+}
+
+const string &ConferenceServer::readUuid(){
+	ifstream fi;
+	mUuid = "";
+	string path = getUuidFilePath();
+	fi.open(path);
+	if (!fi.is_open()){
+		LOGD("Cannot open uuid file %s: %s", path.c_str(), strerror(errno));
+		return mUuid;
+	}
+	fi >> mUuid;
+	fi.close();
+	LOGD("Using uuid '%s'", mUuid.c_str());
+	return mUuid;
+}
+
+void ConferenceServer::writeUuid(const string & uuid){
+	ofstream fo;
+	mUuid = uuid;
+	string path = getUuidFilePath();
+	fo.open(path);
+	if (!fo.is_open()){
+		LOGE("Cannot open uuid file %s: %s", path.c_str(), strerror(errno));
+		return;
+	}
+	fo << uuid;
+	fo.close();
+}
+
+std::string ConferenceServer::getUuid(){
+	if (mUuid.empty()) mUuid = mCore->getConfig()->getString("misc", "uuid", "");
+	return mUuid;
 }
 
 } // namespace flexisip

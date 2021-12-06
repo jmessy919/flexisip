@@ -233,7 +233,7 @@ class Record {
 	const SipUri &getAor() const {return mAor;}
 
 	void insertOrUpdateBinding(const std::shared_ptr<ExtendedContact> &ec, const std::shared_ptr<ContactUpdateListener> &listener);
-	const std::shared_ptr<ExtendedContact> extractContactByUniqueId(std::string uid);
+	const std::shared_ptr<ExtendedContact> extractContactByUniqueId(const std::string &uid);
 	sip_contact_t *getContacts(su_home_t *home, time_t now);
 	void pushContact(const std::shared_ptr<ExtendedContact> &ct) {mContacts.push_back(ct);}
 
