@@ -28,6 +28,8 @@
 #include "registration-subscription.hh"
 #include "service-server.hh"
 
+#define DEFAULT_VAR_LIB_DIR "/var/opt/belledonne-communications/lib"
+
 namespace flexisip {
 	class Conference;
 
@@ -94,12 +96,11 @@ namespace flexisip {
 			const std::shared_ptr<linphone::ChatRoom> &cr,
 			linphone::ChatRoom::State state
 		) override;
-
-	 void onConferenceStateChanged (
+		void onConferenceStateChanged (
 		 const std::shared_ptr<linphone::Core> & core,
 		 const std::shared_ptr<linphone::Conference> & conference,
 		 linphone::Conference::State state
-	 ) override;
+		) override;
 
 		// ChatRoomListener implementation
 		void onConferenceAddressGeneration (const std::shared_ptr<linphone::ChatRoom> &cr) override;
@@ -119,6 +120,10 @@ namespace flexisip {
 		void enableSelectedCodecs(const std::list<std::shared_ptr<linphone::PayloadType>>& codecs, const std::list<std::string> &mimeTypes);
 		void initStaticConferences();
 		void createConference(const std::shared_ptr<const linphone::Address> & address);
+		std::string getUuidFilePath() const;
+		const std::string & readUuid();
+		void writeUuid(const std::string & uuid);
+		std::string getUuid();
 		std::shared_ptr<linphone::Core> mCore{};
 		std::shared_ptr<RegistrationEvent::ClientFactory> mRegEventClientFactory{};
 		std::string mPath{};
@@ -129,8 +134,10 @@ namespace flexisip {
 		MediaConfig mMediaConfig;
 		std::list<std::pair<std::string,std::string>> mConfServerUris{};
 		std::list<std::string> mLocalDomains{};
+		std::string mUuid;
 		bool mAddressesBound = false;
 		bool mCheckCapabilities = false;
+		static constexpr const char * sUuidFile = "uuid";
 		
 		// Used to declare the service configuration
 		class Init {
