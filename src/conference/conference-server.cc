@@ -410,6 +410,7 @@ void ConferenceServer::onCallStateChanged(const std::shared_ptr<linphone::Core> 
 						const std::shared_ptr<linphone::Call> & call, 
 				  linphone::Call::State cstate, const std::string & message){
 
+/*
 	auto to = call->getToAddress();
 	auto remoteParams = call->getRemoteParams();
 	
@@ -448,6 +449,7 @@ void ConferenceServer::onCallStateChanged(const std::shared_ptr<linphone::Core> 
 		default:
 		break;
 	}
+*/
 }
 
 void ConferenceServer::createConference(const shared_ptr<const linphone::Address> &address){
