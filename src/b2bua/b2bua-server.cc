@@ -20,16 +20,83 @@
 #include "flexisip/logmanager.hh"
 #include "flexisip/utils/sip-uri.hh"
 #include "flexisip/configmanager.hh"
+
+#include <mediastreamer2/ms_srtp.h>
 using namespace std;
 using namespace linphone;
 
+
+// unamed namespace for local functions
+namespace {
+	/**
+	 * convert a configuration string to a linphone::MediaEncryption
+	 *
+	 * @param[in]	configString	the configuration string, one of: zrtp, sdes, dtls-srtp, none
+	 * @param[out]	encryptionMode	the converted value, None if the input string was invalid
+	 * @return		true if the given string is valid, false otherwise
+	 **/
+	bool string2MediaEncryption(const std::string configString, linphone::MediaEncryption &encryptionMode) {
+		if (configString == std::string{"zrtp"}) { encryptionMode = linphone::MediaEncryption::ZRTP; return true;}
+		if (configString == std::string{"sdes"}) { encryptionMode = linphone::MediaEncryption::SRTP; return true;}
+		if (configString == std::string{"dtls-srtp"}) { encryptionMode = linphone::MediaEncryption::DTLS; return true;}
+		if (configString == std::string{"none"}) { encryptionMode = linphone::MediaEncryption::None; return true;}
+		encryptionMode = linphone::MediaEncryption::None;
+		return false;
+	}
+
+	std::string MediaEncryption2string(const linphone::MediaEncryption mode) {
+		switch (mode) {
+			case linphone::MediaEncryption::ZRTP: return "zrtp";
+			case linphone::MediaEncryption::SRTP: return "sdes";
+			case linphone::MediaEncryption::DTLS: return "dtls-srtp";
+			case linphone::MediaEncryption::None: return "none";
+		}
+		return "Error - MediaEncryption2string is missing a case of MediaEncryption value";
+	}
+
+	/**
+	 * Explode a string into a vector of strings according to a delimiter
+	 *
+	 * @param[in]	s 			the string to explode
+	 * @param[in]	delimiter	the delimiter to use
+	 * @return	a vector of strings
+	 */
+	std::vector<std::string> explode(const std::string& s, char delimiter)
+	{
+		std::vector<std::string> tokens;
+		std::string token;
+		std::istringstream tokenStream(s);
+		while (std::getline(tokenStream, token, delimiter))
+		{
+			tokens.push_back(token);
+		}
+		return tokens;
+	}
+}
+
 namespace flexisip {
-struct b2buaServerConfData {
-public:
-    std::shared_ptr<linphone::Call> legA;
-    std::shared_ptr<linphone::Call> legB;
-    std::shared_ptr<linphone::Conference> conf;
-};
+
+// b2bua namespace to declare internal structures
+namespace b2bua {
+	struct encryptionConfiguration {
+		linphone::MediaEncryption mode;
+		std::regex pattern; /**< regular expression applied on the callee sip address, when matched, the associated mediaEncryption mode is used on the output call */
+		std::string stringPattern; /**< a string version of the pattern for log purpose as the std::regex does not carry it*/
+		encryptionConfiguration(linphone::MediaEncryption p_mode, std::string p_pattern): mode(p_mode), pattern(p_pattern), stringPattern(p_pattern) {};
+	};
+	struct srtpConfiguration {
+		std::list<MSCryptoSuite> suites;
+		std::regex pattern; /**< regular expression applied on the callee sip address, when matched, the associated SRTP suites are used */
+		std::string stringPattern;/**< a string version of the pattern for log purposes as the std::regex does not carry it */
+		srtpConfiguration(std::list<MSCryptoSuite> p_suites, std::string p_pattern): suites(p_suites), pattern(p_pattern), stringPattern(p_pattern) {};
+	};
+
+	struct callsRefs {
+		std::shared_ptr<linphone::Call> legA;
+		std::shared_ptr<linphone::Call> legB;
+		std::shared_ptr<linphone::Conference> conf;
+	};
+}
 
 
 B2buaServer::Init B2buaServer::sStaticInit; // The Init object is instanciated to load the config
@@ -71,13 +138,30 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 	switch (state) {
 		case linphone::Call::State::IncomingReceived:
 			{
-			LOGD("b2bua server onCallStateChanged incomingReceived, to %s from %s", call->getToAddress()->asString().c_str(), call->getRemoteAddress()->asString().c_str());
+			auto calleeAddress = call->getToAddress()->asString();
+			auto calleeAddressUriOnly = call->getToAddress()->asStringUriOnly();
+			auto callerAddress = call->getRemoteAddress()->asString();
+			SLOGD<<"b2bua server onCallStateChanged incomingReceived, to "<<calleeAddress<<" from "<<callerAddress;
 			// Create outgoing call using parameters created from the incoming call in order to avoid duplicating the callId
 			auto outgoingCallParams = mCore->createCallParams(nullptr); //(call);
 			// add this custom header so this call will not be intercepted by the b2bua
 			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
-			//outgoingCallParams->addCustomHeader("From", call->getRemoteAddress()->asString()+";tag=tototo");
-			outgoingCallParams->setFromHeader(call->getRemoteAddress()->asString());
+			outgoingCallParams->setFromHeader(callerAddress);
+
+			// select an outgoing encryption
+			bool outgoingEncryptionSet = false;
+			for (auto &outEncSetting: mOutgoingEncryption) {
+				if (std::regex_match(calleeAddressUriOnly, outEncSetting.pattern)) {
+					SLOGD<<"b2bua server: call to "<<calleeAddressUriOnly<<" matches regex "<<outEncSetting.stringPattern<<" assign encryption mode "<<MediaEncryption2string(outEncSetting.mode);
+					outgoingCallParams->setMediaEncryption(outEncSetting.mode);
+					outgoingEncryptionSet = true;
+					break; // stop at the first matching regexp
+				}
+			}
+			if (outgoingEncryptionSet == false) {
+				SLOGD<<"b2bua server: call to "<<calleeAddressUriOnly<<" uses default outgoing encryption setting : "<<MediaEncryption2string(mDefaultOutgoingEncryption);
+				outgoingCallParams->setMediaEncryption(mDefaultOutgoingEncryption);
+			}
 
 			// create a conference and attach it
 			auto conferenceParams = mCore->createConferenceParams();
@@ -99,14 +183,14 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			conference->addParticipant(call);
 
 			// store shared pointer to the conference and each call
-			auto confData = new b2buaServerConfData();
+			auto confData = new b2bua::callsRefs();
 			confData->conf=conference;
 			confData->legA = call;
 			confData->legB = legB;
 
 			// store ref on each other call
-			call->setData<flexisip::b2buaServerConfData>(B2buaServer::confKey, *confData);
-			legB->setData<flexisip::b2buaServerConfData>(B2buaServer::confKey, *confData);
+			call->setData<b2bua::callsRefs>(B2buaServer::confKey, *confData);
+			legB->setData<b2bua::callsRefs>(B2buaServer::confKey, *confData);
 			SLOGD<<"B2bua: End of Incoming call received, conf data is "<< confData;
 			}
 			break;
@@ -119,7 +203,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::OutgoingRinging:
 		{
 			// This is legB getting its ring from callee, relay it to the legA call
-			auto &confData = call ->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			auto &confData = call ->getData<b2bua::callsRefs>(B2buaServer::confKey);
 			SLOGD<<"b2bua server onCallStateChanged OutGoingRinging from legB";
 			confData.legA->notifyRinging();
 		}
@@ -127,7 +211,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::OutgoingEarlyMedia:
 		{
 			// LegB call sends early media: relay a 180
-			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
 			SLOGD<<"b2bua server onCallStateChanged OutGoing Early media from legB";
 			confData.legA->notifyRinging();
 		}
@@ -137,7 +221,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			// If legB is in connected state, answer legA call
 			if (call->getDir() == linphone::Call::Dir::Outgoing) {
 				SLOGD<<"b2bua server onCallStateChanged Connected: leg B -> answer legA";
-				auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+				auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
 				auto incomingCallParams = mCore->createCallParams(confData.legA);
 				// add this custom header so this call will not be intercepted by the b2bua
 				incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
@@ -147,19 +231,20 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			break;
 		case linphone::Call::State::StreamsRunning:
 		{
-			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
 			std::shared_ptr<linphone::Call> peerCall = nullptr;
 			// get peerCall
 			if (call->getDir() == linphone::Call::Dir::Outgoing) {
-				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg B";
+				SLOGD<<"b2bua server onCallStateChanged: leg B";
 				peerCall = confData.legA;
 			} else { // This is legA, pause legB
-				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg A";
+				SLOGD<<"b2bua server onCallStateChanged: leg A";
 				peerCall = confData.legB;
 			}
 			// if we are in StreamsRunning but peer is sendonly we likely arrived here after resuming from pausedByRemote
 			// update peer back to recvsend
 			if (peerCall->getCurrentParams()->getAudioDirection() == linphone::MediaDirection::SendOnly) {
+				SLOGD<<"b2bua server onCallStateChanged: peer call is paused, update it to resume";
 				auto peerCallParams = peerCall->getCurrentParams()->copy();
 				peerCallParams->setAudioDirection(linphone::MediaDirection::SendRecv);
 				peerCall->update(peerCallParams);
@@ -182,7 +267,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			// If there are some data in that call, it is the first one to end
 			if (call->dataExists(B2buaServer::confKey)) {
 				SLOGD<<"B2bua end call: There is a confData in that ending call";
-				auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+				auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
 				// unset data everywhere it wasa stored
 				confData.legA->unsetData(B2buaServer::confKey);
 				confData.legB->unsetData(B2buaServer::confKey);
@@ -200,7 +285,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		{
 			// Paused by remote: do not pause peer call as it will kick it out of the conference
 			// just switch the media direction to sendOnly
-			auto &confData = call->getData<flexisip::b2buaServerConfData>(B2buaServer::confKey);
+			auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
 			std::shared_ptr<linphone::Call> peerCall = nullptr;
 			// Is this the legB call?
 			if (call->getDir() == linphone::Call::Dir::Outgoing) {
@@ -239,8 +324,8 @@ void B2buaServer::_init () {
 	configLinphone->setInt("misc", "media_resources_mode", 1); // share media resources
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
-	mCore->setCallLogsDatabasePath(" ");
-	mCore->setZrtpSecretsFile(" ");
+	//mCore->setCallLogsDatabasePath(" ");
+	//mCore->setZrtpSecretsFile(" ");
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
 	mCore->setUseFiles(true); //No sound card shall be used in calls
@@ -252,6 +337,7 @@ void B2buaServer::_init () {
 	mCore->setAudioPort(-1);
 
 	shared_ptr<Transports> b2buaTransport = Factory::get()->createTransports();
+	// Get transport from flexisip configuration
 	auto config = GenericManager::get()->getRoot()->get<GenericStruct>("b2bua-server");
 	string mTransport = config->get<ConfigString>("transport")->read();
 	if (mTransport.length() > 0) {
@@ -266,6 +352,70 @@ void B2buaServer::_init () {
 
 	mCore->setTransports(b2buaTransport);
 	mCore->addListener(shared_from_this());
+
+	// Parse configuration for outgoing encryption mode
+	auto outgoingEncryptionList = config->get<ConfigStringList>("outgoing-enc-regex")->read();
+	// list must be odd sized, the last element is the default encryption mode
+	if (outgoingEncryptionList.size()%2 == 1) {
+		// get the last element, it should be the default
+		if (!string2MediaEncryption(outgoingEncryptionList.back(), mDefaultOutgoingEncryption)) {
+			BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid default encryption mode: "<<outgoingEncryptionList.back()<<" valids modes are : zrtp, sdes, dtls-srtp, none. Stick to ZRTP as default";
+			mDefaultOutgoingEncryption = linphone::MediaEncryption::ZRTP;
+		}
+		outgoingEncryptionList.pop_back();
+
+		// parse from the list begining, we shall have couple : encryption_mode regex
+		while (outgoingEncryptionList.size()>=2) {
+			linphone::MediaEncryption outgoingEncryption = linphone::MediaEncryption::None;
+			if (string2MediaEncryption(outgoingEncryptionList.front(), outgoingEncryption)) {
+				outgoingEncryptionList.pop_front();
+				try {
+					mOutgoingEncryption.emplace_back(outgoingEncryption, outgoingEncryptionList.front());
+				} catch (exception &e) {
+					BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid regex : "<<outgoingEncryptionList.front();
+				}
+				outgoingEncryptionList.pop_front();
+			} else {
+				BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid encryption mode: "<<outgoingEncryptionList.front()<<" valids modes are : zrtp, sdes, dtls-srtp, none. Ignore this setting";
+				outgoingEncryptionList.pop_front();
+				outgoingEncryptionList.pop_front();
+			}
+		}
+	} else {
+		BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex size is "<<outgoingEncryptionList.size()<<" but it must be odd. Use default ZRTP encryption for all calls";
+	}
+
+	// Parse configuration for outgoing SRTP suite
+	// we shall have a space separated list of suites regex suites regex ... suites regex
+	// each suites is a comma separated list of suites
+	auto outgoingSrptSuiteList = config->get<ConfigStringList>("outgoing-srtp-regex")->read();
+	while (outgoingSrptSuiteList.size()>=2) {
+		// first part is a comma separated list of suite, explode it and get each one of them
+		auto srtpSuites = explode(outgoingSrptSuiteList.front(), ',');
+		std::list<MSCryptoSuite> srtpCryptoSuites{};
+		// turn the string list into a std::list of MSCryptoSuite
+		for (auto &suiteName: srtpSuites) {
+			MSCryptoSuiteNameParams suiteNameParam;
+			suiteNameParam.name=suiteName.c_str();
+			suiteNameParam.params=nullptr; // This parsing does not support params on the suite as they would be space separated
+			srtpCryptoSuites.push_back(ms_crypto_suite_build_from_name_params(&suiteNameParam));
+		}
+		if (srtpCryptoSuites.size()>0) {
+			outgoingSrptSuiteList.pop_front();
+			// get the associated regex
+			try {
+				mSrtpConf.emplace_back(srtpCryptoSuites, outgoingSrptSuiteList.front());
+			} catch (exception &e) {
+				BCTBX_SLOGE<<"b2bua configuration error: outgoing-srtp-regex contains invalid regex : "<<outgoingSrptSuiteList.front();
+			}
+			outgoingSrptSuiteList.pop_front();
+		} else {
+				BCTBX_SLOGE<<"b2bua configuration error: outgoing-srtp-regex contains invalid suite: "<<outgoingSrptSuiteList.front()<<". Ignore this setting";
+				outgoingSrptSuiteList.pop_front();
+				outgoingSrptSuiteList.pop_front();
+		}
+	}
+
 	mCore->start();
 }
 
@@ -284,6 +434,29 @@ B2buaServer::Init::Init() {
 			"transport",
 			"SIP uri on which the back-to-back user agent server is listening on.",
 			"sip:127.0.0.1:6067;transport=tcp"
+		},
+		{
+			StringList,
+			"outgoing-enc-regex",
+			" Select the call outgoing encryption mode, this is a list of regular expressions and encryption mode."
+			"valid encryption modes are: zrtp, dtls-srtp, sdes, none. The list is formatted in the following mode:"
+			"mode1 regex1 mode2 regex2 ... defaultMode"
+			"Each regex is applied, in the given order, on the callee sip uri. First match found determines the encryption mode"
+			"if no regex matches, the modeFinal is applied"
+			"Example: zrtp .*@sip.secure-example.org dtsl-srtp .*dtls@sip.example.org zrtp .*zrtp@sip.example.org sdes .*@sip.example.org none"
+			"In this example: the address is matched in order with"
+			" .*@sip.secure-example.org so any call directed to an address on domain sip.secure-example-org uses zrtp encryption mode"
+			" .*dtls@sip.example.org any call on sip.example.org to a username ending with dtls uses dtls-srtp encryption mode"
+			" .*zrtp@sip.example.org any call on sip.example.org to a username ending with zrtp uses zrtp encryption mode"
+			" .*@sip.example.org if no match were found yet on domain sip.example.org, use sdes encryption mode"
+			" other domains default to no encryption (this is not recommended)",
+			"zrtp"
+		},
+		{
+			StringList,
+			"outgoing-srtp-regex",
+			" TODO: add description here",
+			""
 		},
 		config_item_end
 	};

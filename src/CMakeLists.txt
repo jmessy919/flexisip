@@ -273,6 +273,7 @@ if(ENABLE_B2BUA)
 	target_link_libraries(flexisip
 		PUBLIC linphone++
 	)
+	target_link_libraries(flexisip PRIVATE mediastreamer)
 endif()
 if(ENABLE_SOCI)
 	target_compile_definitions(flexisip PRIVATE "ENABLE_SOCI")

@@ -23,9 +23,15 @@
 #include "linphone++/linphone.hh"
 
 #include "service-server.hh"
+#include <regex>
+
 
 namespace flexisip {
-
+namespace b2bua {
+	// forward declaration of internal structures
+	struct encryptionConfiguration;
+	struct srtpConfiguration;
+}
 class B2buaServer : public ServiceServer
 , public std::enable_shared_from_this<B2buaServer>
 , public linphone::CoreListener, public linphone::ConferenceListener {
@@ -51,6 +57,9 @@ class B2buaServer : public ServiceServer
 	};
 	static Init sStaticInit;
 	std::shared_ptr<linphone::Core> mCore;
+	linphone::MediaEncryption mDefaultOutgoingEncryption = linphone::MediaEncryption::ZRTP;
+	std::list<b2bua::encryptionConfiguration> mOutgoingEncryption;
+	std::list<b2bua::srtpConfiguration> mSrtpConf;
 };
 
 }
