@@ -32,15 +32,14 @@ shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(Agent* age
 	SLOGD << "Make ForkMessageContextDbProxy";
 	// new because make_shared require a public constructor.
 	const shared_ptr<ForkMessageContextDbProxy> shared{
-	    new ForkMessageContextDbProxy(agent, event, cfg, listener, messageCounter, proxyCounter)};
+	    new ForkMessageContextDbProxy(agent, cfg, listener, messageCounter, proxyCounter)};
 
-	shared->mForkMessage = ForkMessageContext::make(agent, event, cfg, shared, messageCounter, true);
+	shared->mForkMessage = ForkMessageContext::make(agent, event, cfg, shared, messageCounter);
 
 	return shared;
 }
 
 shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(Agent* agent,
-                                                                      const shared_ptr<RequestSipEvent>& event,
                                                                       const shared_ptr<ForkContextConfig>& cfg,
                                                                       const weak_ptr<ForkContextListener>& listener,
                                                                       const weak_ptr<StatPair>& messageCounter,
@@ -49,7 +48,7 @@ shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(Agent* age
 	SLOGD << "Make ForkMessageContextDbProxy from a restored message";
 	// new because make_shared require a public constructor.
 	const shared_ptr<ForkMessageContextDbProxy> shared{
-	    new ForkMessageContextDbProxy(agent, event, cfg, listener, messageCounter, proxyCounter)};
+	    new ForkMessageContextDbProxy(agent, cfg, listener, messageCounter, proxyCounter)};
 
 	shared->mForkUuidInDb = forkFromDb.uuid;
 	shared->mState = State::IN_DATABASE;
@@ -58,14 +57,13 @@ shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(Agent* age
 }
 
 ForkMessageContextDbProxy::ForkMessageContextDbProxy(Agent* agent,
-                                                     const shared_ptr<RequestSipEvent>& event,
                                                      const shared_ptr<ForkContextConfig>& cfg,
                                                      const weak_ptr<ForkContextListener>& listener,
                                                      const weak_ptr<StatPair>& messageCounter,
                                                      const weak_ptr<StatPair>& proxyCounter)
     : mForkMessage{}, mState{State::IN_MEMORY}, mProxyLateTimer{agent->getRoot()},
       mOriginListener{listener}, mCounter{proxyCounter},
-      savedAgent(agent), savedRequest{event}, savedConfig{cfg}, savedCounter{messageCounter} {
+      savedAgent(agent), savedConfig{cfg}, savedCounter{messageCounter} {
 
 	LOGD("New ForkMessageContextDbProxy %p", this);
 	if (auto sharedCounter = mCounter.lock()) {
@@ -79,23 +77,33 @@ ForkMessageContextDbProxy::~ForkMessageContextDbProxy() {
 		sharedCounter->incrFinish();
 	}
 
-	if (mForkMessage && !mForkMessage->isFinished()) {
+	// This can cause crash, need to be investigated
+	/* if (mForkMessage && !mForkMessage->isFinished()) {
 		// Should be shutting down the server save everything you can.
 		saveToDb();
-	} else if (!mForkUuidInDb.empty()) {
+	} else*/
+	if (!mForkUuidInDb.empty()) {
 		// Destructor is called because the ForkContext is finished, removing info from database
 		LOGD("ForkMessageContextDbProxy[%p] was present in DB, cleaning UUID[%s]", this, mForkUuidInDb.c_str());
 		ForkMessageContextSociRepository::getInstance()->deleteByUuid(mForkUuidInDb);
+	}
+
+	if (mForkMessage.use_count() > 1) {
+		LOGW("ForkMessageContextDbProxy[%p], trying to delete ForkMessageContext[%p] during ForkMessageContextDbProxy "
+		     "destructor, but a memory leak occurred and use_count is greater than 1 (%li).",
+		     this, mForkMessage.get(), mForkMessage.use_count());
 	}
 }
 
 void ForkMessageContextDbProxy::loadFromDb() const {
 	LOGI("ForkMessageContextDbProxy[%p] retrieving message in DB for UUID [%s]", this, mForkUuidInDb.c_str());
 	auto dbFork = ForkMessageContextSociRepository::getInstance()->findForkMessageByUuid(mForkUuidInDb);
+
 	// loadFromDb() need to stay const (mForkMessage is mutable) but we need a non const shared_ptr
 	auto nonConstShared = const_pointer_cast<ForkMessageContextDbProxy>(shared_from_this());
-	mForkMessage =
-	    ForkMessageContext::make(savedAgent, savedRequest, savedConfig, nonConstShared, savedCounter, dbFork);
+
+	mForkMessage = ForkMessageContext::make(savedAgent, savedConfig, nonConstShared, savedCounter, dbFork);
+
 	// Timer is now handle by the newly restored inner ForkMessageContext
 	mProxyLateTimer.reset();
 }
@@ -198,9 +206,20 @@ void ForkMessageContextDbProxy::startTimerAndResetFork() {
 	LOGD("ForkMessageContextDbProxy[%p] startTimerAndResetFork", this);
 	// We need to handle fork late timer in proxy object in case it expire while inner object is still in database.
 	const auto utcNow = time(nullptr);
-	auto timeout = difftime(mForkMessage->getExpirationDate() , utcNow);
+	auto timeout = difftime(mForkMessage->getExpirationDate(), utcNow);
 	mProxyLateTimer.set([this]() { onForkContextFinished(nullptr); }, timeout * 1000);
 
+	if (mForkMessage.use_count() > 1) {
+		LOGW("ForkMessageContextDbProxy[%p], trying to delete ForkMessageContext[%p] after a db save, but a memory "
+		     "leak occurred and use_count is greater than 1 (%li).",
+		     this, mForkMessage.get(), mForkMessage.use_count());
+	}
+	mForkMessage->clearReferences();
+	if (mForkMessage.use_count() > 1) {
+		LOGW("ForkMessageContextDbProxy[%p], trying to delete ForkMessageContext[%p] after a clearReferences, but a "
+		     "memory leak occurred and use_count is greater than 1 (%li).",
+		     this, mForkMessage.get(), mForkMessage.use_count());
+	}
 	mForkMessage.reset();
 }
 

@@ -32,14 +32,12 @@ namespace flexisip {
 class ForkMessageContext : public ForkContextBase {
 public:
 	static std::shared_ptr<ForkMessageContext> make(Agent* agent,
-	                                                const std::shared_ptr<RequestSipEvent>& event,
-	                                                const std::shared_ptr<ForkContextConfig>& cfg,
-	                                                const std::weak_ptr<ForkContextListener>& listener,
-	                                                const std::weak_ptr<StatPair>& counter,
-	                                                bool isProxyfied = false);
+	                                           const std::shared_ptr<RequestSipEvent>& event,
+	                                           const std::shared_ptr<ForkContextConfig>& cfg,
+	                                           const std::weak_ptr<ForkContextListener>& listener,
+	                                           const std::weak_ptr<StatPair>& counter);
 
 	static std::shared_ptr<ForkMessageContext> make(Agent* agent,
-	                                                const std::shared_ptr<RequestSipEvent>& event,
 	                                                const std::shared_ptr<ForkContextConfig>& cfg,
 	                                                const std::weak_ptr<ForkContextListener>& listener,
 	                                                const std::weak_ptr<StatPair>& counter,
@@ -56,6 +54,8 @@ public:
 		return mExpirationDate;
 	}
 
+	void clearReferences() override;
+
 #ifdef ENABLE_UNIT_TESTS
 	void assertEqual(const std::shared_ptr<ForkMessageContext>& expected);
 	void assertEqualMinimal(const std::shared_ptr<ForkMessageContext>& expected);
@@ -71,8 +71,7 @@ private:
 	                   const std::shared_ptr<ForkContextConfig>& cfg,
 	                   const std::weak_ptr<ForkContextListener>& listener,
 	                   const std::weak_ptr<StatPair>& counter,
-	                   bool isRestored = false,
-	                   bool isProxyfied = false);
+	                   bool isRestored);
 
 	void acceptMessage();
 	void onAcceptanceTimer();

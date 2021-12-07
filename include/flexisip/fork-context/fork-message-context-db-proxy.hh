@@ -18,9 +18,10 @@
 
 #pragma once
 
+#include <string>
+
 #include "flexisip/fork-context/fork-message-context-soci-repository.hh"
 #include "flexisip/fork-context/fork-message-context.hh"
-#include <string>
 
 #if ENABLE_UNIT_TESTS
 #include "bctoolbox/tester.h"
@@ -42,7 +43,6 @@ public:
 	                                                       const std::weak_ptr<StatPair>& proxyCounter);
 
 	static std::shared_ptr<ForkMessageContextDbProxy> make(Agent* agent,
-	                                                       const std::shared_ptr<RequestSipEvent>& event,
 	                                                       const std::shared_ptr<ForkContextConfig>& cfg,
 	                                                       const std::weak_ptr<ForkContextListener>& listener,
 	                                                       const std::weak_ptr<StatPair>& messageCounter,
@@ -98,25 +98,26 @@ public:
 		mForkMessage->onPushSent(tr);
 	}
 
-	void onPushError(const std::shared_ptr<OutgoingTransaction>& tr, const std::string& errormsg) override {
-		// Does nothing for ForkMessageContext
-	}
-
-	void onCancel(const std::shared_ptr<RequestSipEvent>& ev) override {
-		// Does nothing for fork late ForkMessageContext
+	bool isFinished() const override {
+		checkState(__FUNCTION__, State::IN_MEMORY);
+		return mForkMessage->isFinished();
 	}
 
 	const std::shared_ptr<RequestSipEvent>& getEvent() override {
-		return savedRequest;
+		checkState(__FUNCTION__, State::IN_MEMORY);
+		return mForkMessage->getEvent();
 	}
 
 	const std::shared_ptr<ForkContextConfig>& getConfig() const override {
 		return savedConfig;
 	}
 
-	bool isFinished() const override {
-		if (!mForkMessage) loadFromDb();
-		return mForkMessage->isFinished();
+	void onPushError(const std::shared_ptr<OutgoingTransaction>& tr, const std::string& errormsg) override {
+		// Does nothing for ForkMessageContext
+	}
+
+	void onCancel(const std::shared_ptr<RequestSipEvent>& ev) override {
+		// Does nothing for fork late ForkMessageContext
 	}
 
 #ifdef ENABLE_UNIT_TESTS
@@ -128,7 +129,6 @@ public:
 
 private:
 	ForkMessageContextDbProxy(Agent* agent,
-	                          const std::shared_ptr<RequestSipEvent>& event,
 	                          const std::shared_ptr<ForkContextConfig>& cfg,
 	                          const std::weak_ptr<ForkContextListener>& listener,
 	                          const std::weak_ptr<StatPair>& messageCounter,
@@ -160,7 +160,6 @@ private:
 	std::string mForkUuidInDb{};
 
 	Agent* savedAgent;
-	std::shared_ptr<RequestSipEvent> savedRequest;
 	std::shared_ptr<ForkContextConfig> savedConfig;
 	std::weak_ptr<StatPair> savedCounter;
 };
