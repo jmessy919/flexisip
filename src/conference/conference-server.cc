@@ -434,7 +434,16 @@ void ConferenceServer::bindChatRoom(const string& bindingUrl,
 	parameter.version = 0;
 	parameter.withGruu = true;
 
-	RegistrarDb::get()->bind(SipUri(bindingUrl), sipContact, parameter, listener);
+	SipUri uri(bindingUrl);
+	
+	if (uri.getUser().empty()) LOGA("Trying to bind with no username !");
+	
+	RegistrarDb::get()->bind(
+		uri,
+		sipContact,
+		parameter,
+		listener
+	);
 }
 
 void ConferenceServer::onCallStateChanged(const std::shared_ptr<linphone::Core> & lc, 
