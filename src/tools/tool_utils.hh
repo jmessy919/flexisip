@@ -1,6 +1,6 @@
 /*
 	Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2010-2015  Belledonne Communications SARL, All rights reserved.
+	Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Affero General Public License as
@@ -18,12 +18,15 @@
 
 #pragma once
 
-#include "../recordserializer.hh"
-#include <flexisip/logmanager.hh>
-#include <memory>
-#include <map>
-#include <iostream>
 #include <cstring>
+#include <iostream>
+#include <map>
+#include <memory>
+
+#include "flexisip/logmanager.hh"
+
+#include "recordserializer.hh"
+#include "registrardb-internal.hh"
 
 #define BAD(reason)                                                                                                    \
 	do {                                                                                                               \
@@ -40,6 +43,10 @@ void init_tests() {
 	logParams.enableSyslog = false;
 	logParams.enableStdout = true;
 	LogManager::get().initialize(logParams);
+
+	/* Sadly, the registrar DB need to be initialized or the programm will abort on
+	   first Record instanciation */
+	RegistrarDb::initialize(RegistrarDbInternal::Params{nullptr});
 
 	Record::sLineFieldNames = {"+sip.instance", "pn-tok", "line"};
 	Record::sMaxContacts = 10;
@@ -103,16 +110,4 @@ sip_path_t *path_fromstl(su_home_t *h, const std::list<std::string> &path) {
 	return sip_path;
 }
 
-struct SofiaHome {
-	su_home_t *h;
-	SofiaHome() {
-		h = new su_home_t;
-		su_home_init(h);
-	}
-	~SofiaHome() {
-		su_home_deinit(h);
-		delete (h);
-	}
-};
-
-}
+} // namespace flexisip

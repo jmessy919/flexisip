@@ -1,6 +1,6 @@
 /*
 	Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2010-2015  Belledonne Communications SARL, All rights reserved.
+	Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Affero General Public License as
@@ -111,8 +111,6 @@ int test_bind_without_ecc(ExtendedContactCommon &ecc, const unique_ptr<RecordSer
 	return 0;
 }
 
-SofiaHome home;
-
 int main(int argc, char **argv) {
 	if (argc != 2) {
 		cerr << "bad usage" << endl;
@@ -140,9 +138,10 @@ int main(int argc, char **argv) {
 
 	ExtendedContactCommon ecc(contactid.c_str(), paths, callid.c_str(), line.c_str());
 
+	sofiasip::Home home{};
 	sip_contact_t *sip_contact =
-		sip_contact_format(home.h, "<%s>;q=%f;expires=%d", contact.c_str(), quality, expire_delta);
-	sip_path_t *sip_path = path_fromstl(home.h, paths);
+		sip_contact_format(home.home(), "<%s>;q=%f;expires=%d", contact.c_str(), quality, expire_delta);
+	sip_path_t *sip_path = path_fromstl(home.home(), paths);
 	sip_accept_t *accept = NULL;
 
 	if (test_bind_with_ecc(ecc, serializer, contact, expireat, quality, cseq, now, alias, accept)) {

@@ -1,6 +1,6 @@
 /*
 	Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2010-2015  Belledonne Communications SARL, All rights reserved.
+	Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Affero General Public License as
@@ -188,32 +188,12 @@ void Record::clean(time_t now, const shared_ptr<ContactUpdateListener> &listener
 	}
 }
 
-time_t Record::latestExpire() const {
-	time_t latest = 0;
-	for (auto it = mContacts.begin(); it != mContacts.end(); ++it) {
-		if ((*it)->mExpireAt > latest)
-			latest = (*it)->mExpireAt;
-	}
-	return latest;
-}
-
-time_t Record::latestExpire(Agent *ag) const {
-	time_t latest = 0;
-	sofiasip::Home home;
-
-	for (auto it = mContacts.begin(); it != mContacts.end(); ++it) {
-		if ((*it)->mPath.empty() || (*it)->mExpireAt <= latest)
-			continue;
-
-		/* Remove extra parameters */
-		string s = *(*it)->mPath.begin();
-		string::size_type n = s.find(";");
-		if (n != string::npos)
-			s = s.substr(0, n);
-		url_t *url = url_make(home.home(), s.c_str());
-
-		if (ag->isUs(url))
-			latest = (*it)->mExpireAt;
+time_t Record::latestExpire(const ContactFilter& filter) const {
+	auto latest = static_cast<time_t>(0);
+	for (const auto& contact : mContacts) {
+		if (contact->mExpireAt > latest && (filter == nullptr || filter(*contact))) {
+			latest = contact->mExpireAt;
+		}
 	}
 	return latest;
 }
@@ -709,21 +689,9 @@ void Record::appendContactsFrom(const shared_ptr<Record> &src) {
 	}
 }
 
-RegistrarDb::LocalRegExpire::LocalRegExpire(Agent *ag) : mAgent(ag) {
-
+RegistrarDb::RegistrarDb(const IsUsFunc& isUs)
+	: mLocalRegExpire(make_unique<LocalRegExpire>(isUs)), mUseGlobalDomain(false) {
 }
-
-RegistrarDb::RegistrarDb(Agent *ag)
-	: mLocalRegExpire(new LocalRegExpire(ag)), mAgent(ag), mUseGlobalDomain(false) {
-	GenericStruct *cr = GenericManager::get()->getRoot();
-	GenericStruct *mr = cr->get<GenericStruct>("module::Registrar");
-	mGruuEnabled = mr->get<ConfigBoolean>("enable-gruu")->read();
-}
-
-RegistrarDb::~RegistrarDb() {
-	delete mLocalRegExpire;
-}
-
 
 void RegistrarDb::addStateListener (const std::shared_ptr<RegistrarDbStateListener> &listener) {
 	auto it = find(mStateListeners.cbegin(), mStateListeners.cend(), listener);
@@ -811,7 +779,16 @@ void RegistrarDb::notifyContactListener (const shared_ptr<Record> &r, const stri
 
 void RegistrarDb::LocalRegExpire::update(const shared_ptr<Record> &record) {
 	unique_lock<mutex> lock(mMutex);
-	time_t latest = record->latestExpire(mAgent);
+	time_t latest = record->latestExpire(
+		[this] (const auto& c) {
+			sofiasip::Home home{};
+			if (c.mPath.empty()) return false;
+			const auto& firstPath = *c.mPath.begin();
+			auto s = firstPath.substr(0, firstPath.find(";")); // Remove extra parameters
+			auto* url = url_make(home.home(), s.c_str());
+			return mIsUsFunc ? mIsUsFunc(url) : true;
+		}
+	);
 	if (latest > 0) {
 		auto it = mRegMap.find(record->getKey());
 		if (it != mRegMap.end()) {
@@ -906,52 +883,63 @@ void RegistrarDb::resetDB() {
     sUnique = nullptr;
 }
 
-RegistrarDb* RegistrarDb::initialize(Agent* ag) {
+RegistrarDb* RegistrarDb::initialize(const RegistrarDb::Params& params) {
 	if (sUnique != nullptr){
 		LOGF("RegistrarDb already initialized");
 	}
-	GenericStruct *cr = GenericManager::get()->getRoot();
-	GenericStruct *mr = cr->get<GenericStruct>("module::Registrar");
-	GenericStruct *mro = cr->get<GenericStruct>("module::Router");
-
-	bool useGlobalDomain = mro->get<ConfigBoolean>("use-global-domain")->read();
-	string dbImplementation = mr->get<ConfigString>("db-implementation")->read();
-	string mMessageExpiresName = mr->get<ConfigString>("message-expires-param-name")->read();
-
-	if ("internal" == dbImplementation) {
+	if (params.dbImplementation == "internal") {
 		LOGI("RegistrarDB implementation is internal");
-		sUnique = make_unique<RegistrarDbInternal>(ag);
-		sUnique->mUseGlobalDomain = useGlobalDomain;
+		sUnique = make_unique<RegistrarDbInternal>(params.isUsFunc);
 	}
 #ifdef ENABLE_REDIS
 	/* Previous implementations allowed "redis-sync" and "redis-async", whereas we now expect "redis".
 		* We check that the dbImplementation _starts_ with "redis" now, so that we stay backward compatible. */
-	else if (dbImplementation.find("redis") == 0) {
+	else if (params.dbImplementation.find("redis") == 0) {
 		LOGI("RegistrarDB implementation is REDIS");
-		GenericStruct *registrar = GenericManager::get()->getRoot()->get<GenericStruct>("module::Registrar");
-		RedisParameters params;
-		params.domain = registrar->get<ConfigString>("redis-server-domain")->read();
-		params.port = registrar->get<ConfigInt>("redis-server-port")->read();
-		params.timeout = registrar->get<ConfigInt>("redis-server-timeout")->read();
-		params.auth = registrar->get<ConfigString>("redis-auth-password")->read();
-		params.mSlaveCheckTimeout = registrar->get<ConfigInt>("redis-slave-check-period")->read();
-		params.useSlavesAsBackup = registrar->get<ConfigBoolean>("redis-use-slaves-as-backup")->read();
-
-		sUnique = make_unique<RegistrarDbRedisAsync>(ag, params);
-		sUnique->mUseGlobalDomain = useGlobalDomain;
+		const auto& redisParams = static_cast<const RegistrarDbRedisAsync::Params&>(params);
+		sUnique = make_unique<RegistrarDbRedisAsync>(redisParams.root, redisParams.redis, redisParams.isUsFunc);
 		static_cast<RegistrarDbRedisAsync *>(sUnique.get())->connect();
 	}
 #endif
 	else {
 		LOGF("Unsupported implementation '%s'. %s",
 #ifdef ENABLE_REDIS
-				"Supported implementations are 'internal' or 'redis'.", dbImplementation.c_str());
+				"Supported implementations are 'internal' or 'redis'.", params.dbImplementation.c_str());
 #else
-				"Supported implementation is 'internal'.", dbImplementation.c_str());
+				"Supported implementation is 'internal'.", params.dbImplementation.c_str());
 #endif
 	}
-	sUnique->mMessageExpiresName = mMessageExpiresName;
+	sUnique->mMessageExpiresName = params.messageExpiresParamName;
+	sUnique->mUseGlobalDomain = params.useGlobalDomain;
+	sUnique->mGruuEnabled = params.enableGruu;
 	return sUnique.get();
+}
+
+RegistrarDb* RegistrarDb::initialize(const std::shared_ptr<sofiasip::SuRoot>& root, const IsUsFunc& isUs) {
+	auto* cr = GenericManager::get()->getRoot();
+	auto* mr = cr->get<GenericStruct>("module::Registrar");
+	auto* mro = cr->get<GenericStruct>("module::Router");
+
+	unique_ptr<Params> params{};
+	auto dbImplementation = mr->get<ConfigString>("db-implementation")->read();
+	if (dbImplementation == "internal") {
+		params = make_unique<RegistrarDbInternal::Params>(isUs);
+	} else {
+		auto p = make_unique<RegistrarDbRedisAsync::Params>(root, isUs);
+		p->redis.domain = mr->get<ConfigString>("redis-server-domain")->read();
+		p->redis.port = mr->get<ConfigInt>("redis-server-port")->read();
+		p->redis.timeout = mr->get<ConfigInt>("redis-server-timeout")->read();
+		p->redis.auth = mr->get<ConfigString>("redis-auth-password")->read();
+		p->redis.mSlaveCheckTimeout = mr->get<ConfigInt>("redis-slave-check-period")->read();
+		p->redis.useSlavesAsBackup = mr->get<ConfigBoolean>("redis-use-slaves-as-backup")->read();
+		params = move(p);
+	}
+
+	params->useGlobalDomain = mro->get<ConfigBoolean>("use-global-domain")->read();
+	params->messageExpiresParamName = mr->get<ConfigString>("message-expires-param-name")->read();
+	params->enableGruu = mr->get<ConfigBoolean>("enable-gruu")->read();
+
+	return initialize(*params);
 }
 
 RegistrarDb* RegistrarDb::get() {

@@ -1,6 +1,6 @@
 /*
 	Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2010-2015  Belledonne Communications SARL, All rights reserved.
+	Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Affero General Public License as
@@ -16,21 +16,23 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <flexisip/registrardb.hh>
-#include "registrardb-internal.hh"
-#include <flexisip/common.hh>
-
-#include <ctime>
-#include <cstdio>
-#include <vector>
 #include <algorithm>
+#include <cstdio>
+#include <ctime>
+#include <vector>
 
 #include <sofia-sip/sip_protos.h>
+
+#include "flexisip/common.hh"
+#include "flexisip/event.hh"
+#include "flexisip/registrardb.hh"
+
+#include "registrardb-internal.hh"
 
 using namespace std;
 using namespace flexisip;
 
-RegistrarDbInternal::RegistrarDbInternal(Agent *ag) : RegistrarDb(ag) {
+RegistrarDbInternal::RegistrarDbInternal(const IsUsFunc& isUs) : RegistrarDb{isUs} {
 	mWritable = true;
 }
 

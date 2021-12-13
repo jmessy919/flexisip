@@ -1,6 +1,6 @@
 /*
 	Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2010-2015  Belledonne Communications SARL, All rights reserved.
+	Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Affero General Public License as
@@ -95,7 +95,7 @@ struct RegistrarUserData {
 	std::shared_ptr<Record> mRecord; // The record contaning all fetched contacts.
 	std::shared_ptr<Record> mRecordToSend; // The record contaning the contacts to SET into redis.
 	unsigned long token = 0;
-	su_timer_t *mRetryTimer = nullptr;
+	std::unique_ptr<sofiasip::Timer> mRetryTimer{};
 	int mRetryCount = 0;
 	std::string mUniqueId;
 	bool mUpdateExpire = false;
@@ -108,9 +108,19 @@ struct RegistrarUserData {
 
 class RegistrarDbRedisAsync : public RegistrarDb {
 public:
-	RegistrarDbRedisAsync(Agent* agent, RedisParameters params);
+	struct Params : public RegistrarDb::Params {
+		template <typename T>
+		Params(const std::shared_ptr<sofiasip::SuRoot>& root, T&& isUs)
+		: RegistrarDb::Params{"redis", std::forward<T>(isUs)}, root{root} {
+		}
+
+		const std::shared_ptr<sofiasip::SuRoot>& root;
+		RedisParameters redis{};
+	};
+
+	RegistrarDbRedisAsync(const std::shared_ptr<sofiasip::SuRoot>& root, RedisParameters params, const IsUsFunc& isUs);
 	RegistrarDbRedisAsync(const std::string& preferredRoute, const std::shared_ptr<sofiasip::SuRoot>& root, RecordSerializer* serializer,
-	                      RedisParameters params);
+	                      RedisParameters params, const IsUsFunc& isUs);
 	~RegistrarDbRedisAsync() override;
 
 	bool connect();
@@ -133,7 +143,7 @@ private:
 	static void sSubscribeDisconnectCallback(const redisAsyncContext *c, int status);
 	static void sPublishCallback(redisAsyncContext *c, void *r, void *privdata);
 	static void sKeyExpirationPublishCallback(redisAsyncContext *c, void *r, void *data);
-	static void sBindRetry(void *unused, su_timer_t *t, void *ud);
+	static void sBindRetry(RegistrarUserData* data);
 	bool isConnected();
 	void setWritable (bool value);
 

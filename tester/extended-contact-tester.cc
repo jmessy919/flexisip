@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017  Belledonne Communications SARL
+ * Copyright (C) 2010-2022 Belledonne Communications SARL
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,28 +17,12 @@
  */
 
 #include "flexisip/registrardb.hh"
-#include "flexisip/sofia-wrapper/su-root.hh"
 
 #include "tester.hh"
 
 using namespace flexisip;
 using namespace std;
 
-static shared_ptr<sofiasip::SuRoot> root{};
-static shared_ptr<Agent> agent{};
-
-static void beforeEach() {
-	// Agent initialization (needed only because ExtendedContact::init relies on RegistrarDb::getMessageExpires)
-	root = make_shared<sofiasip::SuRoot>();
-	agent = make_shared<Agent>(root);
-}
-
-static void afterEach() {
-	agent->unloadConfig();
-	RegistrarDb::resetDB();
-	agent.reset();
-	root.reset();
-}
 
 static void qValueConstructorTest(const SipUri& inputUri, const string& inputRoute, const float inputQ,
                                   const float expectedQ) {
@@ -58,10 +42,6 @@ static void qValueConstructorTest(const SipUri& inputUri, const string& inputRou
 }
 
 static void qValueConstructorTests(void) {
-	auto cfg = GenericManager::get();
-	cfg->load(string(TESTER_DATA_DIR).append("/config/flexisip_fork_context.conf").c_str());
-	agent->loadConfig(cfg);
-
 	qValueConstructorTest(SipUri{"sip:kijou@sip.linphone.org:4242"}, string{"sip:185.11.220.105;transport=udp"}, 0.555,
 	                      0.555);
 	qValueConstructorTest(SipUri{"sip:kijou@sip.linphone.org:4242"}, string{"sip:185.11.220.105;transport=udp"},
@@ -80,4 +60,4 @@ static test_t tests[] = {
 };
 
 test_suite_t extended_contact_suite = {
-    "Extended contact", nullptr, nullptr, beforeEach, afterEach, sizeof(tests) / sizeof(tests[0]), tests};
+    "Extended contact", nullptr, nullptr, nullptr, nullptr, sizeof(tests) / sizeof(tests[0]), tests};

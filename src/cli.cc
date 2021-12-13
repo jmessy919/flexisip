@@ -1,6 +1,6 @@
 /*
 	Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2010-2016  Belledonne Communications SARL, All rights reserved.
+	Copyright (C) 2010-2022  Belledonne Communications SARL, All rights reserved.
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Affero General Public License as
@@ -15,24 +15,26 @@
 	You should have received a copy of the GNU Affero General Public License
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <unistd.h>
-#include <cerrno>
-#include <cstring>
-#include <poll.h>
 
-#include "cli.hh"
-#include "recordserializer.hh"
-#include <flexisip/common.hh>
-#include <flexisip/logmanager.hh>
-#include <flexisip/registrardb.hh>
+#include <cstring>
+#include <cerrno>
+
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <poll.h>
+#include <unistd.h>
+
+#include <sofia-sip/nta.h>
+
+#include "flexisip/agent.hh"
+#include "flexisip/common.hh"
+#include "flexisip/logmanager.hh"
+#include "flexisip/registrardb.hh"
 
 #include "cJSON.h"
+#include "recordserializer.hh"
+
+#include "cli.hh"
 
 using namespace flexisip;
 using namespace std;
