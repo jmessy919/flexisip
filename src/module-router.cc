@@ -91,7 +91,7 @@ struct ModuleRouterPrivAttr {
 using namespace std;
 using namespace flexisip;
 
-ModuleRouter::ModuleRouter(Agent* agent) : Module{agent} {
+ModuleRouter::ModuleRouter(Agent* agent) : Module{agent}, mAttr{make_unique<ModuleRouterPrivAttr>()} {
 }
 
 ModuleRouter::~ModuleRouter() = default;
