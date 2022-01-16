@@ -25,7 +25,7 @@
 #include "agent.hh"
 #include "flexisip/common.hh"
 #include "flexisip/event.hh"
-#include "flexisip/transaction.hh"
+#include "transaction.hh"
 
 using namespace std;
 

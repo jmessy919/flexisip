@@ -46,10 +46,10 @@
 #include <flexisip/configmanager.hh>
 #include <flexisip/event.hh>
 #include <flexisip/sofia-wrapper/su-root.hh>
-#include <flexisip/transaction.hh>
-#include <flexisip/transport.hh>
 
 #include "eventlogs.hh"
+#include "transaction.hh"
+#include "transport.hh"
 
 namespace flexisip {
 

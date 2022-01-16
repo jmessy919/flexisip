@@ -23,7 +23,7 @@
 #include "agent.hh"
 #include "flexisip/event.hh"
 #include "flexisip/sofia-wrapper/timer.hh"
-#include "flexisip/transaction.hh"
+#include "transaction.hh"
 #include "fork-context-base.hh"
 
 namespace flexisip {

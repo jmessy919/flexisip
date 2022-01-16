@@ -19,7 +19,7 @@
 #include <algorithm>
 #include <vector>
 
-#include <flexisip/transaction.hh>
+#include "transaction.hh"
 
 #include "callcontext-mediarelay.hh"
 #include "fork-context/fork-context-base.hh"

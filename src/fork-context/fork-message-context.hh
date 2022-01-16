@@ -23,7 +23,7 @@
 
 #include "agent.hh"
 #include "flexisip/event.hh"
-#include "flexisip/transaction.hh"
+#include "transaction.hh"
 
 #include "fork-context-base.hh"
 #include "fork-message-context-db.hh"

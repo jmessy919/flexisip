@@ -18,7 +18,7 @@
 
 #include "agent.hh"
 #include <flexisip/event.hh>
-#include <flexisip/transaction.hh>
+#include "transaction.hh"
 #include <flexisip/common.hh>
 #include <flexisip/module.hh>
 #include <sofia-sip/sip_protos.h>

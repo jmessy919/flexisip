@@ -25,7 +25,7 @@
 #include "agent.hh"
 #include <flexisip/event.hh>
 #include <flexisip/module.hh>
-#include <flexisip/transaction.hh>
+#include "transaction.hh"
 
 #include "fork-context/fork-call-context.hh"
 #include "pushnotification/genericpush.hh"

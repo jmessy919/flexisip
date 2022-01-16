@@ -21,7 +21,7 @@
 #include <flexisip/module.hh>
 #include <flexisip/module-router.hh>
 #include <flexisip/registrardb.hh>
-#include <flexisip/transaction.hh>
+#include "transaction.hh"
 
 #include "etchosts.hh"
 #include "domain-registrations.hh"
