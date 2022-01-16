@@ -22,7 +22,7 @@
 #include <sofia-sip/su_random.h>
 #include <sofia-sip/su_tagarg.h>
 
-#include "flexisip/agent.hh"
+#include "agent.hh"
 #include "flexisip/common.hh"
 #include "flexisip/event.hh"
 #include "flexisip/transaction.hh"

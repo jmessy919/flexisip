@@ -17,7 +17,7 @@
 */
 
 #include "domain-registrations.hh"
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/module.hh>
 
 #include <sofia-sip/nta_stateless.h>

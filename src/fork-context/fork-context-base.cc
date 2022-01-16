@@ -16,7 +16,7 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "flexisip/agent.hh"
+#include "agent.hh"
 #include "flexisip/registrardb.hh"
 
 #include "fork-context-base.hh"

@@ -30,10 +30,10 @@
 #include <string>
 
 #include <sofia-sip/sip.h>
+#include <sofia-sip/sip_protos.h>
 #include <sofia-sip/su_random.h>
 #include <sofia-sip/url.h>
 
-#include <flexisip/agent.hh>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>
 #include <flexisip/push-param.hh>

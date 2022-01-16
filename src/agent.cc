@@ -31,12 +31,12 @@
 #include <sofia-sip/tport.h>
 #include <sofia-sip/tport_tag.h>
 
-#include <flexisip/agent.hh>
 #include <flexisip/flexisip-version.h>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>
 #include <flexisip/registrardb.hh>
 
+#include "agent.hh"
 #include "etchosts.hh"
 #include "domain-registrations.hh"
 #include "plugin/plugin-loader.hh"

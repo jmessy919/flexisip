@@ -17,7 +17,7 @@
 */
 
 #include <flexisip/module.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/logmanager.hh>
 #include "utils/threadpool.hh"
 #include <sofia-sip/tport.h>

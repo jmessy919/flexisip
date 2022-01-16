@@ -17,7 +17,7 @@
 */
 
 #include <flexisip/module.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/transaction.hh>
 #include "etchosts.hh"
 #include <sstream>

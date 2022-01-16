@@ -21,7 +21,7 @@
 #include <array>
 #include <regex>
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/module-authentication-base.hh>
 
 #include "external-auth-module.hh"

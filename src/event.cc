@@ -16,7 +16,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/event.hh>
 #include <flexisip/transaction.hh>
 #include <flexisip/common.hh>

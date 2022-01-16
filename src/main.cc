@@ -54,7 +54,7 @@
 
 #include <tclap/CmdLine.h>
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/flexisip-version.h>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>

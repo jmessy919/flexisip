@@ -20,7 +20,7 @@
 
 #include <memory>
 #include <flexisip/event.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <string>
 
 namespace flexisip {

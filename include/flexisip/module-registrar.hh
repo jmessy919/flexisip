@@ -18,14 +18,13 @@
 
 #pragma once
 
-#include <flexisip/module.hh>
-#include <flexisip/agent.hh>
-#include <flexisip/registrardb.hh>
+#include <signal.h>
 
 #include <sofia-sip/sip_status.h>
 #include <sofia-sip/su_random.h>
 
-#include <signal.h>
+#include <flexisip/module.hh>
+#include <flexisip/registrardb.hh>
 
 namespace flexisip {
 

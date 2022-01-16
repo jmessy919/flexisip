@@ -19,7 +19,7 @@
 #pragma once
 
 #include <string>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 
 namespace flexisip {
 

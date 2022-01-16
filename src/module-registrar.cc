@@ -16,10 +16,6 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <flexisip/module-registrar.hh>
-#include <flexisip/logmanager.hh>
-#include "domain-registrations.hh"
-
 #include <fstream>
 #include <sstream>
 #include <ostream>
@@ -28,6 +24,13 @@
 #include <functional>
 #include <algorithm>
 #include <regex>
+
+#include <flexisip/eventlogs.hh>
+#include <flexisip/logmanager.hh>
+#include <flexisip/module-registrar.hh>
+
+#include "agent.hh"
+#include "domain-registrations.hh"
 
 using namespace std;
 using namespace flexisip;

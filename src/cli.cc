@@ -26,6 +26,7 @@
 #include <cstring>
 #include <poll.h>
 
+#include "agent.hh"
 #include "cli.hh"
 #include "recordserializer.hh"
 #include <flexisip/common.hh>

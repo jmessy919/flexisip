@@ -21,7 +21,7 @@
 #include <sofia-sip/nua.h>
 #include <sofia-sip/sip_header.h>
 #include <flexisip/common.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/registrardb.hh>
 #include <flexisip/logmanager.hh>
 

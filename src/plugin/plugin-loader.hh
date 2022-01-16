@@ -21,7 +21,7 @@
 #include <string>
 #include <dlfcn.h>
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/module.hh>
 
 // =============================================================================

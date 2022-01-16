@@ -21,7 +21,7 @@
 #include <list>
 #include <map>
 
-#include "flexisip/agent.hh"
+#include "agent.hh"
 #include "flexisip/event.hh"
 #include "flexisip/transaction.hh"
 

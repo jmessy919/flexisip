@@ -23,7 +23,7 @@
 #endif
 
 #include <flexisip/module.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 
 #ifdef ENABLE_TRANSCODER
 #include "callcontext-transcoder.hh"

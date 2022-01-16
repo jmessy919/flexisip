@@ -16,7 +16,7 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "flexisip/agent.hh"
+#include "agent.hh"
 #include "flexisip/logmanager.hh"
 #include "flexisip/module.hh"
 #include "flexisip/utils/sip-uri.hh"

@@ -25,7 +25,7 @@ extern "C" {
 	#include <jose/jose.h>
 }
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/module-auth.hh>
 #include <flexisip/plugin.hh>
 

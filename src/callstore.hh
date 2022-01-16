@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <list>
 
 namespace flexisip {

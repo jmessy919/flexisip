@@ -17,7 +17,7 @@
 */
 
 #include <flexisip/module.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/logmanager.hh>
 #include "sofia-sip/sip_status.h"
 

@@ -29,7 +29,7 @@
 #include <sofia-sip/nta.h>
 #include <sofia-sip/sip.h>
 
-#include "flexisip/agent.hh"
+#include "agent.hh"
 #include "flexisip/registrardb.hh"
 #include "flexisip/sofia-wrapper/su-root.hh"
 #include "flexisip/sofia-wrapper/timer.hh"

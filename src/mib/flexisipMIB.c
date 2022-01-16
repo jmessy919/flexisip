@@ -26,7 +26,7 @@
 #include <net-snmp/agent/net-snmp-agent-includes.h>
 #include "flexisipMIB.h"
 #include <flexisip/configmanager.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/module-registrar.hh>
 
 ConfigManager* cm;

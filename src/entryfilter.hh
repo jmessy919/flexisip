@@ -22,7 +22,7 @@
 #include <string>
 #include <memory>
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 
 #include "expressionparser.hh"
 

@@ -21,7 +21,7 @@
 #include <sofia-sip/auth_digest.h>
 #include <sofia-sip/nta.h>
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/configmanager.hh>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>

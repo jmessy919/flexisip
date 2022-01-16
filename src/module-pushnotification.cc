@@ -22,7 +22,7 @@
 #include <sofia-sip/msg_mime.h>
 #include <sofia-sip/sip_status.h>
 
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include <flexisip/event.hh>
 #include <flexisip/module.hh>
 #include <flexisip/transaction.hh>

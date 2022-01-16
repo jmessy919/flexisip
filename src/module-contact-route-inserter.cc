@@ -17,7 +17,7 @@
 */
 
 #include <flexisip/module.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include "contact-masquerader.hh"
 
 using namespace std;

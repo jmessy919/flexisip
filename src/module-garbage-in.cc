@@ -17,7 +17,7 @@
 */
 
 #include <flexisip/module.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 
 using namespace std;
 using namespace flexisip;

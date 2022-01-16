@@ -22,7 +22,7 @@
 #include <mutex>
 
 #include <flexisip/common.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 
 #include <vector>
 #include <stdio.h>

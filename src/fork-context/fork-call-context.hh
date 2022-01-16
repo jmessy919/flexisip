@@ -20,7 +20,7 @@
 
 #include <list>
 
-#include "flexisip/agent.hh"
+#include "agent.hh"
 #include "flexisip/event.hh"
 #include "flexisip/sofia-wrapper/timer.hh"
 #include "flexisip/transaction.hh"

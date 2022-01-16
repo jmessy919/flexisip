@@ -19,7 +19,7 @@
 #pragma once
 
 #include <flexisip/module.hh>
-#include <flexisip/agent.hh>
+#include "agent.hh"
 #include "callstore.hh"
 #include "sdp-modifier.hh"
 #include <ortp/rtpsession.h>
