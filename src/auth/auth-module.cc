@@ -24,7 +24,7 @@
 
 #include <flexisip/logmanager.hh>
 
-#include <flexisip/auth-module.hh>
+#include "auth/auth-module.hh"
 
 using namespace std;
 using namespace flexisip;

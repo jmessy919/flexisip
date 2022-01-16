@@ -21,7 +21,8 @@
 #include <sofia-sip/sip_status.h>
 
 #include "agent.hh"
-
+#include "auth/flexisip-auth-module-base.hh"
+#include "auth/flexisip-auth-status.hh"
 #include "auth/realm-extractor.hh"
 #include "sip-boolean-expressions.hh"
 #include "utils/string-utils.hh"

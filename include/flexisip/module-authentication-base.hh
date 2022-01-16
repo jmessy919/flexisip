@@ -24,13 +24,17 @@
 #include <memory>
 #include <string>
 
-#include "flexisip/auth/flexisip-auth-module-base.hh"
+#include <sofia-sip/auth_module.h>
+
 #include "flexisip/module.hh"
 
-// Foraward declaration to avoid to have to publish the RealmExtractor class header.
-class RealmExtractor;
-
 namespace flexisip {
+
+// Foraward declaration to avoid to have to publish the RealmExtractor class header.
+class AuthStatus;
+class FlexisipAuthStatus;
+class FlexisipAuthModuleBase;
+class RealmExtractor;
 
 /**
  * Base class for Flexisip authentication modules.

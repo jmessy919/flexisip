@@ -22,7 +22,7 @@
 
 #include <sofia-sip/auth_module.h>
 
-#include <flexisip/auth-status.hh>
+#include "auth-status.hh"
 
 namespace flexisip {
 

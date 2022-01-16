@@ -21,9 +21,11 @@
 #include <array>
 #include <regex>
 
-#include "agent.hh"
+#include "auth/flexisip-auth-module-base.hh"
+
 #include <flexisip/module-authentication-base.hh>
 
+#include "agent.hh"
 #include "external-auth-module.hh"
 
 namespace flexisip {
