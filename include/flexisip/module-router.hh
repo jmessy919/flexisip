@@ -30,8 +30,6 @@ struct ExtendedContact;
 class OnContactRegisteredListener;
 class Record;
 
-struct ModuleRouterPrivAttr;
-
 struct RouterStats {
 	std::unique_ptr<StatPair> mCountForks;
 	std::shared_ptr<StatPair> mCountBasicForks;
@@ -76,10 +74,12 @@ public:
 	RouterStats mStats;
 
 protected:
+	// Protected types
 	using ForkMapElem = std::shared_ptr<ForkContext>;
 	using ForkMap = std::multimap<std::string, ForkMapElem>;
 	using ForkRefList = std::vector<ForkMapElem>;
 
+	// Protected methods
 	virtual void dispatch(const std::shared_ptr<ForkContext> context,
 	                      const std::shared_ptr<ExtendedContact>& contact,
 	                      const std::string& targetUris);
@@ -88,12 +88,29 @@ protected:
 	ForkRefList getLateForks(const std::string& key) const noexcept;
 	unsigned countLateForks(const std::string& key) const noexcept;
 
+	// Protected attributes
+	std::list<std::string> mDomains{};
+	std::shared_ptr<ForkContextConfig> mForkCfg{};
+	std::shared_ptr<ForkContextConfig> mMessageForkCfg{};
+	std::shared_ptr<ForkContextConfig> mOtherForkCfg{};
+	ModuleRouter::ForkMap mForks{};
+	bool mUseGlobalDomain{false};
+	bool mAllowDomainRegistrations{false};
+	bool mAllowTargetFactorization{false};
+	bool mResolveRoutes{false};
+	bool mFallbackParentDomain{false};
+	std::string mFallbackRoute{};
+	url_t* mFallbackRouteParsed{nullptr};
+
 private:
+	// Private methods
 	void restoreForksFromDatabase();
 
-	std::unique_ptr<ModuleRouterPrivAttr> mAttr{};
+	// Private Attributes
+	std::shared_ptr<SipBooleanExpression> mFallbackRouteFilter{};
+	bool mSaveForkMessageEnabled{false};
 
-	friend struct ModuleRouterPrivAttr;
+	static ModuleInfo<ModuleRouter> sInfo;
 };
 
 } // namespace flexisip

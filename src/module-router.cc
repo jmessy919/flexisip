@@ -64,34 +64,12 @@ private:
 	friend class ModuleRouter;
 };
 
-struct ModuleRouterPrivAttr {
-	// Protected
-	std::list<std::string> domains{};
-	std::shared_ptr<ForkContextConfig> forkCfg{};
-	std::shared_ptr<ForkContextConfig> messageForkCfg{};
-	std::shared_ptr<ForkContextConfig> otherForkCfg{};
-	ModuleRouter::ForkMap forks{};
-	bool useGlobalDomain{false};
-	bool allowDomainRegistrations{false};
-	bool allowTargetFactorization{false};
-	bool resolveRoutes{false};
-	bool fallbackParentDomain{false};
-	std::string fallbackRoute{};
-	url_t* fallbackRouteParsed{nullptr};
-
-	// Private
-	std::shared_ptr<SipBooleanExpression> fallbackRouteFilter{};
-	bool saveForkMessageEnabled{false};
-
-	static ModuleInfo<ModuleRouter> sInfo;
-};
-
 }; // namespace flexisip
 
 using namespace std;
 using namespace flexisip;
 
-ModuleRouter::ModuleRouter(Agent* agent) : Module{agent}, mAttr{make_unique<ModuleRouterPrivAttr>()} {
+ModuleRouter::ModuleRouter(Agent* agent) : Module{agent} {
 }
 
 ModuleRouter::~ModuleRouter() = default;
@@ -214,52 +192,48 @@ void ModuleRouter::onLoad(const GenericStruct* mc) {
 	GenericStruct* cr = GenericManager::get()->getRoot();
 	const GenericStruct* mReg = cr->get<GenericStruct>("module::Registrar");
 
-	mAttr->domains = mReg->get<ConfigStringList>("reg-domains")->read();
+	mDomains = mReg->get<ConfigStringList>("reg-domains")->read();
 
 	// Forking configuration for INVITEs
-	auto forkCfg = make_shared<ForkContextConfig>();
-	forkCfg->mForkLate = mc->get<ConfigBoolean>("fork-late")->read();
-	forkCfg->mTreatAllErrorsAsUrgent = mc->get<ConfigBoolean>("treat-all-as-urgent")->read();
-	forkCfg->mForkNoGlobalDecline = mc->get<ConfigBoolean>("fork-no-global-decline")->read();
-	forkCfg->mUrgentTimeout = mc->get<ConfigInt>("call-fork-urgent-timeout")->read();
-	forkCfg->mPushResponseTimeout = mc->get<ConfigInt>("call-push-response-timeout")->read();
-	forkCfg->mDeliveryTimeout = mc->get<ConfigInt>("call-fork-timeout")->read();
-	forkCfg->mTreatDeclineAsUrgent = mc->get<ConfigBoolean>("treat-decline-as-urgent")->read();
-	forkCfg->mCurrentBranchesTimeout = mc->get<ConfigInt>("call-fork-current-branches-timeout")->read();
-	forkCfg->mPermitSelfGeneratedProvisionalResponse =
-	    mc->get<ConfigBoolean>("permit-self-generated-provisional-response")->read();
-	mAttr->forkCfg = move(forkCfg);
+	mForkCfg = make_shared<ForkContextConfig>();
+	mForkCfg->mForkLate = mc->get<ConfigBoolean>("fork-late")->read();
+	mForkCfg->mTreatAllErrorsAsUrgent = mc->get<ConfigBoolean>("treat-all-as-urgent")->read();
+	mForkCfg->mForkNoGlobalDecline = mc->get<ConfigBoolean>("fork-no-global-decline")->read();
+	mForkCfg->mUrgentTimeout = mc->get<ConfigInt>("call-fork-urgent-timeout")->read();
+	mForkCfg->mPushResponseTimeout = mc->get<ConfigInt>("call-push-response-timeout")->read();
+	mForkCfg->mDeliveryTimeout = mc->get<ConfigInt>("call-fork-timeout")->read();
+	mForkCfg->mTreatDeclineAsUrgent = mc->get<ConfigBoolean>("treat-decline-as-urgent")->read();
+	mForkCfg->mCurrentBranchesTimeout = mc->get<ConfigInt>("call-fork-current-branches-timeout")->read();
+	mForkCfg->mPermitSelfGeneratedProvisionalResponse = mc->get<ConfigBoolean>("permit-self-generated-provisional-response")->read();
 
 	// Forking configuration for MESSAGEs
-	auto messageForkCfg = make_shared<ForkContextConfig>();
-	messageForkCfg->mForkLate = mc->get<ConfigBoolean>("message-fork-late")->read();
-	messageForkCfg->mDeliveryTimeout = mc->get<ConfigInt>("message-delivery-timeout")->read();
-	messageForkCfg->mUrgentTimeout = mc->get<ConfigInt>("message-accept-timeout")->read();
-	mAttr->messageForkCfg = move(messageForkCfg);
+	mMessageForkCfg = make_shared<ForkContextConfig>();
+	mMessageForkCfg->mForkLate = mc->get<ConfigBoolean>("message-fork-late")->read();
+	mMessageForkCfg->mDeliveryTimeout = mc->get<ConfigInt>("message-delivery-timeout")->read();
+	mMessageForkCfg->mUrgentTimeout = mc->get<ConfigInt>("message-accept-timeout")->read();
 
 	// Forking configuration for other kind of requests.
-	auto otherForkCfg = make_shared<ForkContextConfig>();
-	otherForkCfg->mTreatAllErrorsAsUrgent = false;
-	otherForkCfg->mForkLate = false;
-	mAttr->otherForkCfg = move(otherForkCfg);
+	mOtherForkCfg = make_shared<ForkContextConfig>();
+	mOtherForkCfg->mTreatAllErrorsAsUrgent = false;
+	mOtherForkCfg->mForkLate = false;
 
-	mAttr->useGlobalDomain = mc->get<ConfigBoolean>("use-global-domain")->read();
+	mUseGlobalDomain = mc->get<ConfigBoolean>("use-global-domain")->read();
 
-	mAttr->allowDomainRegistrations =
+	mAllowDomainRegistrations =
 	    cr->get<GenericStruct>("inter-domain-connections")->get<ConfigBoolean>("accept-domain-registrations")->read();
-	mAttr->allowTargetFactorization = mc->get<ConfigBoolean>("allow-target-factorization")->read();
-	mAttr->resolveRoutes = mc->get<ConfigBoolean>("resolve-routes")->read();
-	mAttr->fallbackRoute = mc->get<ConfigString>("fallback-route")->read();
-	mAttr->fallbackParentDomain = mc->get<ConfigBoolean>("parent-domain-fallback")->read();
-	mAttr->fallbackRouteFilter = mc->get<ConfigBooleanExpression>("fallback-route-filter")->read();
+	mAllowTargetFactorization = mc->get<ConfigBoolean>("allow-target-factorization")->read();
+	mResolveRoutes = mc->get<ConfigBoolean>("resolve-routes")->read();
+	mFallbackRoute = mc->get<ConfigString>("fallback-route")->read();
+	mFallbackParentDomain = mc->get<ConfigBoolean>("parent-domain-fallback")->read();
+	mFallbackRouteFilter = mc->get<ConfigBooleanExpression>("fallback-route-filter")->read();
 
-	if (!mAttr->fallbackRoute.empty()) {
-		mAttr->fallbackRouteParsed = sipUrlMake(mHome.home(), mAttr->fallbackRoute.c_str());
-		if (!mAttr->fallbackRouteParsed)
-			LOGF("Bad value [%s] for fallback-route in module::Router.", mAttr->fallbackRoute.c_str());
+	if (!mFallbackRoute.empty()) {
+		mFallbackRouteParsed = sipUrlMake(mHome.home(), mFallbackRoute.c_str());
+		if (!mFallbackRouteParsed)
+			LOGF("Bad value [%s] for fallback-route in module::Router.", mFallbackRoute.c_str());
 	}
 
-	if ((mAttr->saveForkMessageEnabled = mc->get<ConfigBoolean>("save-fork-late-message-in-db")->read())) {
+	if ((mSaveForkMessageEnabled = mc->get<ConfigBoolean>("save-fork-late-message-in-db")->read())) {
 		ForkMessageContextSociRepository::prepareConfiguration(
 		    mc->get<ConfigString>("message-database-backend")->read(),
 		    mc->get<ConfigString>("message-database-connection-string")->read(), 10);
@@ -277,17 +251,17 @@ void ModuleRouter::restoreForksFromDatabase() {
 	SLOGD << " ... " << allDbMessages.size() << " messages found in DB ...";
 	for (auto& dbMessage : allDbMessages) {
 		auto restoredForkMessage =
-		    ForkMessageContextDbProxy::make(getAgent(), mAttr->messageForkCfg, shared_from_this(),
+		    ForkMessageContextDbProxy::make(getAgent(), mMessageForkCfg, shared_from_this(),
 		                                    mStats.mCountMessageForks, mStats.mCountMessageProxyForks, dbMessage);
 		for (const auto& key : dbMessage.dbKeys) {
-			mAttr->forks.emplace(key, restoredForkMessage);
+			mForks.emplace(key, restoredForkMessage);
 			auto listener = make_shared<OnContactRegisteredListener>(this, key);
 			if (countLateForks(key) == 1) {
 				RegistrarDb::get()->subscribe(key, listener);
 			}
 		}
 	}
-	SLOGI << " ... " << mAttr->forks.size() << " fork message restored from DB.";
+	SLOGI << " ... " << mForks.size() << " fork message restored from DB.";
 }
 
 void ModuleRouter::sendReply(
@@ -324,7 +298,7 @@ string ModuleRouter::routingKey(const url_t* sipUri) {
 	if (sipUri->url_user) {
 		oss << sipUri->url_user << "@";
 	}
-	if (mAttr->useGlobalDomain) {
+	if (mUseGlobalDomain) {
 		oss << "merged";
 	} else {
 		oss << sipUri->url_host;
@@ -411,7 +385,7 @@ void ModuleRouter::onContactRegistered(const shared_ptr<OnContactRegisteredListe
 		return;
 	}
 
-	if (!mAttr->forkCfg->mForkLate && !mAttr->messageForkCfg->mForkLate) return;
+	if (!mForkCfg->mForkLate && !mMessageForkCfg->mForkLate) return;
 	if (sipKey.empty()) return; // nothing to do
 
 	// Find all contexts
@@ -461,27 +435,27 @@ void ModuleRouter::onContactRegistered(const shared_ptr<OnContactRegisteredListe
 }
 
 const std::string& ModuleRouter::getFallbackRoute() const {
-	return mAttr->fallbackRoute;
+	return mFallbackRoute;
 }
 
 const url_t* ModuleRouter::getFallbackRouteParsed() const {
-	return mAttr->fallbackRouteParsed;
+	return mFallbackRouteParsed;
 }
 
 bool ModuleRouter::isFallbackToParentDomainEnabled() const {
-	return mAttr->fallbackParentDomain;
+	return mFallbackParentDomain;
 }
 
 bool ModuleRouter::isDomainRegistrationAllowed() const {
-	return mAttr->allowDomainRegistrations;
+	return mAllowDomainRegistrations;
 }
 
 bool ModuleRouter::isManagedDomain(const url_t* url) {
-	return ModuleToolbox::isManagedDomain(getAgent(), mAttr->domains, url);
+	return ModuleToolbox::isManagedDomain(getAgent(), mDomains, url);
 }
 
 const std::shared_ptr<SipBooleanExpression>& ModuleRouter::getFallbackRouteFilter() const {
-	return mAttr->fallbackRouteFilter;
+	return mFallbackRouteFilter;
 }
 
 struct ForkDestination {
@@ -629,37 +603,37 @@ void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_pt
 	// Init context
 	shared_ptr<ForkContext> context;
 	if (sip->sip_request->rq_method == sip_method_invite) {
-		context = ForkCallContext::make(getAgent(), ev, mAttr->forkCfg, shared_from_this(), mStats.mCountCallForks);
+		context = ForkCallContext::make(getAgent(), ev, mForkCfg, shared_from_this(), mStats.mCountCallForks);
 		isInvite = true;
 	} else if ((sip->sip_request->rq_method == sip_method_message) &&
 	           !(sip->sip_content_type &&
 	             strcasecmp(sip->sip_content_type->c_type, "application/im-iscomposing+xml") == 0) &&
 	           !(sip->sip_expires && sip->sip_expires->ex_delta == 0)) {
 		// Use the basic fork context for "im-iscomposing+xml" messages to prevent storing useless messages
-		if (mAttr->saveForkMessageEnabled) {
-			context = ForkMessageContextDbProxy::make(getAgent(), ev, mAttr->messageForkCfg, shared_from_this(),
+		if (mSaveForkMessageEnabled) {
+			context = ForkMessageContextDbProxy::make(getAgent(), ev, mMessageForkCfg, shared_from_this(),
 			                                          mStats.mCountMessageForks, mStats.mCountMessageProxyForks);
 		} else {
-			context = ForkMessageContext::make(getAgent(), ev, mAttr->messageForkCfg, shared_from_this(),
+			context = ForkMessageContext::make(getAgent(), ev, mMessageForkCfg, shared_from_this(),
 			                                   mStats.mCountMessageForks);
 		}
 	} else if (sip->sip_request->rq_method == sip_method_refer &&
 	           (sip->sip_refer_to != nullptr && msg_params_find(sip->sip_refer_to->r_params, "text") != nullptr)) {
 		// Use the message fork context only for refers that are text to prevent storing useless refers
-		if (mAttr->saveForkMessageEnabled) {
-			context = ForkMessageContextDbProxy::make(getAgent(), ev, mAttr->messageForkCfg, shared_from_this(),
+		if (mSaveForkMessageEnabled) {
+			context = ForkMessageContextDbProxy::make(getAgent(), ev, mMessageForkCfg, shared_from_this(),
 			                                          mStats.mCountMessageForks, mStats.mCountMessageProxyForks);
 		} else {
-			context = ForkMessageContext::make(getAgent(), ev, mAttr->messageForkCfg, shared_from_this(),
+			context = ForkMessageContext::make(getAgent(), ev, mMessageForkCfg, shared_from_this(),
 			                                   mStats.mCountMessageForks);
 		}
 	} else {
 		context =
-		    ForkBasicContext::make(getAgent(), ev, mAttr->otherForkCfg, shared_from_this(), mStats.mCountBasicForks);
+		    ForkBasicContext::make(getAgent(), ev, mOtherForkCfg, shared_from_this(), mStats.mCountBasicForks);
 	}
 	const auto key = routingKey(sipUri);
 	context->addKey(key);
-	mAttr->forks.emplace(key, context);
+	mForks.emplace(key, context);
 	SLOGD << "Add fork " << context.get() << " to store with key '" << key << "'";
 	if (context->getConfig()->mForkLate && countLateForks(key) == 1) {
 		auto listener = make_shared<OnContactRegisteredListener>(this, key);
@@ -668,7 +642,7 @@ void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_pt
 
 	// now sort usable_contacts to form groups, if grouping is allowed
 	ForkGroupSorter sorter(usable_contacts);
-	if (isInvite && mAttr->allowTargetFactorization) {
+	if (isInvite && mAllowTargetFactorization) {
 		sorter.makeGroups();
 	} else {
 		sorter.makeDestinations();
@@ -687,13 +661,13 @@ void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_pt
 				sip_contact_t* temp_ctt =
 				    sip_contact_create(ms->getHome(), (url_string_t*)ec->mSipContact->m_url, NULL);
 
-				if (mAttr->useGlobalDomain) {
+				if (mUseGlobalDomain) {
 					temp_ctt->m_url->url_host = "merged";
 					temp_ctt->m_url->url_port = NULL;
 				}
 				const string aliasKey(routingKey(temp_ctt->m_url));
 				context->addKey(aliasKey);
-				mAttr->forks.emplace(aliasKey, context);
+				mForks.emplace(aliasKey, context);
 				if (countLateForks(aliasKey) == 1) {
 					auto listener = make_shared<OnContactRegisteredListener>(this, aliasKey);
 					RegistrarDb::get()->subscribe(aliasKey, listener);
@@ -958,8 +932,8 @@ vector<string> ModuleRouter::split(const char* data, const char* delim) {
 
 ModuleRouter::ForkRefList ModuleRouter::getLateForks(const std::string& key) const noexcept {
 	ForkRefList lateForks{};
-	lateForks.reserve(mAttr->forks.count(key));
-	auto range = mAttr->forks.equal_range(key);
+	lateForks.reserve(mForks.count(key));
+	auto range = mForks.equal_range(key);
 	for (auto it = range.first; it != range.second; ++it) {
 		const auto& forkCtx = it->second;
 		if (forkCtx->getConfig()->mForkLate) lateForks.emplace_back(it->second);
@@ -969,7 +943,7 @@ ModuleRouter::ForkRefList ModuleRouter::getLateForks(const std::string& key) con
 
 unsigned ModuleRouter::countLateForks(const std::string& key) const noexcept {
 	auto count = 0u;
-	auto range = mAttr->forks.equal_range(key);
+	auto range = mForks.equal_range(key);
 	for (auto it = range.first; it != range.second; ++it) {
 		const auto& forkCtx = it->second;
 		if (forkCtx->getConfig()->mForkLate) ++count;
@@ -1003,7 +977,7 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent>& ev) {
 		LOGD("Router: routing REGISTER to domain controller");
 	}
 
-	if (mAttr->resolveRoutes) {
+	if (mResolveRoutes) {
 		sip_route_t* iterator = sip->sip_route;
 		while (iterator != NULL) {
 			sip_route_t* route = iterator;
@@ -1016,7 +990,7 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent>& ev) {
 					      << " but not us, forwarding";
 					SipUri sipurl(sip->sip_request->rq_url);
 					auto onRoutingListener = make_shared<OnFetchForRoutingListener>(this, ev, sipurl);
-					RegistrarDb::get()->fetch(sipurl, onRoutingListener, mAttr->allowDomainRegistrations, true);
+					RegistrarDb::get()->fetch(sipurl, onRoutingListener, mAllowDomainRegistrations, true);
 					return;
 				} catch (const sofiasip::InvalidUrlError& e) {
 					LOGD("%s", e.what());
@@ -1052,10 +1026,10 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent>& ev) {
 				/*the unstandard X-Target-Uris header gives us a list of SIP uri to which the request is to be forked.*/
 				sip_unknown_t* h = ModuleToolbox::getCustomHeaderByName(ev->getSip(), "X-Target-Uris");
 				if (!h) {
-					RegistrarDb::get()->fetch(sipurl, onRoutingListener, mAttr->allowDomainRegistrations, true);
+					RegistrarDb::get()->fetch(sipurl, onRoutingListener, mAllowDomainRegistrations, true);
 				} else {
 					auto fetcher = make_shared<TargetUriListFetcher>(this, ev, onRoutingListener, h);
-					fetcher->fetch(mAttr->allowDomainRegistrations, true);
+					fetcher->fetch(mAllowDomainRegistrations, true);
 				}
 			}
 		} catch (const sofiasip::InvalidUrlError& e) {
@@ -1074,7 +1048,7 @@ void ModuleRouter::onForkContextFinished(const shared_ptr<ForkContext>& ctx) {
 	for (const auto& key : keys) {
 		LOGD("Looking at fork contexts with key %s", key.c_str());
 
-		auto range = mAttr->forks.equal_range(key.c_str());
+		auto range = mForks.equal_range(key.c_str());
 		for (auto it = range.first; it != range.second;) {
 			if (it->second == ctx) {
 				LOGD("Remove fork %s from store", it->first.c_str());
@@ -1082,7 +1056,7 @@ void ModuleRouter::onForkContextFinished(const shared_ptr<ForkContext>& ctx) {
 				auto cur_it = it;
 				++it;
 				// for some reason the multimap erase does not return the next iterator !
-				mAttr->forks.erase(cur_it);
+				mForks.erase(cur_it);
 				// do not break, because a single fork context might appear several time in the map because of aliases.
 			} else {
 				++it;
@@ -1091,7 +1065,7 @@ void ModuleRouter::onForkContextFinished(const shared_ptr<ForkContext>& ctx) {
 	}
 }
 
-ModuleInfo<ModuleRouter> ModuleRouterPrivAttr::sInfo(
+ModuleInfo<ModuleRouter> ModuleRouter::sInfo(
     "Router",
     "The Router module routes requests for domains it manages.\n"
     "The routing algorithm is as follows: \n"
