@@ -17,9 +17,9 @@
  */
 
 #include "flexisip/agent.hh"
-#include "flexisip/fork-context/branch-info.hh"
-
 #include "flexisip/fork-context/fork-context.hh"
+
+#include "branch-info.hh"
 
 using namespace std;
 using namespace flexisip;

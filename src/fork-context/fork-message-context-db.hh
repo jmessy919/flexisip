@@ -20,7 +20,7 @@
 
 #include <vector>
 
-#include "flexisip/fork-context/branch-info-db.hh"
+#include "branch-info-db.hh"
 
 namespace flexisip {
 

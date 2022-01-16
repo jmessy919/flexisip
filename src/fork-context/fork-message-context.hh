@@ -23,9 +23,10 @@
 
 #include "flexisip/agent.hh"
 #include "flexisip/event.hh"
-#include "flexisip/fork-context/fork-context-base.hh"
-#include "flexisip/fork-context/fork-message-context-db.hh"
 #include "flexisip/transaction.hh"
+
+#include "fork-context-base.hh"
+#include "fork-message-context-db.hh"
 
 namespace flexisip {
 

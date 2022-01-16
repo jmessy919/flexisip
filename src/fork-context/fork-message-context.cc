@@ -19,15 +19,16 @@
 #include <algorithm>
 #include <chrono>
 
+#if ENABLE_UNIT_TESTS
+#include <bctoolbox/tester.h>
+#endif
+
+#include <sofia-sip/sip_status.h>
+
 #include "flexisip/common.hh"
 #include "flexisip/registrardb.hh"
-#include "sofia-sip/sip_status.h"
 
-#include "flexisip/fork-context/fork-message-context.hh"
-
-#if ENABLE_UNIT_TESTS
-#include "bctoolbox/tester.h"
-#endif
+#include "fork-message-context.hh"
 
 using namespace std;
 using namespace std::chrono;

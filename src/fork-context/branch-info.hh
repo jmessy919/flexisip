@@ -20,14 +20,15 @@
 
 #include <memory>
 
-#include "flexisip/fork-context/branch-info-db.hh"
+#if ENABLE_UNIT_TESTS
+#include <bctoolbox/tester.h>
+#endif
+
 #include "flexisip/fork-context/fork-context.hh"
 #include "flexisip/registrardb.hh"
 #include "flexisip/transaction.hh"
 
-#if ENABLE_UNIT_TESTS
-#include "bctoolbox/tester.h"
-#endif
+#include "branch-info-db.hh"
 
 namespace flexisip {
 

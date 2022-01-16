@@ -25,7 +25,7 @@
 #include <soci/session.h>
 #include <soci/sqlite3/soci-sqlite3.h>
 
-#include "flexisip/fork-context/fork-message-context.hh"
+#include "fork-message-context.hh"
 
 namespace flexisip {
 

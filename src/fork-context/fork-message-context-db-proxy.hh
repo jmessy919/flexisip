@@ -20,12 +20,12 @@
 
 #include <string>
 
-#include "flexisip/fork-context/fork-message-context-soci-repository.hh"
-#include "flexisip/fork-context/fork-message-context.hh"
-
 #if ENABLE_UNIT_TESTS
-#include "bctoolbox/tester.h"
+#include <bctoolbox/tester.h>
 #endif
+
+#include "fork-message-context.hh"
+#include "fork-message-context-soci-repository.hh"
 
 namespace flexisip {
 

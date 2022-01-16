@@ -21,10 +21,11 @@
 #include "domain-registrations.hh"
 #include "flexisip/logmanager.hh"
 
-#include <flexisip/fork-context/fork-basic-context.hh>
-#include <flexisip/fork-context/fork-call-context.hh>
-#include <flexisip/fork-context/fork-message-context-db-proxy.hh>
-#include <flexisip/fork-context/fork-message-context-soci-repository.hh>
+#include "fork-context/fork-basic-context.hh"
+#include "fork-context/fork-call-context.hh"
+#include "fork-context/fork-message-context-db-proxy.hh"
+#include "fork-context/fork-message-context-soci-repository.hh"
+
 #include <flexisip/module-router.hh>
 
 namespace flexisip {

@@ -18,9 +18,10 @@
 
 #include <algorithm>
 #include <flexisip/common.hh>
-#include <flexisip/fork-context/fork-basic-context.hh>
 #include <flexisip/registrardb.hh>
 #include <sofia-sip/sip_status.h>
+
+#include "fork-basic-context.hh"
 
 using namespace std;
 using namespace flexisip;

@@ -19,7 +19,7 @@
 #include "flexisip/agent.hh"
 #include "flexisip/registrardb.hh"
 
-#include "flexisip/fork-context/fork-context-base.hh"
+#include "fork-context-base.hh"
 
 using namespace std;
 using namespace std::chrono;
