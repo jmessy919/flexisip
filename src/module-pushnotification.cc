@@ -33,7 +33,7 @@
 #include "utils/uri-utils.hh"
 #include "utils/string-utils.hh"
 
-#include "flexisip/module-pushnotification.hh"
+#include "module-pushnotification.hh"
 
 namespace flexisip {
 

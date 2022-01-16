@@ -36,9 +36,10 @@
 
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>
-#include <flexisip/push-param.hh>
 #include <flexisip/registrardb-listener.hh>
 #include <flexisip/utils/sip-uri.hh>
+
+#include "push-param.hh"
 
 namespace flexisip {
 

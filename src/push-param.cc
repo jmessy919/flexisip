@@ -20,7 +20,7 @@
 #include "flexisip/logmanager.hh"
 #include "utils/string-utils.hh"
 
-#include "flexisip/push-param.hh"
+#include "push-param.hh"
 
 using namespace std;
 
