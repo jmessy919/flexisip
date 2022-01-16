@@ -17,7 +17,7 @@
 */
 #include "tool_utils.hh"
 #include "../registrardb-internal.hh"
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 
 using namespace std;
 using namespace flexisip;

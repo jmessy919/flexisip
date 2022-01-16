@@ -20,7 +20,7 @@
 #include <sofia-sip/sip_protos.h>
 
 #include "flexisip/common.hh"
-#include "flexisip/registrardb.hh"
+#include "registrardb.hh"
 
 #include "recordserializer.hh"
 #include "utils/string-utils.hh"

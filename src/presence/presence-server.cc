@@ -26,7 +26,7 @@
 #endif
 
 #include <flexisip/configmanager.hh>
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 
 #include "bellesip-signaling-exception.hh"
 #include "list-subscription/body-list-subscription.hh"

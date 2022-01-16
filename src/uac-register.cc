@@ -22,7 +22,7 @@
 #include <sofia-sip/sip_header.h>
 #include <flexisip/common.hh>
 #include "agent.hh"
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 #include <flexisip/logmanager.hh>
 
 using namespace std;

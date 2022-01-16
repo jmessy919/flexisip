@@ -24,7 +24,7 @@
 #include "flexisip/event.hh"
 #include "flexisip/fork-context/fork-context.hh"
 #include "flexisip/fork-context/fork-context-listener.hh"
-#include "flexisip/registrardb.hh"
+#include "registrardb.hh"
 #include "flexisip/sofia-wrapper/timer.hh"
 #include "transaction.hh"
 

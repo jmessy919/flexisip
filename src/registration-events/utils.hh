@@ -20,7 +20,7 @@
 
 #include <linphone++/linphone.hh>
 
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 
 #include "conference/conference-server.hh"
 

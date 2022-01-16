@@ -20,7 +20,7 @@
 #include <flexisip/fork-context/fork-context.hh>
 #include <flexisip/module.hh>
 #include <flexisip/module-router.hh>
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 #include "transaction.hh"
 
 #include "etchosts.hh"

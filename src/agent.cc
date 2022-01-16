@@ -34,7 +34,7 @@
 #include <flexisip/flexisip-version.h>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 
 #include "agent.hh"
 #include "etchosts.hh"

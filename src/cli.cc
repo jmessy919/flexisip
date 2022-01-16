@@ -31,7 +31,7 @@
 #include "recordserializer.hh"
 #include <flexisip/common.hh>
 #include <flexisip/logmanager.hh>
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 
 #include "cJSON.h"
 

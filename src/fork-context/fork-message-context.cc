@@ -26,7 +26,7 @@
 #include <sofia-sip/sip_status.h>
 
 #include "flexisip/common.hh"
-#include "flexisip/registrardb.hh"
+#include "registrardb.hh"
 
 #include "fork-message-context.hh"
 

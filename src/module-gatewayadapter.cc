@@ -19,7 +19,7 @@
 #include <flexisip/module.hh>
 #include "agent.hh"
 #include "authdb.hh"
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 #include <sofia-sip/nua.h>
 #include <sofia-sip/sip_status.h>
 #include <limits.h>

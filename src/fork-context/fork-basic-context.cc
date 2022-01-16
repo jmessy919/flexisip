@@ -18,7 +18,7 @@
 
 #include <algorithm>
 #include <flexisip/common.hh>
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 #include <sofia-sip/sip_status.h>
 
 #include "fork-basic-context.hh"

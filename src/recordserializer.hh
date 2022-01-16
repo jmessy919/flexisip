@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 
 namespace flexisip {
 

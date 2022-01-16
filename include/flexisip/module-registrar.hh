@@ -24,7 +24,7 @@
 #include <sofia-sip/su_random.h>
 
 #include <flexisip/module.hh>
-#include <flexisip/registrardb.hh>
+#include <flexisip/registrardb-listener.hh>
 
 namespace flexisip {
 

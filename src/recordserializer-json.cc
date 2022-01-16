@@ -18,7 +18,7 @@
 */
 
 #include <flexisip/common.hh>
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 #include "recordserializer.hh"
 #include <sofia-sip/sip_protos.h>
 #include "cJSON.h"

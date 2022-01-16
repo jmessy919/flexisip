@@ -17,7 +17,7 @@
  */
 
 #include "agent.hh"
-#include "flexisip/registrardb.hh"
+#include "registrardb.hh"
 
 #include "fork-context-base.hh"
 

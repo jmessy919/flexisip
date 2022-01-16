@@ -28,7 +28,7 @@
 #include <flexisip/configmanager.hh>
 #include <flexisip/common.hh>
 #include <flexisip/module.hh>
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 
 #include "recordserializer.hh"
 #include "registrardb-internal.hh"

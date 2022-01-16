@@ -16,7 +16,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 #include "registrardb-internal.hh"
 #include <flexisip/common.hh>
 

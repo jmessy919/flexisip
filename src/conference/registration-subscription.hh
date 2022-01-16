@@ -19,7 +19,7 @@
 #pragma once
 
 #include "linphone++/linphone.hh"
-#include "flexisip/registrardb.hh"
+#include "registrardb.hh"
 #include "registration-events/client.hh"
 
 namespace flexisip {

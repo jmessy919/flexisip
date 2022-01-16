@@ -1,6 +1,6 @@
 #include <belle-sip/belle-sip.h>
 
-#include <flexisip/registrardb.hh>
+#include "registrardb.hh"
 
 #include "presence-longterm.hh"
 #include "presentity-presenceinformation.hh"
