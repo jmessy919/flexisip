@@ -16,16 +16,18 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "flexisip-config.h"
-#include "flexisip/logmanager.hh"
-#include "flexisip/event.hh"
-
-
 #include <syslog.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "flexisip-config.h"
+
+#include "flexisip/logmanager.hh"
+#include "flexisip/event.hh"
+#include "flexisip/sofia-wrapper/timer.hh"
+
+#include "sip-boolean-expressions.hh"
 
 
 using namespace std;
@@ -33,6 +35,21 @@ using namespace std;
 static BctbxLogLevel flexisip_sysLevelMin = BCTBX_LOG_ERROR;
 
 namespace flexisip {
+
+class LogManagerAttr {
+public:
+	std::mutex mMutex;
+	std::shared_ptr<SipBooleanExpression> mCurrentFilter;
+	BctbxLogLevel mLevel = BCTBX_LOG_ERROR; // The normal log level.
+	BctbxLogLevel mContextLevel = BCTBX_LOG_ERROR; // The log level when log context matches the condition.
+	bctbx_log_handler_t *mLogHandler = nullptr;
+	bctbx_log_handler_t *mSysLogHandler = nullptr;
+	std::unique_ptr<sofiasip::Timer> mTimer;
+	bool mInitialized = false;
+	bool mReopenRequired = false;
+
+	static LogManager *sInstance;
+};
 	
 static void syslogHandler(void *info, const char *domain, BctbxLogLevel log_level, const char *str, va_list l) {
 	if (log_level >= flexisip_sysLevelMin) {
@@ -60,11 +77,11 @@ static void syslogHandler(void *info, const char *domain, BctbxLogLevel log_leve
 	}
 }
 
-LogManager *LogManager::sInstance = nullptr;
+LogManager *LogManagerAttr::sInstance = nullptr;
 
 LogManager & LogManager::get(){
-	if (!sInstance) sInstance = new LogManager();
-	return *sInstance;
+	if (!LogManagerAttr::sInstance) LogManagerAttr::sInstance = new LogManager();
+	return *LogManagerAttr::sInstance;
 }
 
 BctbxLogLevel LogManager::logLevelFromName(const std::string & name) const{
@@ -86,22 +103,22 @@ BctbxLogLevel LogManager::logLevelFromName(const std::string & name) const{
 
 
 void LogManager::initialize(const Parameters& params){
-	if (mInitialized){
+	if (mAttr->mInitialized){
 		LOGE("LogManager already initialized.");
 		return;
 	}
-	mInitialized = true;
+	mAttr->mInitialized = true;
 	if (params.enableSyslog) {
 		openlog("flexisip", 0, LOG_USER);
 		setlogmask(~0);
-		mSysLogHandler = bctbx_create_log_handler(syslogHandler, bctbx_logv_out_destroy, NULL);
-		if (mSysLogHandler) bctbx_add_log_handler(mSysLogHandler);
+		mAttr->mSysLogHandler = bctbx_create_log_handler(syslogHandler, bctbx_logv_out_destroy, NULL);
+		if (mAttr->mSysLogHandler) bctbx_add_log_handler(mAttr->mSysLogHandler);
 		else ::syslog(LOG_ERR, "Could not create syslog handler");
 		flexisip_sysLevelMin = params.syslogLevel;
 	}
-	mLevel = params.level;
-	if (flexisip_sysLevelMin < params.level) mLevel = flexisip_sysLevelMin;
-	setLogLevel(mLevel);
+	mAttr->mLevel = params.level;
+	if (flexisip_sysLevelMin < params.level) mAttr->mLevel = flexisip_sysLevelMin;
+	setLogLevel(mAttr->mLevel);
 	
 	if (!params.logFilename.empty()){
 		ostringstream pathStream;
@@ -126,8 +143,8 @@ void LogManager::initialize(const Parameters& params){
 		if (params.enableSyslog) ::syslog(LOG_INFO, msg.c_str(), msg.size());
 		else printf("%s\n", msg.c_str());
 
-		mLogHandler = bctbx_create_file_log_handler(params.fileMaxSize, params.logDirectory.c_str(), params.logFilename.c_str());
-		if (mLogHandler) bctbx_add_log_handler(mLogHandler);
+		mAttr->mLogHandler = bctbx_create_file_log_handler(params.fileMaxSize, params.logDirectory.c_str(), params.logFilename.c_str());
+		if (mAttr->mLogHandler) bctbx_add_log_handler(mAttr->mLogHandler);
 		else {
 			if (params.enableSyslog) ::syslog(LOG_ERR, "Could not create log file handler.");
 			if (!params.enableStdout) {
@@ -145,8 +162,8 @@ void LogManager::initialize(const Parameters& params){
 		bctbx_set_log_handler(logStub);
 	}
 	if (params.root) {
-		mTimer.reset(new sofiasip::Timer(params.root, 1000));
-		mTimer->run(bind(&LogManager::checkForReopening, this));
+		mAttr->mTimer.reset(new sofiasip::Timer(params.root, 1000));
+		mAttr->mTimer->run(bind(&LogManager::checkForReopening, this));
 	}
 }
 
@@ -159,7 +176,7 @@ void LogManager::logStub(const char *domain, BctbxLogLevel level, const char *ms
 }
 
 void LogManager::setLogLevel(BctbxLogLevel level){
-	mLevel = level;
+	mAttr->mLevel = level;
 	bctbx_set_log_level(NULL /*any domain*/, level);
 }
 
@@ -181,26 +198,32 @@ int LogManager::setContextualFilter(const std::string &expression){
 			return -1;
 		}
 	}
-	mMutex.lock();
-	mCurrentFilter = expr;
-	mMutex.unlock();
+	mAttr->mMutex.lock();
+	mAttr->mCurrentFilter = expr;
+	mAttr->mMutex.unlock();
 	LOGD("Contextual log filter set: %s\n", expression.c_str());
 	return 0;
 }
 
 void LogManager::setContextualLevel(BctbxLogLevel level){
-	mContextLevel = level;
+	mAttr->mContextLevel = level;
 }
 
 void LogManager::disable(){
 	setLogLevel(BCTBX_LOG_FATAL);
 }
 
+void LogManager::reopenFiles() {
+	mAttr->mReopenRequired = true;
+}
+
+LogManager::LogManager() : mAttr{make_unique<LogManagerAttr>()} {}
+
 void LogManager::setCurrentContext(const SipLogContext &ctx){
 	shared_ptr<SipBooleanExpression> expr;
-	mMutex.lock();
-	expr = mCurrentFilter;
-	mMutex.unlock();
+	mAttr->mMutex.lock();
+	expr = mAttr->mCurrentFilter;
+	mAttr->mMutex.unlock();
 	
 	if (!expr) {
 		return;
@@ -211,7 +234,7 @@ void LogManager::setCurrentContext(const SipLogContext &ctx){
 	 * If not, the default (normal) log level is used.
 	 */
 	if (expr->eval(*ctx.mMsgSip.getSip())){
-		bctbx_set_thread_log_level(NULL, mContextLevel);
+		bctbx_set_thread_log_level(NULL, mAttr->mContextLevel);
 	}else{
 		bctbx_clear_thread_log_level(NULL);
 	}
@@ -222,16 +245,16 @@ void LogManager::clearCurrentContext(){
 }
 
 void LogManager::checkForReopening() {
-	if (mReopenRequired) {
-		bctbx_file_log_handler_reopen(mLogHandler);
-		mReopenRequired = false;
+	if (mAttr->mReopenRequired) {
+		bctbx_file_log_handler_reopen(mAttr->mLogHandler);
+		mAttr->mReopenRequired = false;
 	}
 }
 
 LogManager::~LogManager(){
-	if (mLogHandler) bctbx_remove_log_handler(mLogHandler);
-	if (mSysLogHandler) bctbx_remove_log_handler(mSysLogHandler);
-	sInstance = nullptr;
+	if (mAttr->mLogHandler) bctbx_remove_log_handler(mAttr->mLogHandler);
+	if (mAttr->mSysLogHandler) bctbx_remove_log_handler(mAttr->mSysLogHandler);
+	LogManagerAttr::sInstance = nullptr;
 }
 
 SipLogContext::SipLogContext(const MsgSip & msg) : mMsgSip(msg){

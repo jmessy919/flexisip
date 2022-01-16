@@ -19,9 +19,9 @@
 #include <stdexcept>
 
 #include <flexisip/module.hh>
-#include <flexisip/sip-boolean-expressions.hh>
 
 #include "entryfilter.hh"
+#include "sip-boolean-expressions.hh"
 
 using namespace std;
 using namespace flexisip;

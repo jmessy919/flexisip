@@ -31,10 +31,10 @@
 #include <flexisip/configmanager.hh>
 #include <flexisip/flexisip-version.h>
 #include <flexisip/logmanager.hh>
-#include <flexisip/sip-boolean-expressions.hh>
 
 #include "configdumper.hh"
 #include "lpconfig.h"
+#include "sip-boolean-expressions.hh"
 
 using namespace std;
 

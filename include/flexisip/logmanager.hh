@@ -34,8 +34,7 @@
 
 #include <bctoolbox/logging.h>
 
-#include "flexisip/sip-boolean-expressions.hh"
-#include "flexisip/sofia-wrapper/timer.hh"
+#include <sofia-sip/su_wait.h>
 
 /*
  * These are the classic C-style logging macros.
@@ -120,6 +119,7 @@ do {\
 namespace flexisip {
 
 class SipLogContext;
+class LogManagerAttr;
 class MsgSip;
 /*
  * The LogManager is the main entry point to configure logs in flexisip.
@@ -166,29 +166,19 @@ public:
 	 * @brief Require the reopening of each log file.
 	 * @note This method can be used inside UNIX signal handlers.
 	 */
-	void reopenFiles() {mReopenRequired = true;}
+	void reopenFiles();
 
 	~LogManager();
-private:
 
+private:
 	static void logStub(const char *domain, BctbxLogLevel level, const char *msg, va_list args);
-	LogManager() = default;
+	LogManager();
 	LogManager(const LogManager &) = delete;
 	void setCurrentContext(const SipLogContext &ctx);
 	void clearCurrentContext();
 	void checkForReopening();
 
-	std::mutex mMutex;
-	std::shared_ptr<SipBooleanExpression> mCurrentFilter;
-	BctbxLogLevel mLevel = BCTBX_LOG_ERROR; // The normal log level.
-	BctbxLogLevel mContextLevel = BCTBX_LOG_ERROR; // The log level when log context matches the condition.
-	bctbx_log_handler_t *mLogHandler = nullptr;
-	bctbx_log_handler_t *mSysLogHandler = nullptr;
-	std::unique_ptr<sofiasip::Timer> mTimer;
-	bool mInitialized = false;
-	bool mReopenRequired = false;
-
-	static LogManager *sInstance;
+	std::unique_ptr<LogManagerAttr> mAttr{};
 };
 
 class LogContext{

@@ -52,7 +52,6 @@ typedef unsigned long oid;
 
 #include "flexisip/common.hh"
 #include "flexisip/flexisip-exception.hh"
-#include "flexisip/sip-boolean-expressions.hh"
 
 typedef struct sip_s sip_t;
 
@@ -561,6 +560,9 @@ class ConfigStringList : public ConfigValue {
 
   private:
 };
+
+template <typename T> class BooleanExpression;
+using SipBooleanExpression = BooleanExpression<sip_t>;
 
 class ConfigBooleanExpression : public ConfigValue {
   public:

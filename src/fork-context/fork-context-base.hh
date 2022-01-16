@@ -25,6 +25,7 @@
 #include "flexisip/fork-context/fork-context.hh"
 #include "flexisip/fork-context/fork-context-listener.hh"
 #include "flexisip/registrardb.hh"
+#include "flexisip/sofia-wrapper/timer.hh"
 #include "flexisip/transaction.hh"
 
 #include "branch-info.hh"

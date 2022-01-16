@@ -16,10 +16,11 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include <sofia-sip/sip.h>
 
-#include "flexisip/sip-boolean-expressions.hh"
 #include "flexisip/expressionparser-impl.cc"
-#include "sofia-sip/sip.h"
+
+#include "sip-boolean-expressions.hh"
 
 using namespace std;
 

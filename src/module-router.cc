@@ -25,6 +25,7 @@
 #include "fork-context/fork-call-context.hh"
 #include "fork-context/fork-message-context-db-proxy.hh"
 #include "fork-context/fork-message-context-soci-repository.hh"
+#include "sip-boolean-expressions.hh"
 
 #include <flexisip/module-router.hh>
 

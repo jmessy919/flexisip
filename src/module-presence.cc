@@ -21,6 +21,8 @@
 #include <flexisip/module.hh>
 #include <flexisip/utils/sip-uri.hh>
 
+#include "sip-boolean-expressions.hh"
+
 using namespace std;
 using namespace flexisip;
 

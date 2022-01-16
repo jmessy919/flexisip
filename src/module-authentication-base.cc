@@ -23,6 +23,7 @@
 #include "flexisip/agent.hh"
 
 #include "auth/realm-extractor.hh"
+#include "sip-boolean-expressions.hh"
 #include "utils/string-utils.hh"
 
 #include "flexisip/module-authentication-base.hh"
