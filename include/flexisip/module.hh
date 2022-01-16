@@ -23,8 +23,8 @@
 #include <sofia-sip/tport.h>
 
 #include "flexisip/configmanager.hh"
-#include "flexisip/entryfilter.hh"
 #include "flexisip/event.hh"
+#include "flexisip/sofia-wrapper/home.hh"
 
 namespace flexisip {
 
@@ -34,6 +34,7 @@ namespace flexisip {
 // Module.
 // -----------------------------------------------------------------------------
 
+class EntryFilter;
 class ModuleInfoBase;
 
 template<typename T>
@@ -63,7 +64,7 @@ class Module : protected ConfigValueListener {
 
 public:
 	Module(Agent *agent);
-	virtual ~Module() = default;
+	virtual ~Module();
 
 	Agent *getAgent() const {return mAgent;}
 	nta_agent_t *getSofiaAgent() const;

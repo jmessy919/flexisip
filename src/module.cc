@@ -18,17 +18,17 @@
 
 #include <algorithm>
 
+#include <sofia-sip/auth_digest.h>
+#include <sofia-sip/nta.h>
+
 #include <flexisip/agent.hh>
 #include <flexisip/configmanager.hh>
-#include <flexisip/entryfilter.hh>
 #include <flexisip/expressionparser.hh>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>
 
-#include <sofia-sip/auth_digest.h>
-#include <sofia-sip/nta.h>
-
 #include "domain-registrations.hh"
+#include "entryfilter.hh"
 #include "utils/signaling-exception.hh"
 
 using namespace std;
@@ -39,6 +39,8 @@ using namespace flexisip;
 // -----------------------------------------------------------------------------
 
 Module::Module(Agent *ag) : mAgent(ag), mFilter(new ConfigEntryFilter()) {}
+
+Module::~Module() = default;
 
 bool Module::isEnabled() const {
 	return mFilter->isEnabled();
