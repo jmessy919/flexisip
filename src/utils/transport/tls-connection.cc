@@ -247,7 +247,7 @@ int TlsConnection::write(const void* data, int dlen) noexcept {
 }
 
 bool TlsConnection::waitForData(chrono::milliseconds timeout) const {
-	pollfd polls = {0};
+	pollfd polls{};
 	polls.fd = this->getFd();
 	polls.events = POLLIN;
 

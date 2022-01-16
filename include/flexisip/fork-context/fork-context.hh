@@ -18,17 +18,19 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
-
-#include "flexisip/agent.hh"
-#include "flexisip/event.hh"
-#include "flexisip/fork-context/branch-info.hh"
-#include "flexisip/registrardb.hh"
-#include "flexisip/transaction.hh"
+#include <vector>
 
 namespace flexisip {
 
 class BranchInfo;
+struct ExtendedContact;
+class IncomingTransaction;
+class OutgoingTransaction;
+class RequestSipEvent;
+class ResponseSipEvent;
+class SipUri;
 
 struct ForkContextConfig {
 	int mDeliveryTimeout = 0;        /* in seconds, used for "late" forking*/
@@ -93,12 +95,6 @@ public:
 	virtual const std::shared_ptr<RequestSipEvent>& getEvent() = 0;
 	virtual const std::shared_ptr<ForkContextConfig>& getConfig() const = 0;
 	virtual bool isFinished() const = 0;
-};
-
-class ForkContextListener {
-public:
-	virtual ~ForkContextListener() = default;
-	virtual void onForkContextFinished(const std::shared_ptr<ForkContext>& ctx) = 0;
 };
 
 } // namespace flexisip

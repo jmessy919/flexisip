@@ -519,7 +519,7 @@ bool ModuleToolbox::urlHostMatch(const char *host1, const char *host2) {
 		/*since there exist multiple text representations of ipv6 addresses, it is necessary to switch to binary
 		 * representation to make the comparision*/
 		string ip1(host1, len1), ip2(host2, len2);
-		struct sockaddr_in6 addr1 = {0}, addr2 = {0};
+		struct sockaddr_in6 addr1{}, addr2{};
 		if (inet_pton(AF_INET6, ip1.c_str(), &addr1) == 1 && inet_pton(AF_INET6, ip2.c_str(), &addr2) == 1) {
 			return memcmp(&addr1, &addr2, sizeof(addr1)) == 0;
 		} else {

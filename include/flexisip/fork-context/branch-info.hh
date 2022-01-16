@@ -31,6 +31,8 @@
 
 namespace flexisip {
 
+class ForkContext;
+
 class BranchInfo {
 public:
 	template <typename T> BranchInfo(T&& ctx) : mForkCtx{std::forward<T>(ctx)} {

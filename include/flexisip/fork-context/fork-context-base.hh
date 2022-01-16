@@ -24,6 +24,7 @@
 #include "flexisip/event.hh"
 #include "flexisip/fork-context/branch-info.hh"
 #include "flexisip/fork-context/fork-context.hh"
+#include "flexisip/fork-context/fork-context-listener.hh"
 #include "flexisip/registrardb.hh"
 #include "flexisip/transaction.hh"
 

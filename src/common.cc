@@ -157,7 +157,7 @@ BinaryIp::BinaryIp(const char *ip){
 }
 std::string BinaryIp::asString() const{
 	char ip[64];
-	struct sockaddr_in6 addr = {0};
+	struct sockaddr_in6 addr{};
 	addr.sin6_family = AF_INET6;
 	memcpy(&addr.sin6_addr, (const void *)&mAddr, sizeof(mAddr));
 	//might be better to use bctbx_getnameinfo instead

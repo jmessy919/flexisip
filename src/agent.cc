@@ -398,7 +398,7 @@ void Agent::start(const string &transport_override, const string &passphrase) {
 			url_e(prefRouteV4, sizeof(prefRouteV4), mPreferredRouteV4);
 			LOGF("Could not enable internal transport %s: %s", prefRouteV4, strerror(errno));
 		}
-		tp_name_t tn = {0};
+		tp_name_t tn{};
 		tn.tpn_ident = (char*)sInternalTransportIdent;
 		mInternalTport = tport_by_name(nta_agent_tports(mAgent), &tn);
 		if (!mInternalTport){

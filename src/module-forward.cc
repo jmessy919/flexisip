@@ -16,10 +16,12 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <flexisip/module.hh>
 #include <flexisip/agent.hh>
+#include <flexisip/fork-context/fork-context.hh>
+#include <flexisip/module.hh>
+#include <flexisip/module-router.hh>
+#include <flexisip/registrardb.hh>
 #include <flexisip/transaction.hh>
-#include "flexisip/module-router.hh"
 
 #include "etchosts.hh"
 #include "domain-registrations.hh"
@@ -28,7 +30,6 @@
 #include <sofia-sip/su_md5.h>
 #include <sofia-sip/sip_status.h>
 #include <sofia-sip/tport.h>
-#include <flexisip/registrardb.hh>
 
 using namespace std;
 using namespace flexisip;

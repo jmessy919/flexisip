@@ -42,7 +42,7 @@ public:
 private:
 	ssize_t read(uint8_t* buf, size_t length, uint32_t* data_flags) noexcept;
 
-	nghttp2_data_provider mDataProv{{0}};
+	nghttp2_data_provider mDataProv{};
 	std::stringstream mData{};
 };
 

@@ -56,7 +56,7 @@ void FlexisipAuthModuleBase::onCheck(AuthStatus &as, msg_auth_t *au, auth_challe
 		 * We workaround by selecting the second digest response.
 		 */
 		if (au && au->au_next) {
-			auth_response_t r = {0};
+			auth_response_t r{};
 			r.ar_size = sizeof(r);
 			auth_digest_response_get(as.home(), &r, au->au_next->au_params);
 

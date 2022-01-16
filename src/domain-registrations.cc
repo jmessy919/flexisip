@@ -283,7 +283,7 @@ DomainRegistration::DomainRegistration(DomainRegistrationManager &mgr, const str
 									   const url_t *parent_proxy, const std::string &password, const string &clientCertdir, const string &passphrase, int lineIndex)
 	: mManager(mgr){
 	char transport[64] = {0};
-	tp_name_t tpn = {0};
+	tp_name_t tpn{};
 	bool usingTls;
 	int verifyPolicy = mgr.mVerifyServerCerts ? TPTLS_VERIFY_OUT | TPTLS_VERIFY_SUBJECTS_OUT : TPTLS_VERIFY_NONE;
 	nta_agent_t *agent = mManager.mAgent->getSofiaAgent();

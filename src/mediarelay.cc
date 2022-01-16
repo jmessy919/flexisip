@@ -131,7 +131,7 @@ void RelayChannel::setRemoteAddr(const string &ip, int rtp_port, int rtcp_port, 
 
 	if (dest_ok && rtp_port != 0) {
 		struct addrinfo *res = NULL;
-		struct addrinfo hints = {0};
+		struct addrinfo hints{};
 		char portstr[20];
 		int err;
 

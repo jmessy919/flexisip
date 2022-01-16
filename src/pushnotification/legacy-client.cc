@@ -77,7 +77,7 @@ int TlsTransport::sendPush(Request &req, bool hurryUp, const OnSuccessCb &onSucc
 			onError(req, "Broken socket");
 			return -2;
 		}
-		pollfd polls = {0};
+		pollfd polls{};
 		polls.fd = fdSocket;
 		polls.events = POLLIN;
 

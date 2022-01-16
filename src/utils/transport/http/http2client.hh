@@ -140,7 +140,7 @@ private:
 	State mState{State::Disconnected};
 	std::unique_ptr<TlsConnection> mConn{};
 	su_root_t& mRoot;
-	su_wait_t mPollInWait{0};
+	su_wait_t mPollInWait{};
 	sofiasip::Timer mIdleTimer;
 	std::string mLogPrefix{};
 	int32_t mLastSID{-1};
