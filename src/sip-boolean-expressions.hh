@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include "flexisip/expressionparser.hh"
+#include "expressionparser.hh"
 
 typedef struct sip_s sip_t;
 

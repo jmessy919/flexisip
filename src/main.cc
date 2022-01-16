@@ -55,7 +55,6 @@
 #include <tclap/CmdLine.h>
 
 #include <flexisip/agent.hh>
-#include <flexisip/expressionparser.hh>
 #include <flexisip/flexisip-version.h>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>
@@ -74,6 +73,7 @@
 #include "cli.hh"
 #include "configdumper.hh"
 #include "etchosts.hh"
+#include "expressionparser.hh"
 #include "monitor.hh"
 #include "stun.hh"
 

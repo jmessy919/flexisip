@@ -21,9 +21,10 @@
 #include <list>
 #include <string>
 #include <memory>
-#include <flexisip/expressionparser.hh>
 
 #include <flexisip/agent.hh>
+
+#include "expressionparser.hh"
 
 namespace flexisip {
 

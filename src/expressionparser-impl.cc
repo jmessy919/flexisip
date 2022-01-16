@@ -21,14 +21,14 @@
  * This file must be included from the compilation unit where the template is instanciated.
  */
 
-#include "flexisip/expressionparser.hh"
-#include "flexisip/logmanager.hh"
-
+#include <algorithm>
 #include <cstring>
 #include <sstream>
-#include <algorithm>
 #include <regex>
 
+#include "flexisip/logmanager.hh"
+
+#include "expressionparser.hh"
 
 using namespace std;
 

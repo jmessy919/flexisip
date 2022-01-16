@@ -23,12 +23,12 @@
 
 #include <flexisip/agent.hh>
 #include <flexisip/configmanager.hh>
-#include <flexisip/expressionparser.hh>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>
 
 #include "domain-registrations.hh"
 #include "entryfilter.hh"
+#include "expressionparser.hh"
 #include "utils/signaling-exception.hh"
 
 using namespace std;

@@ -37,7 +37,6 @@ add_library(flexisip SHARED
 	cli.cc
 	cJSON.c
 	common.cc
-	sip-boolean-expressions.cc
 	configdumper.cc
 	configmanager.cc
 	contact-masquerader.cc
@@ -46,6 +45,7 @@ add_library(flexisip SHARED
 	etchosts.cc
 	event.cc
 	eventlogs/eventlogs.cc
+	expressionparser-impl.cc
 	fork-context/fork-basic-context.cc
 	fork-context/fork-call-context.cc
 	fork-context/fork-context-base.cc
@@ -95,8 +95,9 @@ add_library(flexisip SHARED
 	recordserializer-json.cc
 	registrardb-internal.cc
 	registrardb.cc
-	sdp-modifier.cc
 	service-server.cc
+	sdp-modifier.cc
+	sip-boolean-expressions.cc
 	sofia-wrapper/su-root.cc
 	stun.cc
 	stun/stun_udp.c
