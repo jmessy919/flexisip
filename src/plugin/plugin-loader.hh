@@ -23,7 +23,6 @@
 
 #include <flexisip/agent.hh>
 #include <flexisip/module.hh>
-#include <flexisip/global.hh>
 
 // =============================================================================
 
@@ -35,6 +34,7 @@ class PluginLoader {
 public:
 	PluginLoader(Agent *agent);
 	PluginLoader(Agent *agent, const std::string &filename);
+	PluginLoader(const PluginLoader&) = delete;
 	~PluginLoader();
 
 	const std::string &getFilename() const;
@@ -52,8 +52,6 @@ public:
 
 private:
 	PluginLoaderPrivate *mPrivate;
-
-	FLEXISIP_DISABLE_COPY(PluginLoader);
 };
 
 class SharedLibrary {

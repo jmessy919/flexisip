@@ -52,7 +52,6 @@ typedef unsigned long oid;
 
 #include "flexisip/common.hh"
 #include "flexisip/flexisip-exception.hh"
-#include "flexisip/global.hh"
 #include "flexisip/sip-boolean-expressions.hh"
 
 typedef struct sip_s sip_t;

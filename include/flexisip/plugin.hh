@@ -38,12 +38,11 @@ namespace flexisip {
 class Plugin {
 public:
 	Plugin(SharedLibrary &sharedLibrary);
+	Plugin(const Plugin&) = delete;
 	virtual ~Plugin();
 
 private:
 	SharedLibrary *mSharedLibrary;
-
-	FLEXISIP_DISABLE_COPY(Plugin);
 };
 
 struct PluginInfo {
