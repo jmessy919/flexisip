@@ -26,10 +26,11 @@
 #include <sys/types.h>
 
 #include <flexisip/configmanager.hh>
-#include <flexisip/eventlogs.hh>
 
 #include "db/db-transaction.hh"
 #include "utils/string-utils.hh"
+
+#include "eventlogs.hh"
 
 using namespace std;
 

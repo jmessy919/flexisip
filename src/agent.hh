@@ -18,18 +18,15 @@
 
 #pragma once
 
-#if defined(HAVE_CONFIG_H) && !defined(FLEXISIP_INCLUDED)
-#include "flexisip-config.h"
-#define FLEXISIP_INCLUDED
-#endif
+#include <string>
+#include <sstream>
+#include <memory>
 
-#include <flexisip/common.hh>
-#include <flexisip/configmanager.hh>
-#include <flexisip/event.hh>
-#include <flexisip/eventlogs.hh>
-#include <flexisip/sofia-wrapper/su-root.hh>
-#include <flexisip/transaction.hh>
-#include <flexisip/transport.hh>
+#include <ifaddrs.h>
+
+#if ENABLE_MDNS
+#include <belle-sip/belle-sip.h>
+#endif
 
 #include <sofia-sip/sip.h>
 #include <sofia-sip/sip_protos.h>
@@ -40,14 +37,19 @@
 #include <sofia-sip/nta_stateless.h>
 #include <sofia-sip/nth.h>
 
-#include <string>
-#include <sstream>
-#include <memory>
-#include <ifaddrs.h>
-
-#if ENABLE_MDNS
-#include "belle-sip/belle-sip.h"
+#if defined(HAVE_CONFIG_H) && !defined(FLEXISIP_INCLUDED)
+#include "flexisip-config.h"
+#define FLEXISIP_INCLUDED
 #endif
+
+#include <flexisip/common.hh>
+#include <flexisip/configmanager.hh>
+#include <flexisip/event.hh>
+#include <flexisip/sofia-wrapper/su-root.hh>
+#include <flexisip/transaction.hh>
+#include <flexisip/transport.hh>
+
+#include "eventlogs.hh"
 
 namespace flexisip {
 

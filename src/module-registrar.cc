@@ -25,7 +25,6 @@
 #include <algorithm>
 #include <regex>
 
-#include <flexisip/eventlogs.hh>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module-registrar.hh>
 
