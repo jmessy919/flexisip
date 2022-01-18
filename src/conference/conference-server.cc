@@ -579,8 +579,12 @@ ConferenceServer::Init::Init() {
 	    ->setDeprecated("2022-09-21", "2.2.0", "This parameter will be forced to 'true' in further versions.");
 }
 
+string ConferenceServer::getStateDir()const{
+	return string(DEFAULT_VAR_LIB_DIR) + string("/flexisip/");
+}
+
 string ConferenceServer::getUuidFilePath()const{
-	return string(DEFAULT_VAR_LIB_DIR) + string("/flexisip/") + string(sUuidFile);
+	return getStateDir() + string(sUuidFile);
 }
 
 const string &ConferenceServer::readUuid(){
@@ -600,7 +604,22 @@ const string &ConferenceServer::readUuid(){
 
 void ConferenceServer::writeUuid(const string & uuid){
 	ofstream fo;
+	struct stat st;
+	string stateDir = getStateDir();
+	
 	mUuid = uuid;
+	
+	if (stat(stateDir.c_str(),&st) != 0 && errno == ENOENT){
+		LOGD("Creating flexisip's state directory: %s", stateDir.c_str());
+		string command("mkdir -p");
+		command += " \"" + stateDir + "\"";
+		int status = system(command.c_str());
+		if (status == -1 || WEXITSTATUS(status) != 0){
+			LOGF("Directory %s doesn't exist and could not be created (insufficient permissions ?). Please create it manually.",
+				stateDir.c_str());
+		}
+	}
+
 	string path = getUuidFilePath();
 	fo.open(path);
 	if (!fo.is_open()){

@@ -121,6 +121,7 @@ namespace flexisip {
 		void initStaticConferences();
 		void createConference(const std::shared_ptr<const linphone::Address> & address);
 		std::string getUuidFilePath() const;
+		std::string getStateDir()const;
 		const std::string & readUuid();
 		void writeUuid(const std::string & uuid);
 		std::string getUuid();
