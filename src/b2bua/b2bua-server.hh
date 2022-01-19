@@ -57,7 +57,6 @@ class B2buaServer : public ServiceServer
 	};
 	static Init sStaticInit;
 	std::shared_ptr<linphone::Core> mCore;
-	linphone::MediaEncryption mDefaultOutgoingEncryption = linphone::MediaEncryption::ZRTP;
 	std::list<b2bua::encryptionConfiguration> mOutgoingEncryption;
 	std::list<b2bua::srtpConfiguration> mSrtpConf;
 };

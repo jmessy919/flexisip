@@ -20,11 +20,10 @@
 #include "flexisip/logmanager.hh"
 #include "flexisip/utils/sip-uri.hh"
 #include "flexisip/configmanager.hh"
-
 #include <mediastreamer2/ms_srtp.h>
+
 using namespace std;
 using namespace linphone;
-
 
 // unamed namespace for local functions
 namespace {
@@ -44,6 +43,12 @@ namespace {
 		return false;
 	}
 
+	/**
+	 * convert a linphone::MediaEncryption to string
+	 *
+	 * @param[in]	encryptionMode	The MediaEncryption to be converted
+	 * @return	The corresponding string, one of: zrtp, sdes, dtls-srtp, none. An error message if no match were found.
+	 **/
 	std::string MediaEncryption2string(const linphone::MediaEncryption mode) {
 		switch (mode) {
 			case linphone::MediaEncryption::ZRTP: return "zrtp";
@@ -54,6 +59,49 @@ namespace {
 		return "Error - MediaEncryption2string is missing a case of MediaEncryption value";
 	}
 
+	/**
+	 * convert a configuration string to a linphone::SrtpSuite
+	 *
+	 * @param[in]	configString	the configuration string, one of: AES_CM_128_HMAC_SHA1_80, AES_CM_128_HMAC_SHA1_32,
+	 *								AES_192_CM_HMAC_SHA1_80, AES_192_CM_HMAC_SHA1_32,
+	 *								AES_256_CM_HMAC_SHA1_80, AES_256_CM_HMAC_SHA1_32
+	 *								AEAD_AES_128_GCM, AEAD_AES_256_GCM
+	 * @param[out]	encryptionMode	the converted value, Invalid if the input string was invalid
+	 * @return		true if the given string is valid, false otherwise:%s
+	 **/
+	linphone::SrtpSuite string2SrtpSuite(const std::string configString) {
+		if (configString == std::string{"AES_CM_128_HMAC_SHA1_80"}) { return linphone::SrtpSuite::AESCM128HMACSHA180;}
+		if (configString == std::string{"AES_CM_128_HMAC_SHA1_32"}) { return linphone::SrtpSuite::AESCM128HMACSHA132;}
+		if (configString == std::string{"AES_192_CM_HMAC_SHA1_80"}) { return linphone::SrtpSuite::AES192CMHMACSHA180;}
+		if (configString == std::string{"AES_192_CM_HMAC_SHA1_32"}) { return linphone::SrtpSuite::AES192CMHMACSHA132;}
+		if (configString == std::string{"AES_256_CM_HMAC_SHA1_80"}) { return linphone::SrtpSuite::AES256CMHMACSHA180;}
+		if (configString == std::string{"AES_256_CM_HMAC_SHA1_32"}) { return linphone::SrtpSuite::AES256CMHMACSHA132;}
+		if (configString == std::string{"AEAD_AES_128_GCM"}) { return linphone::SrtpSuite::AEADAES128GCM;}
+		if (configString == std::string{"AEAD_AES_256_GCM"}) { return linphone::SrtpSuite::AEADAES256GCM;}
+		return linphone::SrtpSuite::Invalid;
+	}
+
+	std::string SrtpSuite2string(const linphone::SrtpSuite suite) {
+		switch (suite) {
+			case linphone::SrtpSuite::AESCM128HMACSHA180: return "AES_CM_128_HMAC_SHA1_80";
+			case linphone::SrtpSuite::AESCM128HMACSHA132: return "AES_CM_128_HMAC_SHA1_32";
+			case linphone::SrtpSuite::AES192CMHMACSHA180: return "AES_192_CM_HMAC_SHA1_80";
+			case linphone::SrtpSuite::AES192CMHMACSHA132: return "AES_192_CM_HMAC_SHA1_32";
+			case linphone::SrtpSuite::AES256CMHMACSHA180: return "AES_256_CM_HMAC_SHA1_80";
+			case linphone::SrtpSuite::AES256CMHMACSHA132: return "AES_256_CM_HMAC_SHA1_32";
+			case linphone::SrtpSuite::AEADAES128GCM: return "AEAD_AES_128_GCM";
+			case linphone::SrtpSuite::AEADAES256GCM: return "AEAD_AES_256_GCM";
+			case linphone::SrtpSuite::Invalid: return "Invalid";
+		}
+		return "Invalid";
+	}
+	std::string SrtpSuite2string(const std::list<linphone::SrtpSuite> suites) {
+		std::string ret{};
+		for(const auto suite:suites) {
+			ret.append(SrtpSuite2string(suite) + ", ");
+		}
+		return ret;
+	}
 	/**
 	 * Explode a string into a vector of strings according to a delimiter
 	 *
@@ -85,10 +133,10 @@ namespace b2bua {
 		encryptionConfiguration(linphone::MediaEncryption p_mode, std::string p_pattern): mode(p_mode), pattern(p_pattern), stringPattern(p_pattern) {};
 	};
 	struct srtpConfiguration {
-		std::list<MSCryptoSuite> suites;
+		std::list<linphone::SrtpSuite> suites;
 		std::regex pattern; /**< regular expression applied on the callee sip address, when matched, the associated SRTP suites are used */
 		std::string stringPattern;/**< a string version of the pattern for log purposes as the std::regex does not carry it */
-		srtpConfiguration(std::list<MSCryptoSuite> p_suites, std::string p_pattern): suites(p_suites), pattern(p_pattern), stringPattern(p_pattern) {};
+		srtpConfiguration(std::list<linphone::SrtpSuite> p_suites, std::string p_pattern): suites(p_suites), pattern(p_pattern), stringPattern(p_pattern) {};
 	};
 
 	struct callsRefs {
@@ -134,7 +182,7 @@ void B2buaServer::onConferenceStateChanged(const std::shared_ptr<linphone::Core>
 
 void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &core, const std::shared_ptr<linphone::Call> &call,
 			linphone::Call::State state, const std::string &message) {
-	SLOGD<<"b2bua server onCallStateChanged to "<<(int)state;
+	SLOGD<<"b2bua server onCallStateChanged to "<<(int)state<<" "<<((call->getDir() == linphone::Call::Dir::Outgoing)?"legB":"legA");
 	switch (state) {
 		case linphone::Call::State::IncomingReceived:
 			{
@@ -143,7 +191,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			auto callerAddress = call->getRemoteAddress()->asString();
 			SLOGD<<"b2bua server onCallStateChanged incomingReceived, to "<<calleeAddress<<" from "<<callerAddress;
 			// Create outgoing call using parameters created from the incoming call in order to avoid duplicating the callId
-			auto outgoingCallParams = mCore->createCallParams(nullptr); //(call);
+			auto outgoingCallParams = mCore->createCallParams(call);
 			// add this custom header so this call will not be intercepted by the b2bua
 			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
 			outgoingCallParams->setFromHeader(callerAddress);
@@ -159,15 +207,26 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 				}
 			}
 			if (outgoingEncryptionSet == false) {
-				SLOGD<<"b2bua server: call to "<<calleeAddressUriOnly<<" uses default outgoing encryption setting : "<<MediaEncryption2string(mDefaultOutgoingEncryption);
-				outgoingCallParams->setMediaEncryption(mDefaultOutgoingEncryption);
+				SLOGD<<"b2bua server: call to "<<calleeAddressUriOnly<<" uses incoming encryption setting";
+			}
+
+			// When outgoing encryption mode is sdes, select a crypto suite list setting if a pattern matches
+			if (outgoingCallParams->getMediaEncryption() == linphone::MediaEncryption::SRTP) {
+				for (auto &outSrtpSetting: mSrtpConf) {
+					if (std::regex_match(calleeAddressUriOnly, outSrtpSetting.pattern)) {
+						SLOGD<<"b2bua server: call to "<<calleeAddressUriOnly<<" matches SRTP suite regex "<<outSrtpSetting.stringPattern<<" assign Srtp Suites to "<<SrtpSuite2string(outSrtpSetting.suites);
+						outgoingCallParams->setSrtpSuites(outSrtpSetting.suites);
+						break; // stop at the first matching regexp
+					}
+				}
+			} else {
 			}
 
 			// create a conference and attach it
 			auto conferenceParams = mCore->createConferenceParams();
-			conferenceParams->setVideoEnabled(false);
-			conferenceParams->setLocalParticipantEnabled(false); // b2bua core is not part of it
-			conferenceParams->setOneParticipantConferenceEnabled(true);
+			conferenceParams->enableVideo(false);
+			conferenceParams->enableLocalParticipant(false); // b2bua core is not part of it
+			conferenceParams->enableOneParticipantConference(true);
 
 			auto conference = mCore->createConferenceWithParams(conferenceParams);
 			conference->addListener(shared_from_this());
@@ -235,10 +294,8 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			std::shared_ptr<linphone::Call> peerCall = nullptr;
 			// get peerCall
 			if (call->getDir() == linphone::Call::Dir::Outgoing) {
-				SLOGD<<"b2bua server onCallStateChanged: leg B";
 				peerCall = confData.legA;
 			} else { // This is legA, pause legB
-				SLOGD<<"b2bua server onCallStateChanged: leg A";
 				peerCall = confData.legB;
 			}
 			// if we are in StreamsRunning but peer is sendonly we likely arrived here after resuming from pausedByRemote
@@ -260,6 +317,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::Referred:
 			break;
 		case linphone::Call::State::Error:
+			// TODO: when call in error we shall kill the conf, just do as in End?
 			break;
 		case linphone::Call::State::End:
 		{
@@ -323,14 +381,13 @@ void B2buaServer::_init () {
 	configLinphone->setInt("misc", "max_calls", 1000);
 	configLinphone->setInt("misc", "media_resources_mode", 1); // share media resources
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
+	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::None));
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
-	//mCore->setCallLogsDatabasePath(" ");
-	//mCore->setZrtpSecretsFile(" ");
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
 	mCore->setUseFiles(true); //No sound card shall be used in calls
 	mCore->enableEchoCancellation(false);
-	mCore->setPrimaryContact("sip:b2bua@192.168.1.100"); //TODO: get the primary contact from config, do we really need one?
+	mCore->setPrimaryContact("sip:b2bua@localhost"); //TODO: get the primary contact from config, do we really need one?
 	mCore->enableAutoSendRinging(false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
 
 	// random port for UDP audio stream
@@ -355,50 +412,36 @@ void B2buaServer::_init () {
 
 	// Parse configuration for outgoing encryption mode
 	auto outgoingEncryptionList = config->get<ConfigStringList>("outgoing-enc-regex")->read();
-	// list must be odd sized, the last element is the default encryption mode
-	if (outgoingEncryptionList.size()%2 == 1) {
-		// get the last element, it should be the default
-		if (!string2MediaEncryption(outgoingEncryptionList.back(), mDefaultOutgoingEncryption)) {
-			BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid default encryption mode: "<<outgoingEncryptionList.back()<<" valids modes are : zrtp, sdes, dtls-srtp, none. Stick to ZRTP as default";
-			mDefaultOutgoingEncryption = linphone::MediaEncryption::ZRTP;
-		}
-		outgoingEncryptionList.pop_back();
-
-		// parse from the list begining, we shall have couple : encryption_mode regex
-		while (outgoingEncryptionList.size()>=2) {
-			linphone::MediaEncryption outgoingEncryption = linphone::MediaEncryption::None;
-			if (string2MediaEncryption(outgoingEncryptionList.front(), outgoingEncryption)) {
-				outgoingEncryptionList.pop_front();
-				try {
-					mOutgoingEncryption.emplace_back(outgoingEncryption, outgoingEncryptionList.front());
-				} catch (exception &e) {
-					BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid regex : "<<outgoingEncryptionList.front();
-				}
-				outgoingEncryptionList.pop_front();
-			} else {
-				BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid encryption mode: "<<outgoingEncryptionList.front()<<" valids modes are : zrtp, sdes, dtls-srtp, none. Ignore this setting";
-				outgoingEncryptionList.pop_front();
-				outgoingEncryptionList.pop_front();
+	// parse from the list begining, we shall have couple : encryption_mode regex
+	while (outgoingEncryptionList.size()>=2) {
+		linphone::MediaEncryption outgoingEncryption = linphone::MediaEncryption::None;
+		if (string2MediaEncryption(outgoingEncryptionList.front(), outgoingEncryption)) {
+			outgoingEncryptionList.pop_front();
+			try {
+				mOutgoingEncryption.emplace_back(outgoingEncryption, outgoingEncryptionList.front());
+			} catch (exception &e) {
+				BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid regex : "<<outgoingEncryptionList.front();
 			}
+			outgoingEncryptionList.pop_front();
+		} else {
+			BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid encryption mode: "<<outgoingEncryptionList.front()<<" valids modes are : zrtp, sdes, dtls-srtp, none. Ignore this setting";
+			outgoingEncryptionList.pop_front();
+			outgoingEncryptionList.pop_front();
 		}
-	} else {
-		BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex size is "<<outgoingEncryptionList.size()<<" but it must be odd. Use default ZRTP encryption for all calls";
 	}
 
 	// Parse configuration for outgoing SRTP suite
 	// we shall have a space separated list of suites regex suites regex ... suites regex
-	// each suites is a comma separated list of suites
+	// If no regexp match, use the default configuration from rcfile
+	// each suites is a ; separated list of suites
 	auto outgoingSrptSuiteList = config->get<ConfigStringList>("outgoing-srtp-regex")->read();
 	while (outgoingSrptSuiteList.size()>=2) {
-		// first part is a comma separated list of suite, explode it and get each one of them
-		auto srtpSuites = explode(outgoingSrptSuiteList.front(), ',');
-		std::list<MSCryptoSuite> srtpCryptoSuites{};
-		// turn the string list into a std::list of MSCryptoSuite
+		// first part is a ; separated list of suite, explode it and get each one of them
+		auto srtpSuites = explode(outgoingSrptSuiteList.front(), ';');
+		std::list<linphone::SrtpSuite> srtpCryptoSuites{};
+		// turn the string list into a std::list of linphone::SrtpSuite
 		for (auto &suiteName: srtpSuites) {
-			MSCryptoSuiteNameParams suiteNameParam;
-			suiteNameParam.name=suiteName.c_str();
-			suiteNameParam.params=nullptr; // This parsing does not support params on the suite as they would be space separated
-			srtpCryptoSuites.push_back(ms_crypto_suite_build_from_name_params(&suiteNameParam));
+			srtpCryptoSuites.push_back(string2SrtpSuite(suiteName));
 		}
 		if (srtpCryptoSuites.size()>0) {
 			outgoingSrptSuiteList.pop_front();
@@ -438,24 +481,50 @@ B2buaServer::Init::Init() {
 		{
 			StringList,
 			"outgoing-enc-regex",
-			" Select the call outgoing encryption mode, this is a list of regular expressions and encryption mode."
-			"valid encryption modes are: zrtp, dtls-srtp, sdes, none. The list is formatted in the following mode:"
-			"mode1 regex1 mode2 regex2 ... defaultMode"
+			"Select the call outgoing encryption mode, this is a list of regular expressions and encryption mode."
+			"valid encryption modes are: zrtp, dtls-srtp, sdes, none."
+			"The list is formatted in the following mode:"
+			"mode1 regex1 mode2 regex2 ... moden regexn"
+			"regex use posix syntax, any invalid one is skipped"
 			"Each regex is applied, in the given order, on the callee sip uri. First match found determines the encryption mode"
-			"if no regex matches, the modeFinal is applied"
-			"Example: zrtp .*@sip.secure-example.org dtsl-srtp .*dtls@sip.example.org zrtp .*zrtp@sip.example.org sdes .*@sip.example.org none"
+			"if no regex matches, the incoming call encryption mode is used"
+			"Example: zrtp .*@sip\\.secure-example\\.org dtsl-srtp .*dtls@sip\\.example\\.org zrtp .*zrtp@sip\\.example\\.org sdes .*@sip\\.example\\.org"
 			"In this example: the address is matched in order with"
-			" .*@sip.secure-example.org so any call directed to an address on domain sip.secure-example-org uses zrtp encryption mode"
-			" .*dtls@sip.example.org any call on sip.example.org to a username ending with dtls uses dtls-srtp encryption mode"
-			" .*zrtp@sip.example.org any call on sip.example.org to a username ending with zrtp uses zrtp encryption mode"
-			" .*@sip.example.org if no match were found yet on domain sip.example.org, use sdes encryption mode"
-			" other domains default to no encryption (this is not recommended)",
-			"zrtp"
+			".*@sip\\.secure-example\\.org so any call directed to an address on domain sip.secure-example-org uses zrtp encryption mode"
+			".*dtls@sip\\.example\\.org any call on sip.example.org to a username ending with dtls uses dtls-srtp encryption mode"
+			".*zrtp@sip\\.example\\.org any call on sip.example.org to a username ending with zrtp uses zrtp encryption mode"
+			"Default:"
+			"Selected encryption mode(if any) is enforced and the call will fail if the callee does not support this mode",
+			""
 		},
 		{
 			StringList,
 			"outgoing-srtp-regex",
-			" TODO: add description here",
+			"Outgoing SRTP crypto suite in SDES encryption mode:"
+			"Select the call outgoing SRTP crypto suite when outgoing encryption mode is SDES, this is a list of regular expressions and crypto suites list."
+			"valid srtp crypto suites are : "
+			"AES_CM_128_HMAC_SHA1_80, AES_CM_128_HMAC_SHA1_32"
+			"AES_192_CM_HMAC_SHA1_80, AES_192_CM_HMAC_SHA1_32 // currently not supported"
+			"AES_256_CM_HMAC_SHA1_80, AES_256_CM_HMAC_SHA1_80"
+			"AEAD_AES_128_GCM, AEAD_AES_256_GCM // currently not supported"
+			""
+			"The list is formatted in the following mode:"
+			"cryptoSuiteList1 regex1 cryptoSuiteList2 regex2 ... crytoSuiteListn regexn"
+			"with cryptoSuiteList being a ; separated list of crypto suites."
+			""
+			"regex use posix syntax, any invalid one is skipped"
+			"Each regex is applied, in the given order, on the callee sip uri. First match found determines the crypto suite list used."
+			""
+			"if no regex matches, core setting is applied"
+			"or default to AES_CM_128_HMAC_SHA1_80;AES_CM_128_HMAC_SHA1_32;AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 when no core setting is available"
+			""
+			"Example:"
+			"AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 .*@sip\\.secure-example\\.org AES_CM_128_HMAC_SHA1_80 .*@sip\\.example\\.org"
+			""
+			"In this example: the address is matched in order with"
+			".*@sip\\.secure-example\\.org so any call directed to an address on domain sip.secure-example-org uses AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 suites (in that order)"
+			".*@sip\\.example\\.org any call directed to an address on domain sip.example.org use AES_CM_128_HMAC_SHA1_80 suite"
+			"Default:",
 			""
 		},
 		config_item_end
