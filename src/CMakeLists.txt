@@ -76,6 +76,7 @@ add_library(flexisip SHARED
 	module-sanitychecker.cc
 	module-statistics-collector.cc
 	module-transcode.cc
+	module-b2bua.cc
 	module.cc
 	monitor.cc
 	plugin/plugin-loader.cc
@@ -307,10 +308,6 @@ endif()
 
 if(ENABLE_JWE_AUTH_PLUGIN)
 	add_subdirectory(plugin/jwe-auth-plugin)
-endif()
-
-if(ENABLE_B2BUA)
-	add_subdirectory(plugin/b2bua-plugin)
 endif()
 
 #######################################################################################################################

@@ -165,6 +165,7 @@ public:
 		Presence = 300,
 		RegEvent = 305,
 		InterDomainConnections = 310,
+		B2bua = 315,
 		Plugin = 320
 	};
 

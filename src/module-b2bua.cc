@@ -25,16 +25,9 @@
 using namespace flexisip;
 using namespace std;
 
-namespace {
-	constexpr int B2buaPluginVersion = 1;
-	constexpr char B2buaPluginName[] = "Back2Back User Agent plugin";
-}
-
 // =============================================================================
-// Plugin.
+// Module declaration
 // =============================================================================
-
-class B2bua;
 
 class B2bua : public Module, ModuleToolbox {
 public:
@@ -46,6 +39,7 @@ public:
 	}
 
 private:
+	static ModuleInfo<B2bua> sInfo;
 	unique_ptr<SipUri> mDestRoute;
 	su_home_t mHome;
 	bool isValidNextConfig(const ConfigValue &cv) override;
@@ -57,16 +51,12 @@ private:
 	void onResponse(shared_ptr<ResponseSipEvent> &ev) override;
 };
 
-namespace {
-	ModuleInfo<B2bua> B2buaInfo(
-		"B2bua",
-		"This module deploys a configurable back-to-back User Agent.  TODO: - list agent capacities",
-		{ "Authentication" },
-		ModuleInfoBase::ModuleOid::Plugin
-	);
-}
-
-FLEXISIP_DECLARE_PLUGIN(B2buaInfo, B2buaPluginName, B2buaPluginVersion);
+ModuleInfo<B2bua> B2bua::sInfo(
+	"B2bua",
+	"This module is in charge of intercepting calls and route them to the back-to-back user agent server",
+	{ "Authentication" },
+	ModuleInfoBase::ModuleOid::B2bua
+);
 
 // -----------------------------------------------------------------------------
 
