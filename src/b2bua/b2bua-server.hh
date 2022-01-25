@@ -38,6 +38,7 @@ class B2buaServer : public ServiceServer
 	public:
 		B2buaServer (const std::shared_ptr<sofiasip::SuRoot>& root);
 		~B2buaServer ();
+		static constexpr const char *confKey = "b2bua::confData";
 
         void onConferenceStateChanged(const std::shared_ptr<linphone::Core> & core, const std::shared_ptr<linphone::Conference> & conference,
             linphone::Conference::State state) override;
@@ -50,15 +51,15 @@ class B2buaServer : public ServiceServer
 		void _stop () override;
 
 	private:
-	static constexpr const char *confKey = "b2bua::confData";
-	class Init {
-	public:
-		Init();
-	};
-	static Init sStaticInit;
-	std::shared_ptr<linphone::Core> mCore;
-	std::list<b2bua::encryptionConfiguration> mOutgoingEncryption;
-	std::list<b2bua::srtpConfiguration> mSrtpConf;
+		class Init {
+		public:
+			Init();
+		};
+
+		static Init sStaticInit;
+		std::shared_ptr<linphone::Core> mCore;
+		std::list<b2bua::encryptionConfiguration> mOutgoingEncryption;
+		std::list<b2bua::srtpConfiguration> mSrtpConf;
 };
 
 }

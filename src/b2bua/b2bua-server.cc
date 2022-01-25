@@ -25,6 +25,32 @@
 using namespace std;
 using namespace linphone;
 
+
+
+namespace flexisip {
+
+// b2bua namespace to declare internal structures
+namespace b2bua {
+	struct encryptionConfiguration {
+		linphone::MediaEncryption mode;
+		std::regex pattern; /**< regular expression applied on the callee sip address, when matched, the associated mediaEncryption mode is used on the output call */
+		std::string stringPattern; /**< a string version of the pattern for log purpose as the std::regex does not carry it*/
+		encryptionConfiguration(linphone::MediaEncryption p_mode, std::string p_pattern): mode(p_mode), pattern(p_pattern), stringPattern(p_pattern) {};
+	};
+	struct srtpConfiguration {
+		std::list<linphone::SrtpSuite> suites;
+		std::regex pattern; /**< regular expression applied on the callee sip address, when matched, the associated SRTP suites are used */
+		std::string stringPattern;/**< a string version of the pattern for log purposes as the std::regex does not carry it */
+		srtpConfiguration(std::list<linphone::SrtpSuite> p_suites, std::string p_pattern): suites(p_suites), pattern(p_pattern), stringPattern(p_pattern) {};
+	};
+
+	struct callsRefs {
+		std::shared_ptr<linphone::Call> legA; /**< legA is the incoming call intercepted by the b2bua */
+		std::shared_ptr<linphone::Call> legB; /**< legB is the call initiated by the b2bua to the original recipient */
+		std::shared_ptr<linphone::Conference> conf; /**< the conference created to connect legA and legB */
+	};
+}
+
 // unamed namespace for local functions
 namespace {
 	/**
@@ -120,32 +146,23 @@ namespace {
 		}
 		return tokens;
 	}
+
+	/**
+	 * Given one leg of the tranfered call, it returns the other legA
+	 *
+	 * @param[in]	call one of the call in the two call conference created by the b2bua
+	 *
+	 * @return	the other call in the conference
+	 */
+	std::shared_ptr<linphone::Call> getPeerCall(std::shared_ptr<linphone::Call> call) {
+		auto &confData = call->getData<flexisip::b2bua::callsRefs>(B2buaServer::confKey);
+		if (call->getDir() == linphone::Call::Dir::Outgoing) {
+			return confData.legA;
+		} else { // This is legA, pause legB
+			return confData.legB;
+		}
+	}
 }
-
-namespace flexisip {
-
-// b2bua namespace to declare internal structures
-namespace b2bua {
-	struct encryptionConfiguration {
-		linphone::MediaEncryption mode;
-		std::regex pattern; /**< regular expression applied on the callee sip address, when matched, the associated mediaEncryption mode is used on the output call */
-		std::string stringPattern; /**< a string version of the pattern for log purpose as the std::regex does not carry it*/
-		encryptionConfiguration(linphone::MediaEncryption p_mode, std::string p_pattern): mode(p_mode), pattern(p_pattern), stringPattern(p_pattern) {};
-	};
-	struct srtpConfiguration {
-		std::list<linphone::SrtpSuite> suites;
-		std::regex pattern; /**< regular expression applied on the callee sip address, when matched, the associated SRTP suites are used */
-		std::string stringPattern;/**< a string version of the pattern for log purposes as the std::regex does not carry it */
-		srtpConfiguration(std::list<linphone::SrtpSuite> p_suites, std::string p_pattern): suites(p_suites), pattern(p_pattern), stringPattern(p_pattern) {};
-	};
-
-	struct callsRefs {
-		std::shared_ptr<linphone::Call> legA;
-		std::shared_ptr<linphone::Call> legB;
-		std::shared_ptr<linphone::Conference> conf;
-	};
-}
-
 
 B2buaServer::Init B2buaServer::sStaticInit; // The Init object is instanciated to load the config
 
@@ -236,7 +253,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			auto callee = call->getToAddress()->clone();
 			auto legB = mCore->inviteAddressWithParams(callee, outgoingCallParams);
 
-			conference->addParticipant(legB); // TODO: call SHOULD be added here to the conf to avoid RE-INVITE if added at StreamRunning state
+			conference->addParticipant(legB);
 
 			// add legA to the conference, but do not answer now
 			conference->addParticipant(call);
@@ -290,14 +307,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			break;
 		case linphone::Call::State::StreamsRunning:
 		{
-			auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
-			std::shared_ptr<linphone::Call> peerCall = nullptr;
-			// get peerCall
-			if (call->getDir() == linphone::Call::Dir::Outgoing) {
-				peerCall = confData.legA;
-			} else { // This is legA, pause legB
-				peerCall = confData.legB;
-			}
+			auto peerCall = getPeerCall(call);
 			// if we are in StreamsRunning but peer is sendonly we likely arrived here after resuming from pausedByRemote
 			// update peer back to recvsend
 			if (peerCall->getCurrentParams()->getAudioDirection() == linphone::MediaDirection::SendOnly) {
@@ -317,19 +327,22 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::Referred:
 			break;
 		case linphone::Call::State::Error:
-			// TODO: when call in error we shall kill the conf, just do as in End?
-			break;
+			// when call in error we shall kill the conf, just do as in End
 		case linphone::Call::State::End:
 		{
 			SLOGD<<"B2bua end call";
 			// If there are some data in that call, it is the first one to end
 			if (call->dataExists(B2buaServer::confKey)) {
+				auto peerCall = getPeerCall(call);
+
 				SLOGD<<"B2bua end call: There is a confData in that ending call";
 				auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
-				// unset data everywhere it wasa stored
+				// unset data everywhere it was stored
 				confData.legA->unsetData(B2buaServer::confKey);
 				confData.legB->unsetData(B2buaServer::confKey);
 				confData.conf->unsetData(B2buaServer::confKey);
+				// terminate peer Call, copy error info from this call
+				peerCall->terminateWithErrorInfo(call->getErrorInfo());
 				// terminate the conf
 				confData.conf->terminate();
 				// memory cleaning
@@ -343,16 +356,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		{
 			// Paused by remote: do not pause peer call as it will kick it out of the conference
 			// just switch the media direction to sendOnly
-			auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
-			std::shared_ptr<linphone::Call> peerCall = nullptr;
-			// Is this the legB call?
-			if (call->getDir() == linphone::Call::Dir::Outgoing) {
-				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg B";
-				peerCall = confData.legA;
-			} else { // This is legA, pause legB
-				SLOGD<<"b2bua server onCallStateChanged PausedByRemote: leg A";
-				peerCall = confData.legB;
-			}
+			auto peerCall = getPeerCall(call);
 			auto peerCallParams = peerCall->getCurrentParams()->copy();
 			peerCallParams->setAudioDirection(linphone::MediaDirection::SendOnly);
 			peerCall->update(peerCallParams);
@@ -389,6 +393,7 @@ void B2buaServer::_init () {
 	mCore->enableEchoCancellation(false);
 	mCore->setPrimaryContact("sip:b2bua@localhost"); //TODO: get the primary contact from config, do we really need one?
 	mCore->enableAutoSendRinging(false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
+	mCore->setZrtpSecretsFile(""); // run cacheless zrtp
 
 	// random port for UDP audio stream
 	mCore->setAudioPort(-1);
