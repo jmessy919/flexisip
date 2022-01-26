@@ -240,7 +240,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			}
 
 			// create a conference and attach it
-			auto conferenceParams = mCore->createConferenceParams();
+			auto conferenceParams = mCore->createConferenceParams(nullptr);
 			conferenceParams->enableVideo(false);
 			conferenceParams->enableLocalParticipant(false); // b2bua core is not part of it
 			conferenceParams->enableOneParticipantConference(true);
@@ -380,12 +380,34 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 }
 
 void B2buaServer::_init () {
+	// Parse configuration for Data Dir
+	/* Handle the case where the  directory is not created.
+	 * This is for convenience, because our rpm and deb packages create it already. - NO THEY DO NOT DO THAT
+	 * However, in other case (like developper environnement) this is painful to create it all the time manually.*/
+	auto config = GenericManager::get()->getRoot()->get<GenericStruct>("b2bua-server");
+	auto dataDirPath = config->get<ConfigString>("data-directory")->read();
+	if (!bctbx_directory_exists(dataDirPath.c_str())) {
+		BCTBX_SLOGI<<"Creating b2bua data directory "<<dataDirPath;
+		// check parent dir exists as default path requires creation of 2 levels
+		auto parentDir = dataDirPath.substr(0, dataDirPath.find_last_of('/'));
+		if (!bctbx_directory_exists(parentDir.c_str())) {
+			if (bctbx_mkdir(parentDir.c_str()) != 0){
+				BCTBX_SLOGE<<"Could not create b2bua data parent directory "<<parentDir;
+			}
+		}
+		if (bctbx_mkdir(dataDirPath.c_str()) != 0){
+			BCTBX_SLOGE<<"Could not create b2bua data directory "<<dataDirPath;
+		}
+	}
+	BCTBX_SLOGI<<"B2bua data directory set to "<<dataDirPath;
+	Factory::get()->setDataDir(dataDirPath + "/");
+
 	auto configLinphone = Factory::get()->createConfig("");
 	configLinphone->setBool("misc", "conference_server_enabled", 1);
 	configLinphone->setInt("misc", "max_calls", 1000);
 	configLinphone->setInt("misc", "media_resources_mode", 1); // share media resources
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
-	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::None));
+	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::Legacy));
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
@@ -393,14 +415,13 @@ void B2buaServer::_init () {
 	mCore->enableEchoCancellation(false);
 	mCore->setPrimaryContact("sip:b2bua@localhost"); //TODO: get the primary contact from config, do we really need one?
 	mCore->enableAutoSendRinging(false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
-	mCore->setZrtpSecretsFile(""); // run cacheless zrtp
+	mCore->setZrtpSecretsFile(""); // run cacheless zrtp TODO: this not forcing it to run cacheless - it is still ok but useless and the ZRTP cache can grow very large. Fix this.
 
 	// random port for UDP audio stream
 	mCore->setAudioPort(-1);
 
 	shared_ptr<Transports> b2buaTransport = Factory::get()->createTransports();
 	// Get transport from flexisip configuration
-	auto config = GenericManager::get()->getRoot()->get<GenericStruct>("b2bua-server");
 	string mTransport = config->get<ConfigString>("transport")->read();
 	if (mTransport.length() > 0) {
 		sofiasip::Home mHome;
@@ -531,6 +552,13 @@ B2buaServer::Init::Init() {
 			".*@sip\\.example\\.org any call directed to an address on domain sip.example.org use AES_CM_128_HMAC_SHA1_80 suite\n"
 			"Default:",
 			""
+		},
+		{
+			String,
+			"data-directory",
+			"Directory where to store b2bua core local files\n"
+			"Default",
+			DEFAULT_B2BUA_DATA_DIR
 		},
 		config_item_end
 	};

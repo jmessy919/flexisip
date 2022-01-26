@@ -11,6 +11,7 @@
 %define _docdir            %{_datadir}/doc
 %define logdir             %{_localstatedir}/log
 %define flexisip_logdir    %{logdir}/flexisip
+%define flexisip_b2bua_datadir    %{_localstatedir}/flexisip/b2b
 
 # to be compliant with RedHat which changed epoch to 1 for an unknown reason
 %define epoch     1
@@ -55,9 +56,18 @@ fi
 semanage fcontext -a -t var_log_t '%{logdir}(/.*)?' 2>/dev/null || : \
 restorecon -R %{logdir} || :
 
+%global selinux_b2bua_datadir_context_post \
+semanage fcontext -a -t var_log_t '%{flexisip_b2bua_datadir}(/.*)?' 2>/dev/null || : \
+restorecon -R %{flexisip_b2bua_datadir} || :
+
 %global selinux_logdir_context_postun \
 if [ $1 -eq 0 ]; then  # final removal \
 	semanage fcontext -d -t var_log_t '%{logdir}(/.*)?' 2>/dev/null || : \
+fi
+
+%global selinux_b2bua_datadir_context_postun \
+if [ $1 -eq 0 ]; then  # final removal \
+	semanage fcontext -d -t var_log_t '%{flexisip_b2bua_datadir}(/.*)?' 2>/dev/null || : \
 fi
 
 %endif # %if %{centos_platform}
@@ -180,6 +190,7 @@ find %{buildroot} -type f -name '*.so.*' -exec chmod -v +x {} \;
 mkdir -p  $RPM_BUILD_ROOT/etc/flexisip
 mkdir -p  $RPM_BUILD_ROOT/%{_docdir}
 mkdir -p  $RPM_BUILD_ROOT/%{flexisip_logdir}
+mkdir -p  $RPM_BUILD_ROOT/%{flexisip_b2bua_datadir}
 
 mkdir -p $RPM_BUILD_ROOT/lib/systemd/system
 install -p -m 0644 scripts/flexisip-proxy.service $RPM_BUILD_ROOT/lib/systemd/system
@@ -209,6 +220,7 @@ rm -rf $RPM_BUILD_ROOT
 %if %centos_platform
 %post
 %selinux_logdir_context_post
+%selinux_b2bua_datadir_context_post
 %systemd_post %flexisip_services
 %endif
 
@@ -217,6 +229,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %postun
 %selinux_logdir_context_postun
+%selinux_b2bua_datadir_context_postun
 %systemd_postun_with_restart %flexisip_services
 
 %files
