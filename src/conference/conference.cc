@@ -26,7 +26,7 @@ namespace flexisip{
 
 
 Conference::Conference(ConferenceServer &server, const std::shared_ptr<const linphone::Address> &uri) : mServer(server), mUri(uri->clone()){
-	shared_ptr<linphone::ConferenceParams> params = server.getCore()->createConferenceParams();
+	shared_ptr<linphone::ConferenceParams> params = server.getCore()->createConferenceParams(nullptr);
 	// TODO: control audio enablement (not so useful actually).
 	params->setVideoEnabled(mServer.getMediaConfig().videoEnabled);
 	params->setLocalParticipantEnabled(false);
