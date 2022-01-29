@@ -32,7 +32,7 @@ using namespace flexisip;
 using days = duration<int, ratio_multiply<ratio<24>, hours::period>>;
 
 static shared_ptr<sofiasip::SuRoot> root{};
-static shared_ptr<Agent> agent{};
+static shared_ptr<AgentImpl> agent{};
 
 static string rawRequest{R"sip(MESSAGE sip:francois.grisez@sip.linphone.org SIP/2.0
 Via: SIP/2.0/TLS [2a01:e0a:278:9f60:7a23:c334:1651:2503]:36676;branch=z9hG4bK.ChN0lTDpQ;rport
@@ -74,7 +74,7 @@ static int afterAll() {
 static void beforeEach() {
 	ForkMessageContextSociRepository::getInstance()->deleteAll();
 	root = make_shared<sofiasip::SuRoot>();
-	agent = make_shared<Agent>(root);
+	agent = make_shared<AgentImpl>(root);
 }
 
 static void afterEach() {

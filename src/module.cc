@@ -73,7 +73,7 @@ void Module::setInfo(ModuleInfoBase *i) {
 }
 
 nta_agent_t *Module::getSofiaAgent() const {
-	return mAgent->mAgent;
+	return mAgent->getSofiaAgent();
 }
 
 void Module::declare(GenericStruct* root) {

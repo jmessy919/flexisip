@@ -31,7 +31,7 @@ using namespace std::chrono;
 using namespace flexisip;
 
 static std::shared_ptr<sofiasip::SuRoot> root{};
-static shared_ptr<Agent> agent{};
+static shared_ptr<AgentImpl> agent{};
 static int responseReceived = 0;
 static int expectedResponseReceived = 0;
 static int notSoRandomId = 0;
@@ -106,7 +106,7 @@ static void beforeEach() {
 	fetchingDone = 0;
 	expectedFetchingDone = 0;
 	root = make_shared<sofiasip::SuRoot>();
-	agent = make_shared<Agent>(root);
+	agent = make_shared<AgentImpl>(root);
 }
 
 static void afterEach() {

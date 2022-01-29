@@ -29,15 +29,12 @@
 #include <flexisip/configmanager.hh>
 #include <flexisip/event.hh>
 #include <flexisip/eventlogs.hh>
-#include <flexisip/transaction.hh>
 #include <flexisip/transport.hh>
 
-#include <sofia-sip/sip.h>
 #include <sofia-sip/sip_protos.h>
 #include <sofia-sip/sip_util.h>
 #include <sofia-sip/sip_tag.h>
 #include <sofia-sip/msg.h>
-#include <sofia-sip/nta.h>
 #include <sofia-sip/nta_stateless.h>
 #include <sofia-sip/nth.h>
 
@@ -49,6 +46,8 @@
 #if ENABLE_MDNS
 #include "belle-sip/belle-sip.h"
 #endif
+
+#include "flexisip/agent-interface.hh"
 
 namespace flexisip {
 
@@ -62,10 +61,8 @@ class DomainRegistrationManager;
  *
  * Refer to the flexisip.conf.sample installed by "make install" for documentation about what each module does.
 **/
-class Agent : public IncomingAgent,
-			  public OutgoingAgent,
-			  public std::enable_shared_from_this<Agent>,
-			  public ConfigValueListener {
+class AgentImpl : public Agent,
+			      public ConfigValueListener {
 	friend class IncomingTransaction;
 	friend class OutgoingTransaction;
 	friend class Module;
@@ -119,24 +116,24 @@ private:
 	void doSendEvent(std::shared_ptr<SipEventT> ev, const ModuleIter &begin, const ModuleIter &end);
 
 public:
-	Agent(const std::shared_ptr<sofiasip::SuRoot>& root);
+	AgentImpl(const std::shared_ptr<sofiasip::SuRoot>& root);
 	void start(const std::string &transport_override, const std::string &passphrase);
 	void loadConfig(GenericManager *cm);
 	void unloadConfig();
-	~Agent() override;
+	~AgentImpl() override;
 	/// Returns a pair of ip addresses: < public-ip, bind-ip> suitable for destination.
-	std::pair<std::string, std::string> getPreferredIp(const std::string &destination) const;
+	std::pair<std::string, std::string> getPreferredIp(const std::string &destination) const override;
 	/// Returns the _default_ bind address for RTP sockets.
-	const std::string &getRtpBindIp(bool ipv6 = false) const {
+	const std::string &getRtpBindIp(bool ipv6 = false) const override {
 		return ipv6 ? mRtpBindIp6 : mRtpBindIp;
 	}
-	const std::string &getPublicIp(bool ipv6 = false) const {
+	const std::string &getPublicIp(bool ipv6 = false) const override {
 		return ipv6 ? mPublicIpV6 : mPublicIpV4;
 	}
-	const std::string &getResolvedPublicIp(bool ipv6 = false) const {
+	const std::string &getResolvedPublicIp(bool ipv6 = false) const override {
 		return ipv6 ? mPublicResolvedIpV6 : mPublicResolvedIpV4;
 	}
-	Agent *getAgent() override {
+	Agent* getAgent() override {
 		return this;
 	}
 	// Preferred route for inter-proxy communication
@@ -172,14 +169,14 @@ public:
 	 */
 	const std::string &getUniqueId() const;
 	void idle();
-	bool isUs(const url_t *url, bool check_aliases = true) const;
-	std::shared_ptr<sofiasip::SuRoot> getRoot() const noexcept {return mRoot;}
+	bool isUs(const url_t *url, bool check_aliases = true) const override;
+	const std::shared_ptr<sofiasip::SuRoot>& getRoot() const noexcept override {return mRoot;}
 	nta_agent_t *getSofiaAgent() const {
 		return mAgent;
 	}
 	int countUsInVia(sip_via_t *via) const;
 	bool isUs(const char *host, const char *port, bool check_aliases) const;
-	sip_via_t *getNextVia(sip_t *response);
+	sip_via_t *getNextVia(sip_t *response) override;
 	const char *getServerString() const;
 	typedef void (*timerCallback)(void *unused, su_timer_t *t, void *data);
 	su_timer_t *createTimer(int milliseconds, timerCallback cb, void *data, bool repeating=true);

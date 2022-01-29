@@ -125,7 +125,7 @@ void OutgoingTransaction::send(const shared_ptr<MsgSip>& ms, url_string_t const*
 	if (!mOutgoing) {
 		msg_t* msg = msg_ref_create(ms->getMsg());
 		ta_start(ta, tag, value);
-		mOutgoing = nta_outgoing_mcreate(mAgent->mAgent, OutgoingTransaction::_callback, (nta_outgoing_magic_t*)this, u,
+		mOutgoing = nta_outgoing_mcreate(mAgent->getSofiaAgent(), OutgoingTransaction::_callback, (nta_outgoing_magic_t*)this, u,
 		                                 msg, ta_tags(ta), TAG_END());
 		ta_end(ta);
 		if (mOutgoing == NULL) {
@@ -201,7 +201,7 @@ IncomingTransaction::IncomingTransaction(Agent* agent) : Transaction(agent) {
 void IncomingTransaction::handle(const shared_ptr<MsgSip>& ms) {
 	msg_t* msg = ms->getMsg();
 	msg = msg_ref_create(msg);
-	mIncoming = nta_incoming_create(mAgent->mAgent, NULL, msg, sip_object(msg), TAG_END());
+	mIncoming = nta_incoming_create(mAgent->getSofiaAgent(), NULL, msg, sip_object(msg), TAG_END());
 	if (mIncoming != NULL) {
 		nta_incoming_bind(mIncoming, IncomingTransaction::_callback, (nta_incoming_magic_t*)this);
 		mSofiaRef = shared_from_this();

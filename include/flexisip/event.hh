@@ -73,7 +73,7 @@ class MsgSip {
 };
 
 class SipEvent : public std::enable_shared_from_this<SipEvent> {
-	friend class Agent;
+	friend class AgentImpl;
 
   public:
 	SipEvent(const std::shared_ptr<IncomingAgent> &inAgent, const std::shared_ptr<MsgSip> &msgSip);

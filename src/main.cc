@@ -472,7 +472,7 @@ static void dump_config(const std::shared_ptr<sofiasip::SuRoot>& root, const std
 		pluginsDirEntry->set(DEFAULT_PLUGINS_DIR);
 	}
 
-	auto a = make_shared<Agent>(root);
+	auto a = make_shared<AgentImpl>(root);
 	if (!dumpDefault) a->loadConfig(GenericManager::get());
 
 	auto *rootStruct = GenericManager::get()->getRoot();
@@ -518,7 +518,7 @@ static void dump_config(const std::shared_ptr<sofiasip::SuRoot>& root, const std
 
 static void list_sections(bool moduleOnly = false) {
 	const string modulePrefix{"module::"};
-	auto a = make_shared<Agent>(root);
+	auto a = make_shared<AgentImpl>(root);
 	for (const auto& child : GenericManager::get()->getRoot()->getChildren()) {
 		if (!moduleOnly || child->getName().compare(0, modulePrefix.size(), modulePrefix) == 0) {
 			cout << child->getName() << endl;
@@ -595,7 +595,7 @@ static string getPkcsPassphrase(TCLAP::ValueArg<string> &pkcsFile){
 }
 
 int main(int argc, char *argv[]) {
-	shared_ptr<Agent> a;
+	shared_ptr<AgentImpl> a;
 	StunServer *stun = NULL;
 	unique_ptr<CommandLineInterface> proxy_cli;
 #ifdef ENABLE_PRESENCE
@@ -699,7 +699,7 @@ int main(int argc, char *argv[]) {
 
 	// list all mibs and exit
 	if (dumpMibs) {
-		a = make_shared<Agent>(root);
+		a = make_shared<AgentImpl>(root);
 		cout << MibDumper(GenericManager::get()->getRoot());
 		return EXIT_SUCCESS;
 	}
@@ -718,7 +718,7 @@ int main(int argc, char *argv[]) {
 
 	// list the overridable values and exit
 	if (listOverrides.getValue().length() != 0) {
-		a = make_shared<Agent>(root);
+		a = make_shared<AgentImpl>(root);
 		list<string> allCompletions;
 		allCompletions.push_back("nosnmp");
 
@@ -898,7 +898,7 @@ int main(int argc, char *argv[]) {
 	increase_fd_limit();
 
 	//we create an Agent in all cases, because it will declare config items that are necessary for presence server to run.
-	a = make_shared<Agent>(root);
+	a = make_shared<AgentImpl>(root);
 	setOpenSSLThreadSafe();
 	a->loadConfig(cfg);
 

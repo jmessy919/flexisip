@@ -39,8 +39,7 @@ static void basic() {
 	// Agent initialisation
 
 	auto root = make_shared<sofiasip::SuRoot>();
-	shared_ptr<Agent> a = make_shared<Agent>(root);
-	Agent *agent = a->getAgent();
+	auto agent = make_shared<AgentImpl>(root);
 
 	GenericManager *cfg = GenericManager::get();
 	cfg->load(string(TESTER_DATA_DIR).append("/config/flexisip_regevent.conf").c_str());
@@ -93,7 +92,7 @@ static void basic() {
 	// Registrars / Local confs
 	gs->get<ConfigStringList>("local-domains")->set("sip.example.org 127.0.0.1 [2a01:e0a:1ce:c860:f03d:d06:649f:6cfc]");
 
-	auto conferenceServer = make_shared<ConferenceServer>(a->getPreferredRoute(), root);
+	auto conferenceServer = make_shared<ConferenceServer>(agent->getPreferredRoute(), root);
 	conferenceServer->init();
 
 	// Proxy configuration
@@ -113,7 +112,7 @@ static void basic() {
 
 	while (proxy->getState() != RegistrationState::Ok) {
 		clientCore->iterate();
-		a->getRoot()->step(100ms);
+		agent->getRoot()->step(100ms);
 	}
 
 	// Fill the RegistrarDB
@@ -244,12 +243,12 @@ static void basic() {
 
 	class RegEventAssert : public CoreAssert {
 	public :
-		RegEventAssert(std::initializer_list<shared_ptr<linphone::Core>> cores, Agent* a) : CoreAssert(cores) {
+		RegEventAssert(std::initializer_list<shared_ptr<linphone::Core>> cores, AgentImpl* a) : CoreAssert(cores) {
 			addCustomIterate([a] { a->getRoot()->step(10ms); });
 		}
 	};
 
-	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent).wait([chatRoom] {
+	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent.get()).wait([chatRoom] {
 		int numberOfDevices = 0;
 		for (auto participant: chatRoom->getParticipants()) {
 			numberOfDevices += participant->getDevices().size();
@@ -289,7 +288,7 @@ static void basic() {
 	);
 	RegistrarDb::get()->publish(otherParticipantFrom.substr(4).c_str(), "");
 
-	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent).wait([chatRoom] {
+	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent.get()).wait([chatRoom] {
 		int numberOfDevices = 0;
 		for (auto participant: chatRoom->getParticipants()) {
 			numberOfDevices += participant->getDevices().size();
@@ -317,7 +316,7 @@ static void basic() {
 	);
 	RegistrarDb::get()->publish(otherParticipantFrom.substr(4).c_str(), "");
 
-	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent).wait([chatRoom] {
+	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent.get()).wait([chatRoom] {
 		int numberOfDevices = 0;
 		for (auto participant: chatRoom->getParticipants()) {
 			numberOfDevices += participant->getDevices().size();
@@ -347,7 +346,7 @@ static void basic() {
 	);
 	RegistrarDb::get()->publish(participantFrom.substr(4).c_str(), "");
 
-	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent).wait([chatRoom] {
+	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent.get()).wait([chatRoom] {
 		int numberOfDevices = 0;
 		for (auto participant: chatRoom->getParticipants()) {
 			numberOfDevices += participant->getDevices().size();
@@ -391,7 +390,7 @@ static void basic() {
 	shared_ptr<linphone::Address> reBindParticipant = linphone::Factory::get()->createAddress(participantRebindFrom.c_str());
 	chatRoom->addParticipant(reBindParticipant);
 
-	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent).wait([chatRoom] {
+	BC_ASSERT_TRUE(RegEventAssert({clientCore,regEventCore},agent.get()).wait([chatRoom] {
 		int numberOfDevices = 0;
 		for (auto participant: chatRoom->getParticipants()) {
 			numberOfDevices += participant->getDevices().size();

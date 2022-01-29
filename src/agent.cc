@@ -50,7 +50,7 @@ namespace flexisip {
 static StatCounter64 *createCounter(GenericStruct *global, string keyprefix, string helpprefix, string value) {
 	return global->createStat(keyprefix + value, helpprefix + value + ".");
 }
-void Agent::onDeclare(GenericStruct *root) {
+void AgentImpl::onDeclare(GenericStruct *root) {
 	GenericStruct *global = root->get<GenericStruct>("global");
 	string key = "count-incoming-request-";
 	string help = "Number of incoming requests with method name ";
@@ -120,7 +120,7 @@ void Agent::onDeclare(GenericStruct *root) {
 	mRtpBindIp6 = rtpBindAddress.back();
 }
 
-void Agent::startLogWriter() {
+void AgentImpl::startLogWriter() {
 	GenericStruct *cr = GenericManager::get()->getRoot()->get<GenericStruct>("event-logs");
 
 	if (cr->get<ConfigBoolean>("enabled")->read()) {
@@ -157,7 +157,7 @@ static string absolutePath(const string &currdir, const string &file) {
 	return currdir + "/" + file;
 }
 
-void Agent::checkAllowedParams(const url_t *uri) {
+void AgentImpl::checkAllowedParams(const url_t *uri) {
 	sofiasip::Home home;
 	if (!uri->url_params)
 		return;
@@ -175,7 +175,7 @@ void Agent::checkAllowedParams(const url_t *uri) {
 	}
 }
 
-void Agent::initializePreferredRoute() {
+void AgentImpl::initializePreferredRoute() {
 	//Adding internal transport to transport in "cluster" case
 	auto cluster = GenericManager::get()->getRoot()->get<GenericStruct>("cluster");
 	if (cluster->get<ConfigBoolean>("enabled")->read()) {
@@ -206,7 +206,7 @@ void Agent::initializePreferredRoute() {
 	}
 }
 
-void Agent::loadModules() {
+void AgentImpl::loadModules() {
 	for (const auto& module : mModules) {
 		// Check in all cases, even if not enabled,
 		// to allow safe dynamic activation of the module
@@ -232,7 +232,7 @@ static void mDnsRegisterCallback(void *data, int error) {
 #endif
 
 
-void Agent::startMdns(){
+void AgentImpl::startMdns(){
 #if ENABLE_MDNS
 	/* Get Informations about mDNS register */
 	GenericStruct *mdns = GenericManager::get()->getRoot()->get<GenericStruct>("mdns-register");
@@ -281,7 +281,7 @@ static void timerfunc(su_root_magic_t *magic, su_timer_t *t, Agent *a) {
 	a->idle();
 }
 
-void Agent::start(const string &transport_override, const string &passphrase) {
+void AgentImpl::start(const string &transport_override, const string &passphrase) {
 	char cCurrDir[FILENAME_MAX];
 	if (!getcwd(cCurrDir, sizeof(cCurrDir))) {
 		LOGA("Could not get current file path");
@@ -515,7 +515,7 @@ void Agent::start(const string &transport_override, const string &passphrase) {
 
 // -----------------------------------------------------------------------------
 
-Agent::Agent(const std::shared_ptr<sofiasip::SuRoot>& root) {
+AgentImpl::AgentImpl(const std::shared_ptr<sofiasip::SuRoot>& root) {
 	mHttpEngine = nth_engine_create(root->getCPtr(), NTHTAG_ERROR_MSG(0), TAG_END());
 	GenericStruct *cr = GenericManager::get()->getRoot();
 
@@ -569,7 +569,7 @@ Agent::Agent(const std::shared_ptr<sofiasip::SuRoot>& root) {
 		LOGE("Can't find interface addresses: %s", strerror(err));
 	}
 	mRoot = root;
-	mAgent = nta_agent_create(root->getCPtr(), (url_string_t *)-1, &Agent::messageCallback, (nta_agent_magic_t *)this, TAG_END());
+	mAgent = nta_agent_create(root->getCPtr(), (url_string_t *)-1, &AgentImpl::messageCallback, (nta_agent_magic_t *)this, TAG_END());
 	su_home_init(&mHome);
 	mPreferredRouteV4 = nullptr;
 	mPreferredRouteV6 = nullptr;
@@ -577,7 +577,7 @@ Agent::Agent(const std::shared_ptr<sofiasip::SuRoot>& root) {
 	mProxyToProxyKeepAliveInterval = 0;
 }
 
-Agent::~Agent() {
+AgentImpl::~AgentImpl() {
 #if ENABLE_MDNS
 	for(belle_sip_mdns_register_t *reg : mMdnsRegisterList) {
 		belle_sip_mdns_unregister(reg);
@@ -597,11 +597,11 @@ Agent::~Agent() {
 	su_home_deinit(&mHome);
 }
 
-const char *Agent::getServerString() const {
+const char *AgentImpl::getServerString() const {
 	return mServerString.c_str();
 }
 
-string Agent::getPreferredRoute() const {
+string AgentImpl::getPreferredRoute() const {
 	if (!mPreferredRouteV4)
 		return string();
 
@@ -610,7 +610,7 @@ string Agent::getPreferredRoute() const {
 	return string(prefUrl);
 }
 
-bool Agent::doOnConfigStateChanged(const ConfigValue &conf, ConfigState state) {
+bool AgentImpl::doOnConfigStateChanged(const ConfigValue &conf, ConfigState state) {
 	LOGD("Configuration of agent changed for key %s to %s", conf.getName().c_str(), conf.get().c_str());
 
 	if (conf.getName() == "aliases" && state == ConfigState::Commited) {
@@ -622,7 +622,7 @@ bool Agent::doOnConfigStateChanged(const ConfigValue &conf, ConfigState state) {
 	return mBaseConfigListener->onConfigStateChanged(conf, state);
 }
 
-void Agent::loadConfig(GenericManager *cm) {
+void AgentImpl::loadConfig(GenericManager *cm) {
 	cm->loadStrict(); // now that each module has declared its settings, we need to reload from the config file
 	if (!mBaseConfigListener) {
 		mBaseConfigListener = cm->getGlobal()->getConfigListener();
@@ -639,13 +639,13 @@ void Agent::loadConfig(GenericManager *cm) {
 	initializePreferredRoute();
 }
 
-void Agent::unloadConfig() {
+void AgentImpl::unloadConfig() {
 	for (const auto& module : mModules) {
 		module->unload();
 	}
 }
 
-string Agent::computeResolvedPublicIp(const string &host, int family) const {
+string AgentImpl::computeResolvedPublicIp(const string &host, int family) const {
 	int err;
 	struct addrinfo hints;
 	string dest;
@@ -674,7 +674,7 @@ string Agent::computeResolvedPublicIp(const string &host, int family) const {
 	return "";
 }
 
-pair<string, string> Agent::getPreferredIp(const string &destination) const {
+pair<string, string> AgentImpl::getPreferredIp(const string &destination) const {
 	int err;
 	struct addrinfo hints;
 	string dest = (destination[0] == '[') ? destination.substr(1, destination.size() - 2) : destination;
@@ -704,12 +704,12 @@ pair<string, string> Agent::getPreferredIp(const string &destination) const {
 	return isIpv6 ? make_pair(getResolvedPublicIp(true), getRtpBindIp(true)) : make_pair(getResolvedPublicIp(), getRtpBindIp()) ;
 }
 
-Agent::Network::Network(const Network &net) : mIP(net.mIP) {
+AgentImpl::Network::Network(const Network &net) : mIP(net.mIP) {
 	memcpy(&mPrefix, &net.mPrefix, sizeof(mPrefix));
 	memcpy(&mMask, &net.mMask, sizeof(mMask));
 }
 
-Agent::Network::Network(const struct ifaddrs *ifaddr) {
+AgentImpl::Network::Network(const struct ifaddrs *ifaddr) {
 	int err = 0;
 	char ipAddress[IPADDR_SIZE];
 	memset(&mPrefix, 0, sizeof(mPrefix));
@@ -746,11 +746,11 @@ Agent::Network::Network(const struct ifaddrs *ifaddr) {
 	}
 }
 
-const string Agent::Network::getIP() const {
+const string AgentImpl::Network::getIP() const {
 	return mIP;
 }
 
-bool Agent::Network::isInNetwork(const struct sockaddr *addr) const {
+bool AgentImpl::Network::isInNetwork(const struct sockaddr *addr) const {
 	if (addr->sa_family != mPrefix.ss_family) {
 		return false;
 	}
@@ -780,7 +780,7 @@ bool Agent::Network::isInNetwork(const struct sockaddr *addr) const {
 	}
 }
 
-string Agent::Network::print(const struct ifaddrs *ifaddr) {
+string AgentImpl::Network::print(const struct ifaddrs *ifaddr) {
 	stringstream ss;
 	int err;
 	unsigned int size =
@@ -804,7 +804,7 @@ string Agent::Network::print(const struct ifaddrs *ifaddr) {
 	return ss.str();
 }
 
-int Agent::countUsInVia(sip_via_t *via) const {
+int AgentImpl::countUsInVia(sip_via_t *via) const {
 	int count = 0;
 	for (sip_via_t *v = via; v != NULL; v = v->v_next) {
 		if (isUs(v->v_host, v->v_port, true))
@@ -814,7 +814,7 @@ int Agent::countUsInVia(sip_via_t *via) const {
 	return count;
 }
 
-bool Agent::isUs(const char* host, const char* port, bool check_aliases) const {
+bool AgentImpl::isUs(const char* host, const char* port, bool check_aliases) const {
 	// skip possibly trailing '.' at the end of host
 	char* tmp = nullptr;
 	size_t end;
@@ -842,7 +842,7 @@ bool Agent::isUs(const char* host, const char* port, bool check_aliases) const {
 	              [&matchedHost, &matchedPort](const auto& t) { return t.is(matchedHost, matchedPort); });
 }
 
-sip_via_t *Agent::getNextVia(sip_t *response) {
+sip_via_t *AgentImpl::getNextVia(sip_t *response) {
 	sip_via_t *via;
 	for (via = response->sip_via; via != NULL; via = via->v_next) {
 		if (!isUs(via->v_host, via->v_port, false))
@@ -854,7 +854,7 @@ sip_via_t *Agent::getNextVia(sip_t *response) {
 /**
  * Takes care of an eventual maddr parameter.
  */
-bool Agent::isUs(const url_t *url, bool check_aliases) const {
+bool AgentImpl::isUs(const url_t *url, bool check_aliases) const {
 	char maddr[50];
 	if (mDrm && mDrm->isUs(url))
 		return true;
@@ -864,7 +864,7 @@ bool Agent::isUs(const url_t *url, bool check_aliases) const {
 	return isUs(url->url_host, url->url_port, check_aliases);
 }
 
-void Agent::logEvent(const shared_ptr<SipEvent> &ev) {
+void AgentImpl::logEvent(const shared_ptr<SipEvent> &ev) {
 	if (mLogWriter) {
 		shared_ptr<EventLog> evlog;
 		if ((evlog = ev->getEventLog<EventLog>())) {
@@ -874,20 +874,20 @@ void Agent::logEvent(const shared_ptr<SipEvent> &ev) {
 	}
 }
 
-shared_ptr<Module> Agent::findModule(const string& moduleName) const {
+shared_ptr<Module> AgentImpl::findModule(const string& moduleName) const {
 	auto it = find_if(mModules.cbegin(), mModules.cend(),
 	                  [&moduleName](const auto& m) { return m->getModuleName() == moduleName; });
 	return (it != mModules.cend()) ? *it : nullptr;
 }
 
-shared_ptr<Module> Agent::findModuleByFunction(const std::string& moduleFunction) const {
+shared_ptr<Module> AgentImpl::findModuleByFunction(const std::string& moduleFunction) const {
 	auto it = find_if(mModules.cbegin(), mModules.cend(),
 	                  [&moduleFunction](const auto& m) { return m->getInfo()->getFunction() == moduleFunction; });
 	return it != mModules.cend() ? *it : nullptr;
 }
 
 template <typename SipEventT, typename ModuleIter>
-void Agent::doSendEvent(std::shared_ptr<SipEventT> ev, const ModuleIter &begin, const ModuleIter &end) {
+void AgentImpl::doSendEvent(std::shared_ptr<SipEventT> ev, const ModuleIter &begin, const ModuleIter &end) {
 	for (auto it = begin; it != end; ++it) {
 		ev->mCurrModule = *it;
 		(*it)->process(ev);
@@ -899,7 +899,7 @@ void Agent::doSendEvent(std::shared_ptr<SipEventT> ev, const ModuleIter &begin, 
 	}
 }
 
-void Agent::sendRequestEvent(shared_ptr<RequestSipEvent> ev) {
+void AgentImpl::sendRequestEvent(shared_ptr<RequestSipEvent> ev) {
 	SipLogContext ctx(ev->getMsgSip());
 	sip_t *sip = ev->getMsgSip()->getSip();
 	const sip_request_t *req = sip->sip_request;
@@ -947,7 +947,7 @@ void Agent::sendRequestEvent(shared_ptr<RequestSipEvent> ev) {
 	doSendEvent(ev, mModules.begin(), mModules.end());
 }
 
-void Agent::sendResponseEvent(shared_ptr<ResponseSipEvent> ev) {
+void AgentImpl::sendResponseEvent(shared_ptr<ResponseSipEvent> ev) {
 	if (mTerminating) {
 		// Avoid throwing a bad weak pointer on GatewayAdapter destruction
 		LOGI("Skipping incoming message on expired agent");
@@ -1009,9 +1009,9 @@ void Agent::sendResponseEvent(shared_ptr<ResponseSipEvent> ev) {
 	doSendEvent(ev, mModules.begin(), mModules.end());
 }
 
-void Agent::injectRequestEvent(shared_ptr<RequestSipEvent> ev) {
+void AgentImpl::injectRequestEvent(shared_ptr<RequestSipEvent> ev) {
 	SipLogContext ctx{ev->getMsgSip()};
-	auto currModule = ev->mCurrModule.lock();// Used to be a basic pointer
+	auto currModule = ev->getCurrentModule().lock();// Used to be a basic pointer
 	if (LOGD_ENABLED()){
 		SLOGD << "Inject request SIP event [" << ev << "] after " << currModule->getModuleName() << ":\n" << *ev->getMsgSip();
 	}
@@ -1021,9 +1021,9 @@ void Agent::injectRequestEvent(shared_ptr<RequestSipEvent> ev) {
 	printEventTailSeparator();
 }
 
-void Agent::injectResponseEvent(shared_ptr<ResponseSipEvent> ev) {
+void AgentImpl::injectResponseEvent(shared_ptr<ResponseSipEvent> ev) {
 	SipLogContext ctx{ev->getMsgSip()};
-	auto currModule = ev->mCurrModule.lock();// Used to be a basic pointer
+	auto currModule = ev->getCurrentModule().lock();// Used to be a basic pointer
 	if (LOGD_ENABLED()){
 		SLOGD << "Injecting response SIP event [" << ev << "] after " << currModule->getModuleName() << ":\n" << *ev->getMsgSip();
 	}
@@ -1046,7 +1046,7 @@ static tport_t *getIncomingTport(const msg_t *orig, Agent *ag) {
 	return tport;
 }
 
-int Agent::onIncomingMessage(msg_t *msg, const sip_t *sip) {
+int AgentImpl::onIncomingMessage(msg_t *msg, const sip_t *sip) {
 	if (mTerminating) {
 		// Avoid throwing a bad weak pointer on GatewayAdapter destruction
 		LOGI("Skipping incoming message on expired agent");
@@ -1066,7 +1066,7 @@ int Agent::onIncomingMessage(msg_t *msg, const sip_t *sip) {
 	return 0;
 }
 
-url_t* Agent::urlFromTportName(su_home_t* home, const tp_name_t* name) {
+url_t* AgentImpl::urlFromTportName(su_home_t* home, const tp_name_t* name) {
 	url_t *url = NULL;
 	url_type_e ut = url_sip;
 
@@ -1084,12 +1084,12 @@ url_t* Agent::urlFromTportName(su_home_t* home, const tp_name_t* name) {
 	return url;
 }
 
-int Agent::messageCallback(nta_agent_magic_t *context, nta_agent_t *agent, msg_t *msg, sip_t *sip) {
-	Agent *a = (Agent *)context;
+int AgentImpl::messageCallback(nta_agent_magic_t *context, nta_agent_t *agent, msg_t *msg, sip_t *sip) {
+	auto* a = reinterpret_cast<AgentImpl*>(context);
 	return a->onIncomingMessage(msg, sip);
 }
 
-void Agent::idle() {
+void AgentImpl::idle() {
 	for(const auto& module : mModules) {
 		module->idle();
 	}
@@ -1098,22 +1098,22 @@ void Agent::idle() {
 	}
 }
 
-const string &Agent::getUniqueId() const {
+const string &AgentImpl::getUniqueId() const {
 	return mUniqueId;
 }
 
-su_timer_t *Agent::createTimer(int milliseconds, timerCallback cb, void *data, bool repeating) {
+su_timer_t *AgentImpl::createTimer(int milliseconds, timerCallback cb, void *data, bool repeating) {
 	su_timer_t *timer = su_timer_create(mRoot->getTask(), milliseconds);
 	if (repeating) su_timer_set_for_ever(timer, (su_timer_f)cb, data);
 	else su_timer_set(timer, (su_timer_f)cb, data);
 	return timer;
 }
 
-void Agent::stopTimer(su_timer_t *t) {
+void AgentImpl::stopTimer(su_timer_t *t) {
 	su_timer_destroy(t);
 }
 
-void Agent::send(const shared_ptr<MsgSip> &ms, url_string_t const *u, tag_type_t tag, tag_value_t value, ...) {
+void AgentImpl::send(const shared_ptr<MsgSip> &ms, url_string_t const *u, tag_type_t tag, tag_value_t value, ...) {
 	ta_list ta;
 	ta_start(ta, tag, value);
 	msg_t *msg = msg_ref_create(ms->getMsg());
@@ -1121,7 +1121,7 @@ void Agent::send(const shared_ptr<MsgSip> &ms, url_string_t const *u, tag_type_t
 	ta_end(ta);
 }
 
-void Agent::incrReplyStat(int status) {
+void AgentImpl::incrReplyStat(int status) {
 	switch (status) {
 		case 100:
 			++*mCountReply100;
@@ -1164,7 +1164,7 @@ void Agent::incrReplyStat(int status) {
 			break;
 	}
 }
-void Agent::reply(const shared_ptr<MsgSip> &ms, int status, char const *phrase, tag_type_t tag, tag_value_t value, ...) {
+void AgentImpl::reply(const shared_ptr<MsgSip> &ms, int status, char const *phrase, tag_type_t tag, tag_value_t value, ...) {
 	incrReplyStat(status);
 	ta_list ta;
 	ta_start(ta, tag, value);
@@ -1173,7 +1173,7 @@ void Agent::reply(const shared_ptr<MsgSip> &ms, int status, char const *phrase, 
 	ta_end(ta);
 }
 
-void Agent::applyProxyToProxyTransportSettings(tport_t *tp){
+void AgentImpl::applyProxyToProxyTransportSettings(tport_t *tp){
 	if (mProxyToProxyKeepAliveInterval > 0){
 		unsigned int currentKeepAliveInterval = 0;
 		tport_get_params(tp, TPTAG_KEEPALIVE_REF(currentKeepAliveInterval), TAG_END());
@@ -1184,9 +1184,9 @@ void Agent::applyProxyToProxyTransportSettings(tport_t *tp){
 	}
 }
 
-const std::string Agent::sEventSeparator(110, '=');
+const std::string AgentImpl::sEventSeparator(110, '=');
 
-void Agent::printEventTailSeparator() {
+void AgentImpl::printEventTailSeparator() {
 	LOGD("\n\n%s\n", sEventSeparator.c_str());
 }
 
