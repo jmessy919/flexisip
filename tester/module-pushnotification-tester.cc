@@ -18,6 +18,8 @@
 
 #include "flexisip/module-pushnotification.hh"
 #include "flexisip/registrardb.hh"
+
+#include "agent-moc.hh"
 #include "pushnotification/firebase/firebase-client.hh"
 #include "tester.hh"
 
@@ -26,35 +28,20 @@ using namespace std::chrono;
 using namespace flexisip;
 using namespace flexisip::pushnotification;
 
-static shared_ptr<sofiasip::SuRoot> root{};
-static shared_ptr<AgentImpl> agent{};
-
-static void beforeEach() {
-	root = make_shared<sofiasip::SuRoot>();
-	agent = make_shared<AgentImpl>(root);
-}
-
-static void afterEach() {
-	agent->unloadConfig();
-	RegistrarDb::resetDB();
-	agent.reset();
-	root.reset();
-}
-
 static void pushIsSentOnInvite() {
+	auto agent = make_shared<AgentMOC>();
+
 	// Agent initialization
 	auto cfg = GenericManager::get();
 	cfg->load(string(TESTER_DATA_DIR).append("/config/flexisip_module_push.conf").c_str());
-	agent->loadConfig(cfg);
+
+	auto modulePush = make_unique<PushNotification>(agent.get());
+	modulePush->onLoad(cfg->getRoot());
 
 	FirebaseClient::FIREBASE_ADDRESS = "randomHost";
 	FirebaseClient::FIREBASE_PORT = "3000";
 
-	// Starting Flexisip
-	agent->start("", "");
-
-	const auto& modulePush = dynamic_pointer_cast<PushNotification>(agent->findModule("PushNotification"));
-	string rawRequest{
+	const string rawRequest{
 	    R"sip(INVITE sip:jean.claude@90.112.184.171:41404;pn-prid=cUNaHkG98QM:APA91bE83L4-r_EVyMXxCJHVSND_GvNRpsxp3o8FoY4oRT0f1Iv9TdNhcoLh7xp2rqY-yXkf4m0JNrbS3ZueJnTF3Xjj1MwK86qSOQ5rScM824_lJlUBy9wKwLrp0gMdSmuZPlszN-Np;pn-provider=fcm;pn-param=ARandomKey;pn-silent=1;pn-timeout=0;transport=tls;fs-conn-id=169505b723d9857 SIP/2.0
 Via: SIP/2.0/TLS 192.168.1.197:49812;branch=z9hG4bK.BJKV8sLmg;rport=49812;received=151.127.31.93
 Route: <sip:91.121.209.194:5059;transport=tcp;lr>
@@ -100,8 +87,8 @@ a=candidate:3 1 UDP 1694498687 151.127.31.93 7254 typ srflx raddr 192.168.1.197 
 a=candidate:3 2 UDP 1694498686 151.127.31.93 7255 typ srflx raddr 192.168.1.197 rport 7255
 a=rtcp-fb:* trr-int 1000
 a=rtcp-fb:* ccm tmmbr)sip"};
-	auto request = std::make_shared<MsgSip>(msg_make(sip_default_mclass(), 0, rawRequest.c_str(), rawRequest.size()));
-	auto reqSipEvent = std::make_shared<RequestSipEvent>(agent, request);
+	auto request = make_shared<MsgSip>(msg_make(sip_default_mclass(), 0, rawRequest.c_str(), rawRequest.size()));
+	auto reqSipEvent = make_shared<RequestSipEvent>(agent, request);
 	reqSipEvent->setOutgoingAgent(agent);
 	reqSipEvent->createOutgoingTransaction();
 
@@ -109,25 +96,26 @@ a=rtcp-fb:* ccm tmmbr)sip"};
 
 	auto beforePlus2 = system_clock::now() + 2s;
 	while (beforePlus2 >= system_clock::now() && modulePush->getService().getFailedCounter()->read() != 1) {
-		root->step(100ms);
+		agent->getRoot()->step(100ms);
 	}
 
 	BC_ASSERT_EQUAL(modulePush->getService().getFailedCounter()->read(), 1, int, "%i");
 }
 
 static void pushIsNotSentOnInviteWithReplacesHeader() {
+	auto agent = make_shared<AgentMOC>();
+	auto modulePush = make_unique<PushNotification>(agent.get());
+	auto moduleRouter = make_unique<PushNotification>(agent.get());
+
 	// Agent initialization
 	auto cfg = GenericManager::get();
 	cfg->load(string(TESTER_DATA_DIR).append("/config/flexisip_module_push.conf").c_str());
-	agent->loadConfig(cfg);
+
+	modulePush->onLoad(cfg->getRoot());
 
 	FirebaseClient::FIREBASE_ADDRESS = "randomHost";
 	FirebaseClient::FIREBASE_PORT = "3000";
 
-	// Starting Flexisip
-	agent->start("", "");
-
-	const auto& modulePush = dynamic_pointer_cast<PushNotification>(agent->findModule("PushNotification"));
 	string rawRequest{
 	    R"sip(INVITE sip:jean.claude@90.112.184.171:41404;pn-prid=cUNaHkG98QM:APA91bE83L4-r_EVyMXxCJHVSND_GvNRpsxp3o8FoY4oRT0f1Iv9TdNhcoLh7xp2rqY-yXkf4m0JNrbS3ZueJnTF3Xjj1MwK86qSOQ5rScM824_lJlUBy9wKwLrp0gMdSmuZPlszN-Np;pn-provider=fcm;pn-param=ARandomKey;pn-silent=1;pn-timeout=0;transport=tls;fs-conn-id=169505b723d9857 SIP/2.0
 Via: SIP/2.0/TLS 192.168.1.197:49812;branch=z9hG4bK.BJKV8sLmg;rport=49812;received=151.127.31.93
@@ -185,7 +173,7 @@ a=rtcp-fb:* ccm tmmbr)sip"};
 	auto beforePlus2 = system_clock::now() + 2s;
 	while (beforePlus2 >= system_clock::now() && beforePlus2 >= system_clock::now() &&
 	       modulePush->getService().getFailedCounter()->read() != 1) {
-		root->step(100ms);
+		agent->getRoot()->step(100ms);
 	}
 
 	BC_ASSERT_EQUAL(modulePush->getService().getSentCounter()->read(), 0, int, "%i");
@@ -197,5 +185,5 @@ static test_t tests[] = {
     TEST_NO_TAG("Push is not sent on Invite with Replaces Header", pushIsNotSentOnInviteWithReplacesHeader),
 };
 
-test_suite_t module_pushnitification_suite = {"Module push-notification",       nullptr, nullptr, beforeEach, afterEach,
+test_suite_t module_pushnitification_suite = {"Module push-notification", nullptr, nullptr, nullptr, nullptr,
                                               sizeof(tests) / sizeof(tests[0]), tests};

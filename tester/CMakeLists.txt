@@ -31,8 +31,9 @@ add_executable(flexisip_tester
         extended-contact-tester.cc
         fork-context-tester.cc
         fork-context-mysql-tester.cc
-        push-notification-tester.cc
+        module-push-tester.cc
         module-pushnotification-tester.cc
+        push-notification-tester.cc
         register-tester.cc
         router-tester.cc
         tester.cc tester.hh
