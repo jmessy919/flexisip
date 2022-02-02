@@ -14,7 +14,7 @@ job-ubuntu-rolling-makefile-gcc:
     variables:
       - $DEPLOY_RUN
       - $DEPLOY_UBUNTU
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 
 job-ubuntu-rolling-makefile-clang:
@@ -29,7 +29,7 @@ job-ubuntu-rolling-makefile-clang:
     CMAKE_GENERATOR: Unix Makefiles
     CC: clang
     CXX: clang++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 #################################################
 # Ninja
@@ -62,4 +62,4 @@ job-ubuntu-rolling-ninja-clang:
     CMAKE_GENERATOR: Ninja
     CC: clang
     CXX: clang++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux

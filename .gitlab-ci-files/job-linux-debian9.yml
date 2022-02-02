@@ -14,7 +14,7 @@ job-debian9-makefile-gcc:
     CMAKE_GENERATOR: Unix Makefiles
     CC: gcc
     CXX: g++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 
 job-debian9-makefile-clang:
@@ -29,7 +29,7 @@ job-debian9-makefile-clang:
     CMAKE_GENERATOR: Unix Makefiles
     CC: clang
     CXX: clang++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 #################################################
 # Ninja
@@ -47,7 +47,7 @@ job-debian9-ninja-gcc:
     CMAKE_GENERATOR: Ninja
     CC: gcc
     CXX: g++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 
 job-debian9-ninja-clang:
@@ -90,14 +90,4 @@ job-debian9-deb-deploy:
   extends: .job-debian-deb-deploy
   dependencies:
     - job-debian9-deb
-    
-    
-#################################################
-# Docker
-#################################################
 
-job-flexisip-debian9-image-deploy:
-
-  dependencies:
-    - job-debian9-deb
-  extends: .job-flexisip-image-deploy

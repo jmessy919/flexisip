@@ -1,3 +1,7 @@
+#################################################
+# Global
+#################################################
+
 .set-max-jobs: &set-max-jobs
   - |
       case "$CMAKE_GENERATOR" in
@@ -10,29 +14,33 @@
       esac
       echo "CMAKE_BUILD_PARALLEL_LEVEL='$CMAKE_BUILD_PARALLEL_LEVEL'"
 
-.linux-ccache:
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"
+      when: never
+    # Launch merge request pipeline is there is a merge request open
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE !~ /^Draft:.*/
+    # Launch pipeline if there is a schedule event
+    - if: $CI_PIPELINE_SOURCE == "schedule"
 
+.linux-ccache:
   cache:
     key: $CI_JOB_NAME
     paths:
       - ccache/
-
   before_script:
     - mkdir -p ccache
     - echo "max_size = $CCACHE_SIZE" > ccache/ccache.conf
     - export CCACHE_BASEDIR=${PWD}
     - export CCACHE_DIR=${PWD}/ccache
     - ccache -s
-
   after_script:
     - export CCACHE_DIR=${PWD}/ccache
     - ccache -s
 
 .job-linux:
-
   stage: build
   extends: .linux-ccache
-
   script:
     - export CC=$CC
     - export CXX=$CXX
@@ -46,21 +54,14 @@
 #################################################
 
 .job-linux-rpm:
-
   stage: package
-  except:
-    variables:
-      - $DEPLOY_UBUNTU
-
   variables:
     CMAKE_GENERATOR: 'Ninja'
-
   script:
     - *set-max-jobs
     - mkdir build && cd build
     - cmake -G $CMAKE_GENERATOR $DEFAULT_CMAKE_OPTIONS $CMAKE_OPTIONS -DCPACK_GENERATOR=RPM $PACKAGING_EXTRA_CMAKE_OPTIONS ..
     - cmake --build . --target package
-
   artifacts:
     paths:
       - build/*.rpm
@@ -72,18 +73,14 @@
 #################################################
 
 .job-linux-deb:
-
   stage: package
-
   variables:
     CMAKE_GENERATOR: 'Ninja'
-
   script:
     - *set-max-jobs
     - mkdir build && cd build
     - cmake -G $CMAKE_GENERATOR $DEFAULT_CMAKE_OPTIONS -DCPACK_GENERATOR=DEB $PACKAGING_EXTRA_CMAKE_OPTIONS ..
     - cmake --build . --target package
-
   artifacts:
     paths:
       - build/*.deb
@@ -92,55 +89,28 @@
     expire_in: 1 week
 
 .job-deploy:
-  before_script:
-    - git submodule foreach --recursive git fetch --tags --force
-  only:
-    refs:
-      - master
-      - /release/.*/
-    variables: [$SCHEDULE_RUN]
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH =~  /^release/
+    - if: $SCHEDULE_RUN
 
 .job-debian-deb-deploy:
-
   stage: deploy
   tags: [ "deploy" ]
-
   extends: .job-deploy
-
   script: ./.gitlab-ci-files/deploy.sh debian
 
 #################################################
 # DOCKER
 #################################################
 
-.job-flexisip-image-deploy:
-
-  stage: image
-  tags: [ "linux-deploy" ]
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
-  only:
-    - schedules
-
-  before_script:
-    - git submodule foreach --recursive git fetch --tags --force
-
-  script:
-    - mkdir -p docker/DEBS && mv build/*.{deb,ddeb} docker/DEBS
-    - cd docker
-    - make flexisip-deb-build
-    - make flexisip-deb-push
-
 docker-build-flexisip-src:
-
   stage: build
   tags: [ "linux-nuc-build" ]
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
+  rules:
+    - if: $DEPLOY_RUN
+      when: never
+    - when: always
   variables:
     DOCKER_BUILD_OPTIONS: "--no-cache --force-rm -t flexisip-from-src:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA -f docker/flex-from-src --build-arg=njobs=12 --build-arg=build_type=RelWithDebInfo"
   script:
@@ -150,16 +120,88 @@ docker-build-flexisip-src:
     - docker image ls
 
 #################################################
-# Schedule
+# Nightly only
+# BE CAREFUL JOB THAT EXTENDS THIS MUST REPEAT
+# THE RULE, BECAUSE RULES ARE NOT MERGED
+# WHEN YOU EXTEND A JOB.
+# FUTURE GITLAB VERSION WILL HANDLE IT.
 #################################################
 
-.scheduled-job-linux:
-
+.nightly-only-job-linux:
   extends: .job-linux
-  only:
-    variables:
-      - $NIGHTLY_MASTER
-      - $NIGHTLY_RELEASE
+  rules:
+    - if: !$NIGHTLY
+      when: never
+
+#################################################
+# Build Makefile
+#################################################
+
+.job-makefile-gcc:
+  tags: [ "docker" ]
+  rules:
+    - if: !$NIGHTLY
+      when: never
+    - if: $DEPLOY_RUN
+      when: never
+    - when: always
+  variables:
+    CMAKE_GENERATOR: Unix Makefiles
+    CC: gcc
+    CXX: g++
+  extends: .job-linux
+
+
+.job-makefile-clang:
+  tags: [ "docker" ]
+  rules:
+    - if: !$NIGHTLY
+      when: never
+    - if: $DEPLOY_RUN
+      when: never
+    - when: always
+  variables:
+    CMAKE_GENERATOR: Unix Makefiles
+    CC: clang
+    CXX: clang++
+  extends: .job-linux
+
+#################################################
+# Build Ninja
+#################################################
+
+test-build:
+  tags: [ "docker" ]
+  variables:
+    CMAKE_GENERATOR: Ninja
+    CC: gcc
+    CXX: g++
+  extends: .job-linux
+
+.job-ninja-gcc:
+  tags: [ "docker" ]
+  rules:
+    - if: $DEPLOY_RUN
+      when: never
+    - when: always
+  variables:
+    CMAKE_GENERATOR: Ninja
+    CC: gcc
+    CXX: g++
+  extends: .job-linux
+
+
+.job-ninja-clang:
+  tags: [ "docker" ]
+  rules:
+    - if: $DEPLOY_RUN
+      when: never
+    - when: always
+  variables:
+    CMAKE_GENERATOR: Ninja
+    CC: clang
+    CXX: clang++
+  extends: .job-linux
 
 #################################################
 # Tests
@@ -169,10 +211,10 @@ tests-flexisip-mr:
   stage: test
   tags: [ "linux-nuc"]
   allow_failure: true
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
+  rules:
+  - if: $DEPLOY_RUN
+    when: never
+  - when: always
   needs :
     - docker-build-flexisip-src
   variables:
