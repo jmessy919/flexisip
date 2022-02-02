@@ -91,14 +91,11 @@ job-debian11-deb:
 
 
 job-debian11-deb-deploy:
+  extends: .job-debian-deb-deploy
 
-  except:
-    variables:
-      - $DEPLOY_UBUNTU
   variables:
     RELEASE: bullseye
     FREIGHT_PATH: $DEBIAN_FREIGHT_CONF_PATH
-  extends: .job-debian-deb-deploy
   dependencies:
     - job-debian11-deb
 
