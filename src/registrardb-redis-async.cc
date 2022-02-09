@@ -1,6 +1,6 @@
 /*
  Flexisip, a flexible SIP proxy server with media capabilities.
- Copyright (C) 2010-2015  Belledonne Communications SARL, All rights reserved.
+ Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -49,11 +49,12 @@ using namespace flexisip;
  * RegistrarDbRedisAsync class
  */
 
-RegistrarDbRedisAsync::RegistrarDbRedisAsync(Agent *ag, RedisParameters params)
-	: RegistrarDb{ag}, mSerializer{RecordSerializer::get()}, mParams{params}, mRoot{ag->getRoot()} {}
+RegistrarDbRedisAsync::RegistrarDbRedisAsync(const std::shared_ptr<sofiasip::SuRoot>& root, RedisParameters params, const IsUsFunc& isUs)
+	: RegistrarDb{isUs}, mSerializer{RecordSerializer::get()}, mParams{params}, mRoot{root} {}
 
-RegistrarDbRedisAsync::RegistrarDbRedisAsync(const string &preferredRoute, const std::shared_ptr<sofiasip::SuRoot>& root, RecordSerializer *serializer, RedisParameters params)
-	: RegistrarDb{nullptr}, mSerializer{serializer}, mParams{params}, mRoot{root} {}
+RegistrarDbRedisAsync::RegistrarDbRedisAsync(const string &preferredRoute, const std::shared_ptr<sofiasip::SuRoot>& root,
+	RecordSerializer *serializer, RedisParameters params, const IsUsFunc& isUs)
+	: RegistrarDb{isUs}, mSerializer{serializer}, mParams{params}, mRoot{root} {}
 
 RegistrarDbRedisAsync::~RegistrarDbRedisAsync() {
 	if (mContext) {
@@ -697,10 +698,8 @@ void RegistrarDbRedisAsync::serializeAndSendToRedis(RegistrarUserData *data, for
 
 /* Methods called by the callbacks */
 
-void RegistrarDbRedisAsync::sBindRetry(void *unused, su_timer_t *t, void *ud){
-	RegistrarUserData *data = (RegistrarUserData *)ud;
-	su_timer_destroy(data->mRetryTimer);
-	data->mRetryTimer = nullptr;
+void RegistrarDbRedisAsync::sBindRetry(RegistrarUserData* data){
+	data->mRetryTimer.reset();
 	RegistrarDbRedisAsync *self = data->self;
 	if (!self->isConnected()){
 		goto fail;
@@ -723,7 +722,8 @@ void RegistrarDbRedisAsync::handleBind(redisReply *reply, RegistrarUserData *dat
 		if ((data->mRetryCount < 2)) {
 			LOGE("Error while updating record fs:%s [%lu] hashmap in redis, trying again", key, data->token);
 			data->mRetryCount += 1;
-			data->mRetryTimer = mAgent->createTimer(redisRetryTimeoutMs, sBindRetry, data, false);
+			data->mRetryTimer = make_unique<sofiasip::Timer>(mRoot);
+			data->mRetryTimer->set(std::bind(sBindRetry, data), redisRetryTimeoutMs);
 		}else{
 			LOGE("Unrecoverable error while updating record fs:%s.", key);
 			if (data->listener) data->listener->onError();

@@ -1,6 +1,6 @@
 /*
-		Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2012  Belledonne Communications SARL.
+	Flexisip, a flexible SIP proxy server with media capabilities.
+	Copyright (C) 2010-2022 Belledonne Communications SARL.
 	Author: Guillaume Beraudo
 
 	This program is free software: you can redistribute it and/or modify
@@ -19,14 +19,21 @@
 
 #pragma once
 
-#include <flexisip/registrardb.hh>
 #include <sofia-sip/sip.h>
+
+#include "flexisip/registrardb.hh"
 
 namespace flexisip {
 
 class RegistrarDbInternal : public RegistrarDb {
   public:
-	RegistrarDbInternal(Agent *ag);
+	struct Params : public RegistrarDb::Params {
+		template <typename T>
+		Params(T&& isUs) : RegistrarDb::Params{"internal", std::forward<T>(isUs)} {
+		}
+	};
+
+	RegistrarDbInternal(const IsUsFunc& isUs);
 	void clearAll();
 
   private:

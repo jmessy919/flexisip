@@ -175,7 +175,11 @@ a=candidate:3 1 UDP 1694498687 151.127.31.93 7254 typ srflx raddr 192.168.1.197 
 a=candidate:3 2 UDP 1694498686 151.127.31.93 7255 typ srflx raddr 192.168.1.197 rport 7255
 a=rtcp-fb:* trr-int 1000
 a=rtcp-fb:* ccm tmmbr)sip"};
-	auto request = std::make_shared<MsgSip>(msg_make(sip_default_mclass(), 0, rawRequest.c_str(), rawRequest.size()));
+	unique_ptr<msg_t, void(*)(msg_t*)> msg{
+		msg_make(sip_default_mclass(), 0, rawRequest.c_str(), rawRequest.size()),
+		msg_unref
+	};
+	auto request = std::make_shared<MsgSip>(msg.get());
 	auto reqSipEvent = std::make_shared<RequestSipEvent>(agent, request);
 	reqSipEvent->setOutgoingAgent(agent);
 	reqSipEvent->createOutgoingTransaction();

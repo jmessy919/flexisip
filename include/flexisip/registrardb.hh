@@ -1,6 +1,6 @@
 /*
  Flexisip, a flexible SIP proxy server with media capabilities.
- Copyright (C) 2010-2021  Belledonne Communications SARL, All rights reserved.
+ Copyright (C) 2010-2022  Belledonne Communications SARL, All rights reserved.
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -18,26 +18,18 @@
 
 #pragma once
 
-#include <algorithm>
-#include <cstdio>
-#include <cstdlib>
-#include <iosfwd>
-#include <limits>
 #include <list>
 #include <map>
-#include <mutex>
 #include <set>
 #include <string>
 
 #include <sofia-sip/sip.h>
-#include <sofia-sip/su_random.h>
-#include <sofia-sip/url.h>
+#include <sofia-sip/sip_protos.h>
 
-#include <flexisip/agent.hh>
-#include <flexisip/logmanager.hh>
-#include <flexisip/module.hh>
 #include <flexisip/push-param.hh>
 
+#include "configmanager.hh"
+#include "sofia-wrapper/su-root.hh"
 #include "utils/sip-uri.hh"
 
 namespace flexisip {
@@ -272,8 +264,10 @@ class Record {
 			init();
 		return sMaxContacts;
 	}
-	time_t latestExpire() const;
-	time_t latestExpire(Agent *ag) const;
+
+	using ContactFilter = std::function<bool(const ExtendedContact&)>;
+	time_t latestExpire(const ContactFilter& filter = nullptr) const;
+
 	static std::list<std::string> route_to_stl(const sip_route_s *route);
 	void appendContactsFrom(const std::shared_ptr<Record> &src);
 
@@ -362,6 +356,8 @@ struct BindingParameters {
 	}
 };
 
+using IsUsFunc = std::function<bool(const url_t*)>;
+
 /**
  * A singleton class which holds records contact addresses associated with a from.
  * Both local and remote storage implementations exist.
@@ -371,13 +367,27 @@ class RegistrarDb {
 	friend class ModuleRegistrar;
 
   public:
-	virtual ~RegistrarDb();
+	struct Params {
+		template <typename T, typename U>
+		Params(T&& impl, U&& isUs) noexcept : dbImplementation{std::forward<T>(impl)}, isUsFunc{std::forward<U>(isUs)} {
+		}
+		virtual ~Params() = default;
+
+		std::string dbImplementation{};
+		IsUsFunc isUsFunc{};
+		std::string messageExpiresParamName{};
+		bool useGlobalDomain{false};
+		bool enableGruu{false};
+	};
+
+	virtual ~RegistrarDb() = default;
 	/**
 	 * Reset RegistrarDb::sUnique
 	 * WARNING : this method is ONLY there for testing purpose
 	 */
 	static void resetDB();
-	static RegistrarDb *initialize(Agent *ag);
+	static RegistrarDb* initialize(const RegistrarDb::Params& params);
+	static RegistrarDb* initialize(const std::shared_ptr<sofiasip::SuRoot>& root, const IsUsFunc& isUs);
 	static RegistrarDb *get();
 	void bind(const MsgSip &sipMsg, const BindingParameters &parameter, const std::shared_ptr<ContactUpdateListener> &listener);
 	void bind(const SipUri &from, const sip_contact_t *contact, const BindingParameters &parameter, const std::shared_ptr<ContactUpdateListener> &listener);
@@ -426,9 +436,12 @@ class RegistrarDb {
 		std::map<std::string, time_t> mRegMap;
 		mutable std::mutex mMutex;
 		std::list<LocalRegExpireListener *> mLocalRegListenerList;
-		Agent *mAgent;
+		IsUsFunc mIsUsFunc{};
 
 	  public:
+		template<typename T>
+		LocalRegExpire(T&& isUs) noexcept : mIsUsFunc{std::forward<T>(isUs)} {}
+
 		void remove(const std::string key) {
 			std::lock_guard<std::mutex> lock(mMutex);
 			mRegMap.erase(key);
@@ -436,7 +449,6 @@ class RegistrarDb {
 		void update(const std::shared_ptr<Record> &record);
 		size_t countActives();
 		void removeExpiredBefore(time_t before);
-		LocalRegExpire(Agent *ag);
 		void clearAll() {
 			std::lock_guard<std::mutex> lock(mMutex);
 			mRegMap.clear();
@@ -460,16 +472,15 @@ class RegistrarDb {
 	void notifyContactListener(const std::string &key, const std::string &uid);
 	void notifyStateListener () const;
 
-	RegistrarDb(Agent *ag);
+	RegistrarDb(const IsUsFunc& isUs);
 	std::multimap<std::string, std::shared_ptr<ContactRegisteredListener>> mContactListenersMap;
 	std::list<std::shared_ptr<RegistrarDbStateListener>> mStateListeners;
-	LocalRegExpire *mLocalRegExpire;
+	std::unique_ptr<LocalRegExpire> mLocalRegExpire{};
 	std::string mMessageExpiresName;
 	static std::unique_ptr<RegistrarDb> sUnique;
-	Agent *mAgent;
-	bool mWritable = false;
-	bool mUseGlobalDomain;
-	bool mGruuEnabled;
+	bool mWritable{false};
+	bool mUseGlobalDomain{false};
+	bool mGruuEnabled{false};
 };
 
 } // namespace flexisip
