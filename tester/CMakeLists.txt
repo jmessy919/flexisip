@@ -52,6 +52,10 @@ elseif (ENABLE_UNIT_TESTS_PUSH_NOTIFICATION)
     message(FATAL_ERROR "Module LibNgHttp2Asio is required for push notification tester. Either install it or disable push notification tester using -DENABLE_UNIT_TESTS_PUSH_NOTIFICATION=OFF")
 endif ()
 
+if (ENABLE_B2BUA)
+    target_sources(flexisip_tester PRIVATE b2bua-tester.cc)
+endif ()
+
 target_compile_options(flexisip_tester PRIVATE ${CPP_BUILD_FLAGS} ${CXX_BUILD_FLAGS})
 target_link_libraries(flexisip_tester PRIVATE bctoolbox-tester flexisip linphone++ bellesip OpenSSL::SSL
         OpenSSL::Crypto Threads::Threads Boost::system)
@@ -75,5 +79,9 @@ install(DIRECTORY config
         )
 
 install(DIRECTORY db
+        DESTINATION ${TESTER_DATA_DIR}
+        )
+
+install(DIRECTORY sounds
         DESTINATION ${TESTER_DATA_DIR}
         )

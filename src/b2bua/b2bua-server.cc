@@ -244,6 +244,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			conferenceParams->enableVideo(false);
 			conferenceParams->enableLocalParticipant(false); // b2bua core is not part of it
 			conferenceParams->enableOneParticipantConference(true);
+			conferenceParams->setConferenceFactoryAddress(nullptr);
 
 			auto conference = mCore->createConferenceWithParams(conferenceParams);
 			conference->addListener(shared_from_this());
@@ -415,14 +416,14 @@ void B2buaServer::_init () {
 	mCore->enableEchoCancellation(false);
 	mCore->setPrimaryContact("sip:b2bua@localhost"); //TODO: get the primary contact from config, do we really need one?
 	mCore->enableAutoSendRinging(false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
-	mCore->setZrtpSecretsFile(""); // run cacheless zrtp TODO: this not forcing it to run cacheless - it is still ok but useless and the ZRTP cache can grow very large. Fix this.
+	mCore->setZrtpSecretsFile("null");
 
 	// random port for UDP audio stream
 	mCore->setAudioPort(-1);
 
 	shared_ptr<Transports> b2buaTransport = Factory::get()->createTransports();
 	// Get transport from flexisip configuration
-	string mTransport = config->get<ConfigString>("transport")->read();
+	std::string mTransport = config->get<ConfigString>("transport")->read();
 	if (mTransport.length() > 0) {
 		sofiasip::Home mHome;
 		url_t *urlTransport = url_make(mHome.home(), mTransport.c_str());
@@ -435,6 +436,20 @@ void B2buaServer::_init () {
 
 	mCore->setTransports(b2buaTransport);
 	mCore->addListener(shared_from_this());
+
+
+	// create a non registered account to force route outgoing call through the proxy
+
+	auto route = Factory::get()->createAddress(config->get<ConfigString>("outbound-proxy")->read());
+	auto accountParams = mCore->createAccountParams();
+	accountParams->setIdentityAddress(Factory::get()->createAddress(mCore->getPrimaryContact()));
+	accountParams->enableRegister(false);
+	accountParams->setServerAddress(route);
+	accountParams->setRoutesAddresses({route});
+	auto account = mCore->createAccount(accountParams); // store the account pointer in local var to capture it in lambda
+	mCore->addAccount(account);
+	mCore->setDefaultAccount(account);
+
 
 	// Parse configuration for outgoing encryption mode
 	auto outgoingEncryptionList = config->get<ConfigStringList>("outgoing-enc-regex")->read();
@@ -512,13 +527,15 @@ B2buaServer::Init::Init() {
 			"The list is formatted in the following mode:\n"
 			"mode1 regex1 mode2 regex2 ... moden regexn\n"
 			"regex use posix syntax, any invalid one is skipped\n"
-			"Each regex is applied, in the given order, on the callee sip uri. First match found determines the encryption mode. "
+			"Each regex is applied, in the given order, on the callee sip uri(including parameters if any). First match found determines the encryption mode. "
 			"if no regex matches, the incoming call encryption mode is used.\n\n"
 			"Example: zrtp .*@sip\\.secure-example\\.org dtsl-srtp .*dtls@sip\\.example\\.org zrtp .*zrtp@sip\\.example\\.org sdes .*@sip\\.example\\.org\n"
 			"In this example: the address is matched in order with\n"
 			".*@sip\\.secure-example\\.org so any call directed to an address on domain sip.secure-example-org uses zrtp encryption mode\n"
 			".*dtls@sip\\.example\\.org any call on sip.example.org to a username ending with dtls uses dtls-srtp encryption mode\n"
 			".*zrtp@sip\\.example\\.org any call on sip.example.org to a username ending with zrtp uses zrtp encryption mode\n"
+			"The previous example will fail to match if the call is directed to a specific device(having a GRUU as callee address)\n"
+			"To ignore sip URI parameters, use (;.*)? at the end of the regex. Example: .*@sip\\.secure-example\\.org(;.*)?\n"
 			"Default:"
 			"Selected encryption mode(if any) is enforced and the call will fail if the callee does not support this mode",
 			""
@@ -539,7 +556,7 @@ B2buaServer::Init::Init() {
 			"with cryptoSuiteList being a ; separated list of crypto suites.\n"
 			"\n"
 			"Regex use posix syntax, any invalid one is skipped\n"
-			"Each regex is applied, in the given order, on the callee sip uri. First match found determines the crypto suite list used.\n"
+			"Each regex is applied, in the given order, on the callee sip uri(including parameters if any). First match found determines the crypto suite list used.\n"
 			"\n"
 			"if no regex matches, core setting is applied\n"
 			"or default to AES_CM_128_HMAC_SHA1_80;AES_CM_128_HMAC_SHA1_32;AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 when no core setting is available\n"
@@ -550,6 +567,8 @@ B2buaServer::Init::Init() {
 			"In this example: the address is matched in order with\n"
 			".*@sip\\.secure-example\\.org so any call directed to an address on domain sip.secure-example-org uses AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 suites (in that order)\n"
 			".*@sip\\.example\\.org any call directed to an address on domain sip.example.org use AES_CM_128_HMAC_SHA1_80 suite\n"
+			"The previous example will fail to match if the call is directed to a specific device(having a GRUU as callee address)\n"
+			"To ignore sip URI parameters, use (;.*)? at the end of the regex. Example: .*@sip\\.secure-example\\.org(;.*)?\n"
 			"Default:",
 			""
 		},
@@ -559,6 +578,12 @@ B2buaServer::Init::Init() {
 			"Directory where to store b2bua core local files\n"
 			"Default",
 			DEFAULT_B2BUA_DATA_DIR
+		},
+		{
+			String,
+			"outbound-proxy",
+			"The Flexisip proxy URI to which the B2bua server should send all its outgoing SIP requests.",
+			"sip:127.0.0.1:5060;transport=tcp"
 		},
 		config_item_end
 	};
