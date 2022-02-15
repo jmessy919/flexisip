@@ -22,6 +22,24 @@ variables:
 before_script:
   - git submodule foreach --recursive git fetch --tags
 
+#https://docs.gitlab.com/ee/ci/yaml/index.html#workflow
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH
+      changes:
+        - .gitlab-ci.files/**/*
+        - cmake/**/*
+        - include/**/*
+        - linphone-sdk/**/*
+        - src/**/*
+        - submodules/**/*
+        - tester/**/*
+        - .gitlab-ci.yml
+    # Allow merge request pipelines
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE !~ /^Draft:.*/
+    # Allow scheduled pipelines
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
 #################################################
 # Platforms to test
 #################################################
