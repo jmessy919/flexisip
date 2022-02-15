@@ -116,17 +116,24 @@
 docker-build-flexisip-src:
 
   stage: build
-  tags: [ "linux-nuc-build" ]
+  tags: [ "shuttle-monster-shell" ]
   except:
     variables:
       - $DEPLOY_RUN
       - $DEPLOY_UBUNTU
   variables:
-    DOCKER_BUILD_OPTIONS: "--no-cache --force-rm -t flexisip-from-src:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA -f docker/flex-from-src --build-arg=njobs=12 --build-arg=build_type=RelWithDebInfo"
+    DOCKER_BUILD_OPTIONS: "--no-cache --force-rm -t gitlab.linphone.org:4567/bc/public/flexisip/flexisip-from-src:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA -f docker/flex-from-src --build-arg=njobs=8 --build-arg=build_type=RelWithDebInfo"
   script:
+    - echo $CI_REGISTRY_USER
+    - echo $CI_REGISTRY_PASSWORD
+    - echo $CI_REGISTRY
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     - docker image ls
     - echo $DOCKER_BUILD_OPTIONS
     - docker build $DOCKER_BUILD_OPTIONS .
+    - echo $CI_COMMIT_REF_SLUG
+    - echo $CI_COMMIT_SHA
+    - docker push gitlab.linphone.org:4567/bc/public/flexisip/flexisip-from-src:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA
     - docker image ls
 
 #################################################
@@ -156,8 +163,8 @@ tests-flexisip-mr:
 
   variables:
     #Branch of the Flexisip-tester project to use. Could be modified to test fixes or features in the Flexisip-tester
-    FLEXISIP_TESTER_BRANCH: "release/flexisip_2.1"
-
+    FLEXISIP_TESTER_BRANCH: "feat/docker_on_shuttle_monster"
+    # TODO REVERT BEFORE MERGE
     #This value specifies the workspace where we from all tests outputs.
     workspace: "${CI_PROJECT_DIR}/liblinphone_tester_workspace"
 

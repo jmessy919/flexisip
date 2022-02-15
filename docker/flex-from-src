@@ -21,10 +21,8 @@ RUN cd flexisip \
 	&& if [ "${sanitizer}" = 'ON' ]; then build_type='Sanitizer'; fi \
 	&& cmake -S . -B work -G Ninja -DCMAKE_BUILD_TYPE=${build_type} -DCMAKE_INSTALL_PREFIX=/opt/belledonne-communications -DSYSCONF_INSTALL_DIR=/etc \
 	&& cmake --build work \
-	&& sudo cmake --build work --target install
-
-# Cleanup
-RUN rm -rf flexisip
+	&& sudo cmake --build work --target install \
+	&& rm -rf flexisip
 
 # Switch to 'root' user
 USER root
