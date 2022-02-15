@@ -85,7 +85,7 @@ job-centos7-rpm:
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-centos7:$CENTOS_7_IMAGE_VERSION
   extends: .job-linux-rpm
   variables:
-    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON -DINTERNAL_LIBSRTP2=ON -DCMAKE_BUILD_TYPE=Sanitizer
+    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON -DINTERNAL_LIBSRTP2=ON
   before_script:
     - source /opt/rh/devtoolset-8/enable
 
