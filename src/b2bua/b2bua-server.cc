@@ -315,9 +315,11 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::StreamsRunning:
 		{
 			auto peerCall = getPeerCall(call);
-			// if we are in StreamsRunning but peer is sendonly we likely arrived here after resuming from pausedByRemote
+			// if we are in StreamsRunning but peer is sendonly or inactive we likely arrived here after resuming from pausedByRemote
 			// update peer back to recvsend
-			if (peerCall->getCurrentParams()->getAudioDirection() == linphone::MediaDirection::SendOnly) {
+			auto peerCallAudioDirection = peerCall->getCurrentParams()->getAudioDirection();
+			if ( peerCallAudioDirection == linphone::MediaDirection::SendOnly
+				|| peerCallAudioDirection == linphone::MediaDirection::Inactive ) {
 				SLOGD<<"b2bua server onCallStateChanged: peer call is paused, update it to resume";
 				auto peerCallParams = peerCall->getCurrentParams()->copy();
 				peerCallParams->setAudioDirection(linphone::MediaDirection::SendRecv);
@@ -362,11 +364,15 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::PausedByRemote:
 		{
 			// Paused by remote: do not pause peer call as it will kick it out of the conference
-			// just switch the media direction to sendOnly
+			// just switch the media direction to sendOnly (only if it is not already set this way)
 			auto peerCall = getPeerCall(call);
 			auto peerCallParams = peerCall->getCurrentParams()->copy();
-			peerCallParams->setAudioDirection(linphone::MediaDirection::SendOnly);
-			peerCall->update(peerCallParams);
+			auto audioDirection = peerCallParams->getAudioDirection();
+			// Nothing to do if peer call is already not sending audio
+			if (audioDirection != linphone::MediaDirection::Inactive && audioDirection != linphone::MediaDirection::SendOnly) {
+				peerCallParams->setAudioDirection(linphone::MediaDirection::SendOnly);
+				peerCall->update(peerCallParams);
+			}
 		}
 			break;
 		case linphone::Call::State::UpdatedByRemote:
