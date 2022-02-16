@@ -187,12 +187,18 @@ void flexisip_tester_uninit(void);
 		 * @param[in] callerCallParams	call params used by the caller to answer the call. nullptr to use default callParams
 		 * @param[in] calleeCallParams	call params used by the callee to accept the call. nullptr to use default callParams
 		 *
-		 * @return the established call from caller side
+		 * @return the established call from caller side, nullptr on failure
 		 */
 		std::shared_ptr<linphone::Call> call(std::shared_ptr<CoreClient> callee,
 											std::shared_ptr<linphone::CallParams> callerCallParams=nullptr,
 											std::shared_ptr<linphone::CallParams> calleeCallParams=nullptr);
 
+		/**
+		 * Get from the two sides the current call and terminate if from this side
+		 * assertion failed if one of the client is not in a call or both won't end into Released state
+		 *
+		 * @param[in]	peer	The other client involved in the call
+		 */
 		void endCurrentCall(std::shared_ptr<CoreClient> peer);
 
 	}; // class CoreClient

@@ -125,14 +125,13 @@ Server::Server(const std::string& configFile) {
 	if (!configFile.empty()) {
 		flexisip::GenericManager *cfg = flexisip::GenericManager::get();
 
-		char *configFilePathCstr = bc_tester_res(configFile.c_str());
+		auto configFilePath = bcTesterRes(configFile);
 		int ret=-1;
-		if (bctbx_file_exist(configFilePathCstr) == 0 ) {
-			ret = cfg->load(configFilePathCstr);
+		if (bctbx_file_exist(configFilePath.c_str()) == 0 ) {
+			ret = cfg->load(configFilePath);
 		} else {
-			ret = cfg->load(std::string(TESTER_DATA_DIR).append(configFile).c_str());
+			ret = cfg->load(std::string(TESTER_DATA_DIR).append(configFile));
 		}
-		bctbx_free(configFilePathCstr);
 		if (ret!=0) {
 			BC_FAIL("Unable to load configuration file");
 		}
@@ -164,12 +163,11 @@ CoreClient::CoreClient(std::string me) {
 	mCore->setUseFiles(true);
 	// final check on call successfully established is based on bandwidth used,
 	// so use file as input to make sure there is some traffic
-	char *helloPath = bc_tester_res("sounds/hello8000.wav");
-	if (bctbx_file_exist(helloPath) != 0) {
+	auto helloPath = bcTesterRes("sounds/hello8000.wav");
+	if (bctbx_file_exist(helloPath.c_str()) != 0) {
 		BC_FAIL("Unable to find resource sound, did you forget to use --resource-dir option?");
 	}
 	mCore->setPlayFile(helloPath);
-	bctbx_free(helloPath);
 	mCore->start();
 }
 

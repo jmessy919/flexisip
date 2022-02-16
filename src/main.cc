@@ -744,7 +744,7 @@ int main(int argc, char *argv[]) {
 		return EXIT_SUCCESS;
 	}
 
-	if (cfg->load(configFile.getValue().c_str()) == -1) {
+	if (cfg->load(configFile.getValue()) == -1) {
 		fprintf(stderr, "Flexisip version %s\n"
 						"No configuration file found at %s.\nPlease specify a valid configuration file.\n"
 						"A default flexisip.conf.sample configuration file should be installed in " CONFIG_DIR "\n"

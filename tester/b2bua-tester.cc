@@ -82,8 +82,15 @@ static void basic() {
 		pauline->registerTo(server);
 		BC_ASSERT_PTR_NOT_NULL(pauline->getAccount()); // Pauline account in now available
 
+		// marie calls pauline with default call params
 		marie->call(pauline);
-		pauline->endCurrentCall(marie);
+		pauline->endCurrentCall(marie); // endCurrentCall will fail if there is no current call
+
+		// marie calls pauline with call params
+		auto callParams = marie->getCore()->createCallParams(nullptr);
+		callParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
+		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline))) return; // stop the test if we fail to establish the call
+		marie->endCurrentCall(pauline);
 	}
 }
 
@@ -99,7 +106,7 @@ static void forward() {
 		// SDES
 		auto callParams = marie->getCore()->createCallParams(nullptr);
 		callParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
-		marie->call(pauline, callParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline, callParams))) return;
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(pauline->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCallLog()->getCallId() != pauline->getCore()->getCurrentCall()->getCallLog()->getCallId());
@@ -108,7 +115,7 @@ static void forward() {
 		// ZRTP
 		callParams = marie->getCore()->createCallParams(nullptr);
 		callParams->setMediaEncryption(linphone::MediaEncryption::ZRTP);
-		marie->call(pauline, callParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline, callParams))) return;
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		BC_ASSERT_TRUE(pauline->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCallLog()->getCallId() != pauline->getCore()->getCurrentCall()->getCallLog()->getCallId());
@@ -117,7 +124,7 @@ static void forward() {
 		// DTLS
 		callParams = marie->getCore()->createCallParams(nullptr);
 		callParams->setMediaEncryption(linphone::MediaEncryption::DTLS);
-		marie->call(pauline, callParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline, callParams))) return;
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
 		BC_ASSERT_TRUE(pauline->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCallLog()->getCallId() != pauline->getCore()->getCurrentCall()->getCallLog()->getCallId());
@@ -136,7 +143,7 @@ static void sdes2zrtp() {
 		// Call from SDES to ZRTP
 		auto sdesCallParams = sdes->getCore()->createCallParams(nullptr);
 		sdesCallParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
-		sdes->call(zrtp, sdesCallParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(sdes->call(zrtp, sdesCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(zrtp->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		sdes->endCurrentCall(zrtp);
@@ -144,7 +151,7 @@ static void sdes2zrtp() {
 		// Call from ZRTP to SDES
 		auto zrtpCallParams = zrtp->getCore()->createCallParams(nullptr);
 		zrtpCallParams->setMediaEncryption(linphone::MediaEncryption::ZRTP);
-		zrtp->call(sdes, zrtpCallParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(zrtp->call(sdes, zrtpCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(zrtp->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		sdes->endCurrentCall(zrtp);
@@ -162,7 +169,7 @@ static void sdes2dtls() {
 		// Call from SDES to DTLS
 		auto sdesCallParams = sdes->getCore()->createCallParams(nullptr);
 		sdesCallParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
-		sdes->call(dtls, sdesCallParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(sdes->call(dtls, sdesCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(dtls->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
 		sdes->endCurrentCall(dtls);
@@ -170,7 +177,7 @@ static void sdes2dtls() {
 		// Call from DTLS to SDES
 		auto dtlsCallParams = dtls->getCore()->createCallParams(nullptr);
 		dtlsCallParams->setMediaEncryption(linphone::MediaEncryption::DTLS);
-		dtls->call(sdes, dtlsCallParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(dtls->call(sdes, dtlsCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(dtls->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
 		sdes->endCurrentCall(dtls);
@@ -188,7 +195,7 @@ static void zrtp2dtls() {
 		// Call from ZRTP to DTLS
 		auto zrtpCallParams = zrtp->getCore()->createCallParams(nullptr);
 		zrtpCallParams->setMediaEncryption(linphone::MediaEncryption::ZRTP);
-		zrtp->call(dtls, zrtpCallParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(zrtp->call(dtls, zrtpCallParams))) return;
 		BC_ASSERT_TRUE(zrtp->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		BC_ASSERT_TRUE(dtls->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
 		zrtp->endCurrentCall(dtls);
@@ -196,7 +203,7 @@ static void zrtp2dtls() {
 		// Call from DTLS to ZRTP
 		auto dtlsCallParams = dtls->getCore()->createCallParams(nullptr);
 		dtlsCallParams->setMediaEncryption(linphone::MediaEncryption::DTLS);
-		dtls->call(zrtp, dtlsCallParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(dtls->call(zrtp, dtlsCallParams))) return;
 		BC_ASSERT_TRUE(zrtp->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		BC_ASSERT_TRUE(dtls->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
 		zrtp->endCurrentCall(dtls);
@@ -215,7 +222,7 @@ static void sdes2sdes256() {
 		auto sdesCallParams = sdes->getCore()->createCallParams(nullptr);
 		sdesCallParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
 		sdesCallParams->setSrtpSuites({linphone::SrtpSuite::AESCM128HMACSHA180, linphone::SrtpSuite::AESCM128HMACSHA132});
-		sdes->call(sdes256, sdesCallParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(sdes->call(sdes256, sdesCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getSrtpSuites().front() == linphone::SrtpSuite::AESCM128HMACSHA180);
 		BC_ASSERT_TRUE(sdes256->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
@@ -226,7 +233,7 @@ static void sdes2sdes256() {
 		auto sdes256CallParams = sdes->getCore()->createCallParams(nullptr);
 		sdes256CallParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
 		sdes256CallParams->setSrtpSuites({linphone::SrtpSuite::AES256CMHMACSHA180, linphone::SrtpSuite::AES256CMHMACSHA132});
-		sdes256->call(sdes, sdes256CallParams);
+		if (!BC_ASSERT_PTR_NOT_NULL(sdes256->call(sdes, sdes256CallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getSrtpSuites().front() == linphone::SrtpSuite::AESCM128HMACSHA180);
 		BC_ASSERT_TRUE(sdes256->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
