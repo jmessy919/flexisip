@@ -236,12 +236,18 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 						break; // stop at the first matching regexp
 					}
 				}
-			} else {
+			}
+
+			// Check the selected outgoing encryption setting is available
+			if (!mCore->isMediaEncryptionSupported(outgoingCallParams->getMediaEncryption())) {
+				SLOGD<<"b2bua server tries to place an output call using "<<MediaEncryption2string(outgoingCallParams->getMediaEncryption())<<" encryption mode but it is not available";
+				call->decline(linphone::Reason::NotAcceptable);
+				return;
 			}
 
 			// create a conference and attach it
 			auto conferenceParams = mCore->createConferenceParams(nullptr);
-			conferenceParams->enableVideo(false);
+			conferenceParams->enableVideo(false); //TODO: remove me
 			conferenceParams->enableLocalParticipant(false); // b2bua core is not part of it
 			conferenceParams->enableOneParticipantConference(true);
 			conferenceParams->setConferenceFactoryAddress(nullptr);
