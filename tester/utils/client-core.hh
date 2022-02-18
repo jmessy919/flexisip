@@ -53,14 +53,14 @@ public:
 	 * @param[in] me		address of local account
 	 * @param[in] server	server to register to
 	 */
-	CoreClient(const std::string me, std::shared_ptr<Server> server);
+	CoreClient(const std::string me, std::shared_ptr<Server> server, const std::string& password = "");
 
 	/**
 	 * Create an account(using address given at client creation) and register to the given server
 	 *
 	 * @param[in] server	server to register to
 	 */
-	void registerTo(std::shared_ptr<Server> server);
+	void registerTo(std::shared_ptr<Server> server, const std::string& password = "");
 
 	~CoreClient();
 
@@ -68,11 +68,19 @@ public:
 	 * Establish a call
 	 *
 	 * @param[in] callee 			client to call
+	 * @param[in] calleeAddress 	override address of the client to call
 	 * @param[in] callerCallParams	call params used by the caller to answer the call. nullptr to use default callParams
 	 * @param[in] calleeCallParams	call params used by the callee to accept the call. nullptr to use default callParams
 	 *
 	 * @return the established call from caller side, nullptr on failure
 	 */
+	std::shared_ptr<linphone::Call> call(const CoreClient& callee,
+	                                     const std::shared_ptr<linphone::Address>& calleeAddress,
+	                                     std::shared_ptr<linphone::CallParams> callerCallParams = nullptr,
+	                                     std::shared_ptr<linphone::CallParams> calleeCallParams = nullptr);
+	std::shared_ptr<linphone::Call> call(const CoreClient& callee,
+	                                     std::shared_ptr<linphone::CallParams> callerCallParams = nullptr,
+	                                     std::shared_ptr<linphone::CallParams> calleeCallParams = nullptr);
 	std::shared_ptr<linphone::Call> call(std::shared_ptr<CoreClient> callee,
 	                                     std::shared_ptr<linphone::CallParams> callerCallParams = nullptr,
 	                                     std::shared_ptr<linphone::CallParams> calleeCallParams = nullptr);
@@ -110,5 +118,27 @@ public:
 	 *
 	 * @return true if all asserts in the function succeded, false otherwise
 	 */
+	bool endCurrentCall(const CoreClient& peer);
 	bool endCurrentCall(std::shared_ptr<CoreClient> peer);
+
+	/**
+	 * Iterates the two sides of a fresh call and evaluates whether this end is in
+	 * linphone::Call::State::IncomingReceived
+	 *
+	 * @param[in]	peer	The other client involved in the call
+	 *
+	 * @return true if there is a current call in IncomingReceived state
+	 */
+	bool hasReceivedCallFrom(const CoreClient& peer) const;
+
+	/**
+	 * Invites another CoreClient but makes no asserts. Does not iterate any of the Cores.
+	 *
+	 * @param[in]	peer	The other client to call
+	 *
+	 * @return the new call. nullptr if the invite failed @maybenil
+	 */
+	std::shared_ptr<linphone::Call> invite(const CoreClient& peer) const;
+
+	std::shared_ptr<linphone::CallLog> getCallLog() const;
 }; // class CoreClient

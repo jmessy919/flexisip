@@ -34,6 +34,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_executable(flexisip_tester
         agent-tester.cc
         boolean-expressions.cc
+        cli-tester.cc
         extended-contact-tester.cc
         fork-context-tester.cc
         fork-context-mysql-tester.cc

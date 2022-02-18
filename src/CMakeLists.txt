@@ -267,16 +267,30 @@ if(ENABLE_CONFERENCE)
 	)
 endif()
 if(ENABLE_B2BUA)
+	if(INTERNAL_JSONCPP)
+		add_subdirectory(../linphone-sdk/external/jsoncpp ${CMAKE_CURRENT_BINARY_DIR}/jsoncpp)
+	else()
+		find_package(jsoncpp)
+		if(NOT jsoncpp_FOUND)
+			message(FATAL_ERROR "Could NOT find jsoncpp. If your system cannot provide it, try to build the vendored version with -DINTERNAL_JSONCPP=YES.")
+		endif()
+	endif()
+
 	target_sources(flexisip PRIVATE
 		b2bua/b2bua-server.cc
 		b2bua/b2bua-server.hh
 		b2bua/trenscrypter.cc
 		b2bua/trenscrypter.hh
+		b2bua/external-provider-bridge.hh
+		b2bua/external-provider-bridge.cc
 	)
 	target_link_libraries(flexisip
 		PUBLIC linphone++ linphone
 	)
-	target_link_libraries(flexisip PRIVATE mediastreamer)
+	target_link_libraries(flexisip PRIVATE
+		jsoncpp_lib
+		mediastreamer
+	)
 endif()
 if(ENABLE_SOCI)
 	target_compile_definitions(flexisip PRIVATE "ENABLE_SOCI")

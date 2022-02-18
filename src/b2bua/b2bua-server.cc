@@ -22,6 +22,7 @@
 #include "flexisip/utils/sip-uri.hh"
 
 #include "b2bua-server.hh"
+#include "external-provider-bridge.hh"
 #include "trenscrypter.hh"
 
 using namespace std;
@@ -57,7 +58,7 @@ std::shared_ptr<linphone::Call> getPeerCall(std::shared_ptr<linphone::Call> call
 }
 } // namespace
 
-B2buaServer::B2buaServer(const std::shared_ptr<sofiasip::SuRoot>& root) : ServiceServer(root) {
+B2buaServer::B2buaServer(const std::shared_ptr<sofiasip::SuRoot>& root) : ServiceServer(root), mCli("b2bua") {
 }
 
 B2buaServer::~B2buaServer() {
@@ -80,8 +81,9 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core>& core
 			auto outgoingCallParams = mCore->createCallParams(call);
 			// add this custom header so this call will not be intercepted by the b2bua
 			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+			auto callee = call->getToAddress()->clone();
 
-			const auto decline = mDelegate->onCallCreate(*outgoingCallParams, *call);
+			const auto decline = mDelegate->onCallCreate(*call, *callee, *outgoingCallParams);
 			if (decline != linphone::Reason::None) {
 				call->decline(decline);
 				return;
@@ -97,7 +99,6 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core>& core
 			auto conference = mCore->createConferenceWithParams(conferenceParams);
 
 			// create legB and add it to the conference
-			auto callee = call->getToAddress()->clone();
 			auto legB = mCore->inviteAddressWithParams(callee, outgoingCallParams);
 			conference->addParticipant(legB);
 
@@ -328,10 +329,21 @@ void B2buaServer::_init() {
 	mCore->setTransports(b2buaTransport);
 	mCore->addListener(shared_from_this());
 
-	mDelegate = std::make_unique<b2bua::trenscrypter::Trenscrypter>();
+	auto delegateType = config->get<ConfigString>("delegate")->read();
+	SLOGD << "B2BUA server starting with '" << delegateType << "' delegate";
+	if (delegateType == "trenscrypter") {
+		mDelegate = std::make_unique<b2bua::trenscrypter::Trenscrypter>();
+	} else if (delegateType == "sip-bridge") {
+		auto bridge = std::make_unique<b2bua::bridge::AccountManager>();
+		mCli.registerHandler(*bridge);
+		mDelegate = std::move(bridge);
+	} else {
+		LOGF("Unknown B2BUA delegate type: %s", delegateType.c_str());
+	}
 	mDelegate->init(mCore, *configRoot);
 
 	mCore->start();
+	mCli.start();
 }
 
 void B2buaServer::_run() {
@@ -340,12 +352,18 @@ void B2buaServer::_run() {
 
 void B2buaServer::_stop() {
 	mCore->removeListener(shared_from_this());
+	mCli.stop();
 }
 
 namespace {
 // Statically define default configuration items
 auto defineConfig = [] {
 	ConfigItemDescriptor items[] = {
+	    {String, "delegate",
+	     "The type of delegate that will handle calls bridged through the B2BUA. Possible values:\n"
+	     "- `trenscrypter` Bridge different encryption types on both ends transparently.\n"
+	     "- `sip-bridge` Bridge calls through an external SIP provider. (e.g. for PSTN gateways)",
+	     "trenscrypter"},
 	    {String, "transport", "SIP uri on which the back-to-back user agent server is listening on.",
 	     "sip:127.0.0.1:6067;transport=tcp"},
 	    {String, "data-directory",

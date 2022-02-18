@@ -35,7 +35,7 @@ public:
 		return mAgent;
 	}
 
-	void start() {
+	virtual void start() {
 		mAgent->start("", "");
 	}
 
@@ -45,5 +45,5 @@ public:
 	 * @param[in] configFile	The path to config file. Search for it in the resource directory and TESTER_DATA_DIR
 	 */
 	Server(const std::string& configFile = std::string());
-	~Server();
+	virtual ~Server();
 }; // Class Server
