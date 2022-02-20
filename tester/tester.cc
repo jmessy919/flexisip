@@ -161,13 +161,26 @@ CoreClient::CoreClient(std::string me) {
 	mCore->setAudioPort(-1);
 	mCore->setVideoPort(-1);
 	mCore->setUseFiles(true);
+	mCore->enableVideoCapture(true); // We must be able to simulate capture to make video calls
+	mCore->enableVideoDisplay(false); // No need to bother displaying the received video
 	// final check on call successfully established is based on bandwidth used,
 	// so use file as input to make sure there is some traffic
 	auto helloPath = bcTesterRes("sounds/hello8000.wav");
 	if (bctbx_file_exist(helloPath.c_str()) != 0) {
 		BC_FAIL("Unable to find resource sound, did you forget to use --resource-dir option?");
+	} else {
+		mCore->setPlayFile(helloPath);
 	}
-	mCore->setPlayFile(helloPath);
+	auto nowebcamPath = bcTesterRes("images/nowebcamCIF.jpg");
+	if (bctbx_file_exist(nowebcamPath.c_str()) != 0) {
+		BC_FAIL("Unable to find resource sound, did you forget to use --resource-dir option?");
+	} else {
+		mCore->setStaticPicture(nowebcamPath);
+	}
+	auto policy = linphone::Factory::get()->createVideoActivationPolicy();
+	policy->setAutomaticallyAccept(true);
+	policy->setAutomaticallyInitiate(false); // requires explicit settings in the parameters to initiate a video call
+	mCore->setVideoActivationPolicy(policy);
 	mCore->start();
 }
 
@@ -211,14 +224,24 @@ CoreClient::~CoreClient() {
 	});
 }
 
-std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> callee,
+std::shared_ptr<linphone::Call> CoreClient::callVideo(std::shared_ptr<CoreClient> callee,
 											std::shared_ptr<linphone::CallParams> callerCallParams,
 											std::shared_ptr<linphone::CallParams> calleeCallParams) {
-			std::shared_ptr<linphone::CallParams> callParams = callerCallParams;
+	std::shared_ptr<linphone::CallParams> callParams = callerCallParams;
 	if (callParams == nullptr) {
 		callParams = mCore->createCallParams(nullptr);
 	}
-	callParams->enableVideo(false); // TODO: remove me
+	callParams->enableVideo(true);
+	return call(callee, callParams, calleeCallParams);
+};
+
+std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> callee,
+											std::shared_ptr<linphone::CallParams> callerCallParams,
+											std::shared_ptr<linphone::CallParams> calleeCallParams) {
+	std::shared_ptr<linphone::CallParams> callParams = callerCallParams;
+	if (callParams == nullptr) {
+		callParams = mCore->createCallParams(nullptr);
+	}
 	auto callerCall = mCore->inviteAddressWithParams(callee->getAccount()->getContactAddress(), callParams);
 
 	if (callerCall == nullptr) {
@@ -257,8 +280,24 @@ std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> cal
 		return nullptr;
 	}
 
-	if (!BC_ASSERT_TRUE(CoreAssert({mCore, callee->getCore()}).wait([calleeCall,callerCall] {
-		return (calleeCall->getAudioStats()->getDownloadBandwidth() > 10 && callerCall->getAudioStats()->getDownloadBandwidth() > 10);
+	auto timeout = std::chrono::seconds(2);
+	// If this is a video call, force Fps to generate traffic
+	if (callParams->videoEnabled()) {
+		mCore->setStaticPictureFps(24.0);
+		calleeCall->getCore()->setStaticPictureFps(24.0);
+		// give more time for videocall to fully establish to cover ZRTP case that start video channel after the audio channel is secured
+		timeout = std::chrono::seconds(6);
+	}
+
+	if (!BC_ASSERT_TRUE(CoreAssert({mCore, callee->getCore()}, mServer->getAgent()).waitUntil(timeout, [calleeCall,callerCall,callParams] {
+		// Check both sides for download and upload
+		bool ret = (calleeCall->getAudioStats() && callerCall->getAudioStats() && calleeCall->getAudioStats()->getDownloadBandwidth() > 10 && callerCall->getAudioStats()->getDownloadBandwidth() > 10)
+			&& (calleeCall->getAudioStats()->getUploadBandwidth() > 10 && callerCall->getAudioStats()->getUploadBandwidth() > 10);
+		if (callParams->videoEnabled()) { // check on original callParams given, not current one as callee could have refused the video
+			ret = ret && (calleeCall->getVideoStats() && callerCall->getVideoStats() && calleeCall->getVideoStats()->getDownloadBandwidth() > 10 && callerCall->getVideoStats()->getDownloadBandwidth() > 10
+				&& calleeCall->getVideoStats()->getUploadBandwidth() > 10 && callerCall->getVideoStats()->getUploadBandwidth());
+		}
+		return ret;
 	}))) {
 		return nullptr;
 	}

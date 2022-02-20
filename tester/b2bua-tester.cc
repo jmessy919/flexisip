@@ -82,21 +82,29 @@ static void basic() {
 		pauline->registerTo(server);
 		BC_ASSERT_PTR_NOT_NULL(pauline->getAccount()); // Pauline account in now available
 
+
 		// marie calls pauline with default call params
 		marie->call(pauline);
 		pauline->endCurrentCall(marie); // endCurrentCall will fail if there is no current call
 
 		// marie calls pauline with call params
 		auto callParams = marie->getCore()->createCallParams(nullptr);
-		callParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
-		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline))) return; // stop the test if we fail to establish the call
+		callParams->setMediaEncryption(linphone::MediaEncryption::ZRTP);
+		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline, callParams))) return; // stop the test if we fail to establish the call
+		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
+		BC_ASSERT_TRUE(pauline->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		marie->endCurrentCall(pauline);
+
+		// marie calls with video pauline with default call params
+		// This could also be achieved by setting enableVideo(true) in the callParams given to the call function
+		if (!BC_ASSERT_PTR_NOT_NULL(marie->callVideo(pauline))) return;
+		pauline->endCurrentCall(marie);
 	}
 }
 
 
 // Scenario: b2b use the same encryption in and out
-static void forward() {
+static void forward(bool video) {
 	// initialize and start the proxy and B2bua server
 	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
 	{
@@ -106,6 +114,7 @@ static void forward() {
 		// SDES
 		auto callParams = marie->getCore()->createCallParams(nullptr);
 		callParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
+		callParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline, callParams))) return;
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(pauline->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
@@ -115,6 +124,7 @@ static void forward() {
 		// ZRTP
 		callParams = marie->getCore()->createCallParams(nullptr);
 		callParams->setMediaEncryption(linphone::MediaEncryption::ZRTP);
+		callParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline, callParams))) return;
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		BC_ASSERT_TRUE(pauline->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
@@ -124,6 +134,7 @@ static void forward() {
 		// DTLS
 		callParams = marie->getCore()->createCallParams(nullptr);
 		callParams->setMediaEncryption(linphone::MediaEncryption::DTLS);
+		callParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(marie->call(pauline, callParams))) return;
 		BC_ASSERT_TRUE(marie->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
 		BC_ASSERT_TRUE(pauline->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
@@ -131,8 +142,12 @@ static void forward() {
 		marie->endCurrentCall(pauline);
 	}
 }
+static void forward() {
+	forward(false);
+	forward(true);
+}
 
-static void sdes2zrtp() {
+static void sdes2zrtp(bool video) {
 	// initialize and start the proxy and B2bua server
 	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
 	{
@@ -143,6 +158,7 @@ static void sdes2zrtp() {
 		// Call from SDES to ZRTP
 		auto sdesCallParams = sdes->getCore()->createCallParams(nullptr);
 		sdesCallParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
+		sdesCallParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(sdes->call(zrtp, sdesCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(zrtp->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
@@ -151,14 +167,19 @@ static void sdes2zrtp() {
 		// Call from ZRTP to SDES
 		auto zrtpCallParams = zrtp->getCore()->createCallParams(nullptr);
 		zrtpCallParams->setMediaEncryption(linphone::MediaEncryption::ZRTP);
+		zrtpCallParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(zrtp->call(sdes, zrtpCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(zrtp->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		sdes->endCurrentCall(zrtp);
 	}
 }
+static void sdes2zrtp() {
+	//sdes2zrtp(false);
+	sdes2zrtp(true);
+}
 
-static void sdes2dtls() {
+static void sdes2dtls(bool video) {
 	// initialize and start the proxy and B2bua server
 	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
 	{
@@ -169,6 +190,7 @@ static void sdes2dtls() {
 		// Call from SDES to DTLS
 		auto sdesCallParams = sdes->getCore()->createCallParams(nullptr);
 		sdesCallParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
+		sdesCallParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(sdes->call(dtls, sdesCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(dtls->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
@@ -177,6 +199,7 @@ static void sdes2dtls() {
 		// Call from DTLS to SDES
 		auto dtlsCallParams = dtls->getCore()->createCallParams(nullptr);
 		dtlsCallParams->setMediaEncryption(linphone::MediaEncryption::DTLS);
+		dtlsCallParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(dtls->call(sdes, dtlsCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(dtls->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
@@ -184,7 +207,12 @@ static void sdes2dtls() {
 	}
 }
 
-static void zrtp2dtls() {
+static void sdes2dtls() {
+	sdes2dtls(false);
+	sdes2dtls(true);
+}
+
+static void zrtp2dtls(bool video) {
 	// initialize and start the proxy and B2bua server
 	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
 	{
@@ -195,6 +223,7 @@ static void zrtp2dtls() {
 		// Call from ZRTP to DTLS
 		auto zrtpCallParams = zrtp->getCore()->createCallParams(nullptr);
 		zrtpCallParams->setMediaEncryption(linphone::MediaEncryption::ZRTP);
+		zrtpCallParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(zrtp->call(dtls, zrtpCallParams))) return;
 		BC_ASSERT_TRUE(zrtp->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		BC_ASSERT_TRUE(dtls->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
@@ -203,14 +232,19 @@ static void zrtp2dtls() {
 		// Call from DTLS to ZRTP
 		auto dtlsCallParams = dtls->getCore()->createCallParams(nullptr);
 		dtlsCallParams->setMediaEncryption(linphone::MediaEncryption::DTLS);
+		dtlsCallParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(dtls->call(zrtp, dtlsCallParams))) return;
 		BC_ASSERT_TRUE(zrtp->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::ZRTP);
 		BC_ASSERT_TRUE(dtls->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::DTLS);
 		zrtp->endCurrentCall(dtls);
 	}
 }
+static void zrtp2dtls() {
+	zrtp2dtls(false);
+	zrtp2dtls(true);
+}
 
-static void sdes2sdes256() {
+static void sdes2sdes256(bool video) {
 	// initialize and start the proxy and B2bua server
 	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
 	{
@@ -222,6 +256,7 @@ static void sdes2sdes256() {
 		auto sdesCallParams = sdes->getCore()->createCallParams(nullptr);
 		sdesCallParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
 		sdesCallParams->setSrtpSuites({linphone::SrtpSuite::AESCM128HMACSHA180, linphone::SrtpSuite::AESCM128HMACSHA132});
+		sdesCallParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(sdes->call(sdes256, sdesCallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getSrtpSuites().front() == linphone::SrtpSuite::AESCM128HMACSHA180);
@@ -233,6 +268,7 @@ static void sdes2sdes256() {
 		auto sdes256CallParams = sdes->getCore()->createCallParams(nullptr);
 		sdes256CallParams->setMediaEncryption(linphone::MediaEncryption::SRTP);
 		sdes256CallParams->setSrtpSuites({linphone::SrtpSuite::AES256CMHMACSHA180, linphone::SrtpSuite::AES256CMHMACSHA132});
+		sdes256CallParams->enableVideo(video);
 		if (!BC_ASSERT_PTR_NOT_NULL(sdes256->call(sdes, sdes256CallParams))) return;
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getMediaEncryption() == linphone::MediaEncryption::SRTP);
 		BC_ASSERT_TRUE(sdes->getCore()->getCurrentCall()->getCurrentParams()->getSrtpSuites().front() == linphone::SrtpSuite::AESCM128HMACSHA180);
@@ -240,6 +276,11 @@ static void sdes2sdes256() {
 		BC_ASSERT_TRUE(sdes256->getCore()->getCurrentCall()->getCurrentParams()->getSrtpSuites().front() == linphone::SrtpSuite::AES256CMHMACSHA180);
 		sdes->endCurrentCall(sdes256);
 	}
+}
+
+static void sdes2sdes256() {
+	sdes2sdes256(false);
+	sdes2sdes256(true);
 }
 
 static test_t tests[] = {

@@ -247,7 +247,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 
 			// create a conference and attach it
 			auto conferenceParams = mCore->createConferenceParams(nullptr);
-			conferenceParams->enableVideo(false); //TODO: remove me
+			conferenceParams->enableVideo(true);
 			conferenceParams->enableLocalParticipant(false); // b2bua core is not part of it
 			conferenceParams->enableOneParticipantConference(true);
 			conferenceParams->setConferenceFactoryAddress(nullptr);
@@ -376,6 +376,26 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		}
 			break;
 		case linphone::Call::State::UpdatedByRemote:
+		{
+			// Manage add/remove video - ignore for other changes
+			auto peerCall = getPeerCall(call);
+			auto peerCallParams = peerCall->getCurrentParams()->copy();
+			auto selfCallParams = call->getCurrentParams()->copy();
+			BCTBX_SLOGD<<"UpdatedByRemote -> Self audio "<<selfCallParams->audioEnabled()<<" - Direction "<<(int)selfCallParams->getAudioDirection()<<std::endl
+			<<"Peer audio "<<peerCallParams->videoEnabled()<<" - Direction "<<(int)peerCallParams->getVideoDirection();
+			bool update=false;
+			if (peerCallParams->videoEnabled() != selfCallParams->videoEnabled()) {
+				update=true;
+				peerCallParams->enableVideo(selfCallParams->videoEnabled());
+			}
+			if (peerCallParams->audioEnabled() != selfCallParams->audioEnabled()) {
+				update=true;
+				peerCallParams->enableAudio(selfCallParams->audioEnabled());
+			}
+			if (update) {
+				peerCall->update(peerCallParams);
+			}
+		}
 			break;
 		case linphone::Call::State::IncomingEarlyMedia:
 			break;
@@ -430,8 +450,9 @@ void B2buaServer::_init () {
 	mCore->enableAutoSendRinging(false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
 	mCore->setZrtpSecretsFile("null");
 
-	// random port for UDP audio stream
+	// random port for UDP audio and video stream
 	mCore->setAudioPort(-1);
+	mCore->setVideoPort(-1);
 
 	shared_ptr<Transports> b2buaTransport = Factory::get()->createTransports();
 	// Get transport from flexisip configuration

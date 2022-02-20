@@ -85,3 +85,7 @@ install(DIRECTORY db
 install(DIRECTORY sounds
         DESTINATION ${TESTER_DATA_DIR}
         )
+
+install(DIRECTORY images
+        DESTINATION ${TESTER_DATA_DIR}
+        )

@@ -194,6 +194,20 @@ void flexisip_tester_uninit(void);
 											std::shared_ptr<linphone::CallParams> calleeCallParams=nullptr);
 
 		/**
+		 * Establish a video call.
+		 * video is enabled caller side, with or without callParams given
+		 *
+		 * @param[in] callee 			client to call
+		 * @param[in] callerCallParams	call params used by the caller to answer the call. nullptr to use default callParams
+		 * @param[in] calleeCallParams	call params used by the callee to accept the call. nullptr to use default callParams
+		 *
+		 * @return the established call from caller side, nullptr on failure
+		 */
+		std::shared_ptr<linphone::Call> callVideo(std::shared_ptr<CoreClient> callee,
+											std::shared_ptr<linphone::CallParams> callerCallParams=nullptr,
+											std::shared_ptr<linphone::CallParams> calleeCallParams=nullptr);
+
+		/**
 		 * Get from the two sides the current call and terminate if from this side
 		 * assertion failed if one of the client is not in a call or both won't end into Released state
 		 *

@@ -87,7 +87,11 @@ if(ENABLE_TRANSCODER OR ENABLE_B2BUA)
 	set(ENABLE_G729B_CNG OFF) # Disable for license conformity
 	set(ENABLE_RESAMPLE ON)
 
-	set(ENABLE_VIDEO OFF)
+	if(ENABLE_B2BUA)
+		set(ENABLE_VIDEO ON)
+	else()
+		set(ENABLE_VIDEO OFF)
+	endif()
 	set(ENABLE_MKV OFF)
 	set(ENABLE_JPEG OFF)
 
@@ -134,7 +138,11 @@ if(ENABLE_CONFERENCE)
 	set(ENABLE_TUTORIALS OFF)
 	set(ENABLE_UPDATE_CHECK OFF)
 	set(ENABLE_VCARD OFF)
-	set(ENABLE_VIDEO OFF)
+	if(ENABLE_B2BUA)
+		set(ENABLE_VIDEO ON)
+	else()
+		set(ENABLE_VIDEO OFF)
+	endif()
 	set(ENABLE_ASSETS OFF)
 
 	set(ENABLE_UNIT_TESTS ${ENABLE_LIBLINPHONE_TESTER}) # override Flexisip ENABLE_UNIT_TESTS option by using a local variable
