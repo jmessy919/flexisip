@@ -176,7 +176,7 @@ CoreClient::CoreClient(std::string me) {
 	}
 	auto nowebcamPath = bcTesterRes("images/nowebcamCIF.jpg");
 	if (bctbx_file_exist(nowebcamPath.c_str()) != 0) {
-		BC_FAIL("Unable to find resource sound, did you forget to use --resource-dir option?");
+		BC_FAIL("Unable to find resource images, did you forget to use --resource-dir option?");
 	} else {
 		mCore->setStaticPicture(nowebcamPath);
 	}
@@ -294,11 +294,11 @@ std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> cal
 
 	if (!BC_ASSERT_TRUE(CoreAssert({mCore, callee->getCore()}, mServer->getAgent()).waitUntil(timeout, [calleeCall,callerCall,callParams] {
 		// Check both sides for download and upload
-		bool ret = (calleeCall->getAudioStats() && callerCall->getAudioStats() && calleeCall->getAudioStats()->getDownloadBandwidth() > 10 && callerCall->getAudioStats()->getDownloadBandwidth() > 10)
-			&& (calleeCall->getAudioStats()->getUploadBandwidth() > 10 && callerCall->getAudioStats()->getUploadBandwidth() > 10);
+		bool ret = (calleeCall->getAudioStats() && callerCall->getAudioStats() && calleeCall->getAudioStats()->getDownloadBandwidth() > 10 && callerCall->getAudioStats()->getDownloadBandwidth() > 10);
 		if (callParams->videoEnabled()) { // check on original callParams given, not current one as callee could have refused the video
-			ret = ret && (calleeCall->getVideoStats() && callerCall->getVideoStats() && calleeCall->getVideoStats()->getDownloadBandwidth() > 10 && callerCall->getVideoStats()->getDownloadBandwidth() > 10
-				&& calleeCall->getVideoStats()->getUploadBandwidth() > 10 && callerCall->getVideoStats()->getUploadBandwidth());
+			ret = ret && (calleeCall->getVideoStats() && callerCall->getVideoStats() && calleeCall->getVideoStats()->getDownloadBandwidth() > 10 && callerCall->getVideoStats()->getDownloadBandwidth() > 10);
+		} else {
+			ret = ret && (callerCall->getCurrentParams()->videoEnabled() == false) && (calleeCall->getCurrentParams()->videoEnabled() == false);
 		}
 		return ret;
 	}))) {
@@ -308,15 +308,60 @@ std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> cal
 	return callerCall;
 }
 
-void CoreClient::endCurrentCall(std::shared_ptr<CoreClient> peer) {
+bool CoreClient::callUpdate(std::shared_ptr<CoreClient> peer, std::shared_ptr<linphone::CallParams> callParams) {
+	if (callParams == nullptr) {
+		BC_FAIL("Cannot update call without new call params");
+	}
+
+	auto selfCall = mCore->getCurrentCall();
+	auto peerCall = peer->getCore()->getCurrentCall();
+	if (selfCall == nullptr || peerCall == nullptr) {
+		BC_FAIL("Trying to update a call but at least one participant is not currently engaged in one");
+		return false;
+	}
+
+	// peer is set to auto accept update so just check the changes after
+	selfCall->update(callParams);
+
+	// Wait for the update to be concluded
+	if (!BC_ASSERT_TRUE(CoreAssert({mCore, peer->getCore()}, mServer->getAgent()).wait([selfCall, peerCall] {
+		return ( selfCall->getState() == linphone::Call::State::StreamsRunning
+			&& peerCall->getState() == linphone::Call::State::StreamsRunning );
+	}))) return false;
+
+	auto timeout = std::chrono::seconds(2);
+	// If this is a video call, force Fps to generate traffic (This must be done once the video call is ongoing)
+	if (callParams->videoEnabled()) {
+		mCore->setStaticPictureFps(24.0);
+		peerCall->getCore()->setStaticPictureFps(24.0);
+		// give more time for videocall to fully establish to cover ZRTP case that start video channel after the audio channel is secured
+		timeout = std::chrono::seconds(6);
+	}
+
+	if (!BC_ASSERT_TRUE(CoreAssert({mCore, peer->getCore()}, mServer->getAgent()).waitUntil(timeout, [peerCall,selfCall,callParams] {
+		// Check both sides for download and upload
+		bool ret = (peerCall->getAudioStats() && selfCall->getAudioStats() && peerCall->getAudioStats()->getDownloadBandwidth() > 10 && selfCall->getAudioStats()->getDownloadBandwidth() > 10);
+		if (callParams->videoEnabled()) { // check on original callParams given, not current one as callee could have refused the video
+			ret = ret && (peerCall->getVideoStats() && selfCall->getVideoStats() && peerCall->getVideoStats()->getDownloadBandwidth() > 10 && selfCall->getVideoStats()->getDownloadBandwidth() > 10);
+		} else {
+			ret = ret && (selfCall->getCurrentParams()->videoEnabled() == false) && (peerCall->getCurrentParams()->videoEnabled() == false);
+		}
+		return ret;
+	}))) return false;
+
+	return true;
+}
+
+bool CoreClient::endCurrentCall(std::shared_ptr<CoreClient> peer) {
 	auto selfCall = mCore->getCurrentCall();
 	auto peerCall = peer->getCore()->getCurrentCall();
 	if (selfCall == nullptr || peerCall == nullptr) {
 		BC_FAIL("Trying to end call but No current call running");
-		return;
+		return false;
 	}
 	mCore->getCurrentCall()->terminate();
-	BC_ASSERT_TRUE(CoreAssert({mCore, peer->getCore()}, mServer->getAgent()).wait([selfCall, peerCall] {
+	if (!BC_ASSERT_TRUE(CoreAssert({mCore, peer->getCore()}, mServer->getAgent()).wait([selfCall, peerCall] {
 		return (selfCall->getState() == linphone::Call::State::Released && peerCall->getState() == linphone::Call::State::Released);
-	}));
+	}))) return false;
+	return true;
 }

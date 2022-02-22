@@ -210,12 +210,25 @@ void flexisip_tester_uninit(void);
 											std::shared_ptr<linphone::CallParams> calleeCallParams=nullptr);
 
 		/**
+		 * Update an ongoing call.
+		 * When enable/disable video, check that it is correctly executed on both sides
+		 *
+		 * @param[in] peer				peer clientCore involved in the call
+		 * @param[in] callerCallParams	new call params to be used by self
+		 *
+		 * @return true if all asserts in the callUpdate succeded, false otherwise
+		 */
+		bool callUpdate(std::shared_ptr<CoreClient> peer, std::shared_ptr<linphone::CallParams> callerCallParams);
+
+		/**
 		 * Get from the two sides the current call and terminate if from this side
 		 * assertion failed if one of the client is not in a call or both won't end into Released state
 		 *
 		 * @param[in]	peer	The other client involved in the call
+		 *
+		 * @return true if all asserts in the function succeded, false otherwise
 		 */
-		void endCurrentCall(std::shared_ptr<CoreClient> peer);
+		bool endCurrentCall(std::shared_ptr<CoreClient> peer);
 
 	}; // class CoreClient
 

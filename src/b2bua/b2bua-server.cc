@@ -381,18 +381,18 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			auto peerCall = getPeerCall(call);
 			auto peerCallParams = peerCall->getCurrentParams()->copy();
 			auto selfCallParams = call->getCurrentParams()->copy();
-			BCTBX_SLOGD<<"UpdatedByRemote -> Self audio "<<selfCallParams->audioEnabled()<<" - Direction "<<(int)selfCallParams->getAudioDirection()<<std::endl
-			<<"Peer audio "<<peerCallParams->videoEnabled()<<" - Direction "<<(int)peerCallParams->getVideoDirection();
+			auto selfRemoteCallParams = call->getRemoteParams()->copy();
 			bool update=false;
-			if (peerCallParams->videoEnabled() != selfCallParams->videoEnabled()) {
+			if (selfRemoteCallParams->videoEnabled() != selfCallParams->videoEnabled()) {
 				update=true;
-				peerCallParams->enableVideo(selfCallParams->videoEnabled());
+				peerCallParams->enableVideo(selfRemoteCallParams->videoEnabled());
 			}
-			if (peerCallParams->audioEnabled() != selfCallParams->audioEnabled()) {
+			if (selfRemoteCallParams->audioEnabled() != selfCallParams->audioEnabled()) {
 				update=true;
-				peerCallParams->enableAudio(selfCallParams->audioEnabled());
+				peerCallParams->enableAudio(selfRemoteCallParams->audioEnabled());
 			}
 			if (update) {
+				BCTBX_SLOGD<<"update peer call";
 				peerCall->update(peerCallParams);
 			}
 		}
