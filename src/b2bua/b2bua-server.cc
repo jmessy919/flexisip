@@ -315,15 +315,26 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 		case linphone::Call::State::StreamsRunning:
 		{
 			auto peerCall = getPeerCall(call);
-			// if we are in StreamsRunning but peer is sendonly or inactive we likely arrived here after resuming from pausedByRemote
-			// update peer back to recvsend
-			auto peerCallAudioDirection = peerCall->getCurrentParams()->getAudioDirection();
-			if ( peerCallAudioDirection == linphone::MediaDirection::SendOnly
-				|| peerCallAudioDirection == linphone::MediaDirection::Inactive ) {
-				SLOGD<<"b2bua server onCallStateChanged: peer call is paused, update it to resume";
-				auto peerCallParams = peerCall->getCurrentParams()->copy();
-				peerCallParams->setAudioDirection(linphone::MediaDirection::SendRecv);
-				peerCall->update(peerCallParams);
+			// If peer in state updateByRemote, we defered an update, accept it now
+			if (peerCall->getState() == linphone::Call::State::UpdatedByRemote) {
+				SLOGD<<"b2bua server onCallStateChanged: peer call defered update, accept it now";
+				// update is defered only on video/audio add remove
+				// create call params for peer call and copy video/audio enabling settings from this call
+				auto peerCallParams = mCore->createCallParams(peerCall);
+				peerCallParams->enableVideo(call->getCurrentParams()->videoEnabled());
+				peerCallParams->enableAudio(call->getCurrentParams()->audioEnabled());
+				peerCall->acceptUpdate(peerCallParams);
+			} else {
+				// if we are in StreamsRunning but peer is sendonly or inactive we likely arrived here after resuming from pausedByRemote
+				// update peer back to recvsend
+				auto peerCallAudioDirection = peerCall->getCurrentParams()->getAudioDirection();
+				if ( peerCallAudioDirection == linphone::MediaDirection::SendOnly
+					|| peerCallAudioDirection == linphone::MediaDirection::Inactive ) {
+					SLOGD<<"b2bua server onCallStateChanged: peer call is paused, update it to resume";
+					auto peerCallParams = peerCall->getCurrentParams()->copy();
+					peerCallParams->setAudioDirection(linphone::MediaDirection::SendRecv);
+					peerCall->update(peerCallParams);
+				}
 			}
 		}
 			break;
@@ -394,6 +405,10 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			if (update) {
 				BCTBX_SLOGD<<"update peer call";
 				peerCall->update(peerCallParams);
+				call->deferUpdate();
+			} else { // no update on video/audio status, just accept it with requested params
+				BCTBX_SLOGD<<"accept update without forwarding it to peer call";
+				call->acceptUpdate(call->getRemoteParams());
 			}
 		}
 			break;
@@ -440,6 +455,7 @@ void B2buaServer::_init () {
 	configLinphone->setInt("misc", "max_calls", 1000);
 	configLinphone->setInt("misc", "media_resources_mode", 1); // share media resources
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
+	configLinphone->setBool("sip", "defer_update_default", true); // do not automatically accept update: we might want to update peer call before
 	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::Legacy));
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
@@ -449,6 +465,13 @@ void B2buaServer::_init () {
 	mCore->setPrimaryContact("sip:b2bua@localhost"); //TODO: get the primary contact from config, do we really need one?
 	mCore->enableAutoSendRinging(false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
 	mCore->setZrtpSecretsFile("null");
+
+	// b2bua shall never take the initiative of accepting or starting video calls
+	// stick to incoming call parameters for that
+	auto policy = linphone::Factory::get()->createVideoActivationPolicy();
+	policy->setAutomaticallyAccept(true); // accept incoming video call so the request is forwarded to legB, acceptance from legB is checked before accepting legA
+	policy->setAutomaticallyInitiate(false);
+	mCore->setVideoActivationPolicy(policy);
 
 	// random port for UDP audio and video stream
 	mCore->setAudioPort(-1);
