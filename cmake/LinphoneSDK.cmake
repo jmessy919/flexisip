@@ -81,7 +81,7 @@ if(ENABLE_TRANSCODER OR ENABLE_B2BUA)
 	set(ENABLE_RELATIVE_PREFIX OFF)
 
 	set(ENABLE_SRTP ON)
-	set(ENABLE_ZRTP ON)
+	set(ENABLE_ZRTP OFF)
 
 	set(ENABLE_SOUND OFF) # Disable all sound card backends.
 
