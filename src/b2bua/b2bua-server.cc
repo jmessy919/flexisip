@@ -308,7 +308,12 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 				auto incomingCallParams = mCore->createCallParams(confData.legA);
 				// add this custom header so this call will not be intercepted by the b2bua
 				incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				// enforce same video/audio enable to legA than on legB - manage video rejected by legB
+				incomingCallParams->enableAudio(call->getCurrentParams()->audioEnabled());
+				incomingCallParams->enableVideo(call->getCurrentParams()->videoEnabled());
+				SLOGD<<"DEBUGDEBUG: about to accept legA call with param video is "<<incomingCallParams->videoEnabled();
 				confData.legA->acceptWithParams(incomingCallParams);
+				SLOGD<<"DEBUGDEBUG: accepted legA call param video is "<<confData.legA->getCurrentParams()->videoEnabled();
 			}
 		}
 			break;

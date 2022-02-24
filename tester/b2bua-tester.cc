@@ -275,6 +275,51 @@ static void sdes2sdes256() {
 	sdes2sdes256(true);
 }
 
+static void videoRejected() {
+		// initialize and start the proxy and B2bua server
+	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
+	{
+		// Create and register clients
+		auto marie = std::make_shared<CoreClient>("sip:marie@sip.example.org", server);
+		auto pauline = std::make_shared<CoreClient>("sip:pauline@sip.example.org", server);
+
+		auto marieCallParams = marie->getCore()->createCallParams(nullptr);
+		marieCallParams->enableVideo(true);
+
+		// marie call pauline, asking for video
+		auto marieCall = marie->getCore()->inviteAddressWithParams(pauline->getAccount()->getContactAddress(), marieCallParams);
+
+		if (!BC_ASSERT_PTR_NOT_NULL(marieCall)) return;
+		if (!BC_ASSERT_TRUE(CoreAssert({marie->getCore(), pauline->getCore()}, server->getAgent()).wait([pauline] {
+			return ( (pauline->getCore()->getCurrentCall() != nullptr)
+			&& (pauline->getCore()->getCurrentCall()->getState() == linphone::Call::State::IncomingReceived) );
+		}))) { return; }
+
+		auto paulineCall = pauline->getCore()->getCurrentCall();
+		if (!BC_ASSERT_PTR_NOT_NULL(paulineCall)) return;
+
+		if (!BC_ASSERT_TRUE(CoreAssert({marie->getCore(), pauline->getCore()}, server->getAgent()).wait([marieCall] {
+			return (marieCall->getState() == linphone::Call::State::OutgoingRinging);
+		}))) { return; }
+
+		// Callee answer the call but reject video
+		auto paulineCallParams = pauline->getCore()->createCallParams(paulineCall);
+		paulineCallParams->enableVideo(false);
+		if (!BC_ASSERT_TRUE(paulineCall->acceptWithParams(paulineCallParams) == 0)) return;
+
+		if (!BC_ASSERT_TRUE(CoreAssert({marie->getCore(), pauline->getCore()}, server->getAgent()).wait([marieCall, paulineCall] {
+			return ( marieCall->getState() == linphone::Call::State::StreamsRunning
+				&& paulineCall->getState() == linphone::Call::State::StreamsRunning );
+		}))) { return; }
+
+		// Check video is disabled on both calls
+		BC_ASSERT_FALSE(marieCall->getCurrentParams()->videoEnabled());
+		BC_ASSERT_FALSE(paulineCall->getCurrentParams()->videoEnabled());
+
+		pauline->endCurrentCall(marie);
+	}
+}
+
 static test_t tests[] = {
 	TEST_NO_TAG("Basic", basic),
 	TEST_NO_TAG("Forward Media Encryption", forward),
@@ -282,6 +327,7 @@ static test_t tests[] = {
 	TEST_NO_TAG("SDES to DTLS call", sdes2dtls),
 	TEST_NO_TAG("ZRTP to DTLS call", zrtp2dtls),
 	TEST_NO_TAG("SDES to SDES256 call", sdes2sdes256),
+	TEST_NO_TAG("Video rejected by callee", videoRejected),
 };
 
 } //namespace b2buatester
