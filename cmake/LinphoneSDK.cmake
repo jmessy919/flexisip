@@ -89,6 +89,7 @@ if(ENABLE_TRANSCODER OR ENABLE_B2BUA)
 	set(ENABLE_VIDEO ${ENABLE_B2BUA})
 	set(ENABLE_MKV OFF)
 	set(ENABLE_JPEG OFF)
+	set(ENABLE_THEORA OFF)
 
 	set(DISABLE_SRTP_SEARCH ${INTERNAL_LIBSRTP2})
 	add_subdirectory("linphone-sdk/mediastreamer2")
