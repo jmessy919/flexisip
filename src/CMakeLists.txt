@@ -270,6 +270,8 @@ if(ENABLE_B2BUA)
 	target_sources(flexisip PRIVATE
 		b2bua/b2bua-server.cc
 		b2bua/b2bua-server.hh
+		b2bua/trenscrypter.cc
+		b2bua/trenscrypter.hh
 	)
 	target_link_libraries(flexisip
 		PUBLIC linphone++

@@ -21,6 +21,7 @@
 #include <memory>
 
 #include "linphone++/linphone.hh"
+#include "flexisip/configmanager.hh"
 
 #include "service-server.hh"
 #include <regex>
@@ -28,9 +29,19 @@
 
 namespace flexisip {
 namespace b2bua {
-	// forward declaration of internal structures
-	struct encryptionConfiguration;
-	struct srtpConfiguration;
+	class IModule {
+	public:
+		virtual void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) = 0;
+		/**
+		 * lets the module run some business logic before the outgoing call is placed.
+		 *
+		 * @param[out]	outgoingCallParams	the params of the outgoing call to be created. They will be modified according to the business logic of the module.
+		 * @param[out]	incomingCall	the call that triggered the B2BUA.
+		 * @return		a reason to abort the bridging and decline the incoming call. Reason::None if the call should go through.
+		 **/
+		virtual linphone::Reason onCallCreate(linphone::CallParams& outgoingCallParams, const linphone::Call& incomingCall) = 0;
+		virtual ~IModule() = default;
+	};
 }
 class B2buaServer : public ServiceServer
 , public std::enable_shared_from_this<B2buaServer>
@@ -58,8 +69,7 @@ class B2buaServer : public ServiceServer
 
 		static Init sStaticInit;
 		std::shared_ptr<linphone::Core> mCore;
-		std::list<b2bua::encryptionConfiguration> mOutgoingEncryption;
-		std::list<b2bua::srtpConfiguration> mSrtpConf;
+		std::unique_ptr<b2bua::IModule> mModule;
 };
 
 }
