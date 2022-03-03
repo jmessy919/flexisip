@@ -45,14 +45,12 @@ namespace b2bua {
 }
 class B2buaServer : public ServiceServer
 , public std::enable_shared_from_this<B2buaServer>
-, public linphone::CoreListener, public linphone::ConferenceListener {
+, public linphone::CoreListener {
 	public:
 		B2buaServer (const std::shared_ptr<sofiasip::SuRoot>& root);
 		~B2buaServer ();
 		static constexpr const char *confKey = "b2bua::confData";
 
-        void onConferenceStateChanged(const std::shared_ptr<linphone::Core> & core, const std::shared_ptr<linphone::Conference> & conference,
-            linphone::Conference::State state) override;
 		void onCallStateChanged(const std::shared_ptr<linphone::Core > &core, const std::shared_ptr<linphone::Call> &call,
 			linphone::Call::State state, const std::string &message) override;
 
