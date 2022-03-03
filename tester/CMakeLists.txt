@@ -39,6 +39,8 @@ add_executable(flexisip_tester
         utils/listening-socket.cc
         utils/tcp-server.cc
         utils/tls-server.cc
+        utils/client-core.cc
+        utils/proxy-server.cc
         )
 
 if (ENABLE_CONFERENCE)
