@@ -1,6 +1,6 @@
 /*
 	Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2010-2020  Belledonne Communications SARL, All rights reserved.
+	Copyright (C) 2010-2022  Belledonne Communications SARL, All rights reserved.
 
 	This program is free software: you can redistribute it and/or modify
 	it under the terms of the GNU Affero General Public License as
@@ -166,25 +166,24 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core > &cor
 			break;
 		case linphone::Call::State::Connected:
 		{
-			// If legB is in connected state, answer legA call
-			if (call->getDir() == linphone::Call::Dir::Outgoing) {
-				SLOGD<<"b2bua server onCallStateChanged Connected: leg B -> answer legA";
-				auto &confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
-				auto incomingCallParams = mCore->createCallParams(confData.legA);
-				// add this custom header so this call will not be intercepted by the b2bua
-				incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
-				// enforce same video/audio enable to legA than on legB - manage video rejected by legB
-				incomingCallParams->enableAudio(call->getCurrentParams()->audioEnabled());
-				incomingCallParams->enableVideo(call->getCurrentParams()->videoEnabled());
-				SLOGD<<"DEBUGDEBUG: about to accept legA call with param video is "<<incomingCallParams->videoEnabled();
-				confData.legA->acceptWithParams(incomingCallParams);
-				SLOGD<<"DEBUGDEBUG: accepted legA call param video is "<<confData.legA->getCurrentParams()->videoEnabled();
-			}
 		}
 			break;
 		case linphone::Call::State::StreamsRunning:
 		{
 			auto peerCall = getPeerCall(call);
+
+			// If this is legB and legA is in incoming state, answer it
+			// This cannot be done in connected state as currentCallParams are not updated yet
+			if (call->getDir() == linphone::Call::Dir::Outgoing && (peerCall->getState() == linphone::Call::State::IncomingReceived || peerCall->getState() == linphone::Call::State::IncomingEarlyMedia) ) {
+				SLOGD<<"b2bua server leg B -> answer legA";
+				auto incomingCallParams = mCore->createCallParams(peerCall);
+				// add this custom header so this call will not be intercepted by the b2bua
+				incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				// enforce same video/audio enable to legA than on legB - manage video rejected by legB
+				incomingCallParams->enableAudio(call->getCurrentParams()->audioEnabled());
+				incomingCallParams->enableVideo(call->getCurrentParams()->videoEnabled());
+				peerCall->acceptWithParams(incomingCallParams);
+			}
 			// If peer in state updateByRemote, we defered an update, accept it now
 			if (peerCall->getState() == linphone::Call::State::UpdatedByRemote) {
 				SLOGD<<"b2bua server onCallStateChanged: peer call defered update, accept it now";
