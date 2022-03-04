@@ -21,29 +21,29 @@
  * A class to manage the flexisip proxy server
  */
 class Server {
-	private:
-		std::shared_ptr<sofiasip::SuRoot> mRoot;
-		std::shared_ptr<flexisip::Agent> mAgent;
+private:
+	std::shared_ptr<sofiasip::SuRoot> mRoot;
+	std::shared_ptr<flexisip::Agent> mAgent;
 
-	public:
-		// Accessors
-		std::shared_ptr<sofiasip::SuRoot> getRoot() noexcept {
-			return mRoot;
-		}
+public:
+	// Accessors
+	std::shared_ptr<sofiasip::SuRoot> getRoot() noexcept {
+		return mRoot;
+	}
 
-		std::shared_ptr<flexisip::Agent> getAgent() noexcept {
-			return mAgent;
-		}
+	std::shared_ptr<flexisip::Agent> getAgent() noexcept {
+		return mAgent;
+	}
 
-		void start() {
-			mAgent->start("", "");
-		}
+	void start() {
+		mAgent->start("", "");
+	}
 
-		/**
-		 * Create the sofiasip root, the Agent and load the config file given as parameter
-		 *
-		 * @param[in] configFile	The path to config file. Search for it in the resource directory and TESTER_DATA_DIR
-		 */
-		Server(const std::string& configFile=std::string());
-		~Server();
+	/**
+	 * Create the sofiasip root, the Agent and load the config file given as parameter
+	 *
+	 * @param[in] configFile	The path to config file. Search for it in the resource directory and TESTER_DATA_DIR
+	 */
+	Server(const std::string& configFile = std::string());
+	~Server();
 }; // Class Server

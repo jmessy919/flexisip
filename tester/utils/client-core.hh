@@ -74,8 +74,8 @@ public:
 	 * @return the established call from caller side, nullptr on failure
 	 */
 	std::shared_ptr<linphone::Call> call(std::shared_ptr<CoreClient> callee,
-										 std::shared_ptr<linphone::CallParams> callerCallParams=nullptr,
-									  std::shared_ptr<linphone::CallParams> calleeCallParams=nullptr);
+	                                     std::shared_ptr<linphone::CallParams> callerCallParams = nullptr,
+	                                     std::shared_ptr<linphone::CallParams> calleeCallParams = nullptr);
 
 	/**
 	 * Establish a video call.
@@ -88,8 +88,8 @@ public:
 	 * @return the established call from caller side, nullptr on failure
 	 */
 	std::shared_ptr<linphone::Call> callVideo(std::shared_ptr<CoreClient> callee,
-											  std::shared_ptr<linphone::CallParams> callerCallParams=nullptr,
-										   std::shared_ptr<linphone::CallParams> calleeCallParams=nullptr);
+	                                          std::shared_ptr<linphone::CallParams> callerCallParams = nullptr,
+	                                          std::shared_ptr<linphone::CallParams> calleeCallParams = nullptr);
 
 	/**
 	 * Update an ongoing call.

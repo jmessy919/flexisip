@@ -25,7 +25,7 @@
 CoreClient::CoreClient(const std::string me) {
 	mMe = linphone::Factory::get()->createAddress(me);
 
-	mCore = linphone::Factory::get()->createCore("","", nullptr);
+	mCore = linphone::Factory::get()->createCore("", "", nullptr);
 	mCore->setPrimaryContact(me);
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
@@ -37,7 +37,7 @@ CoreClient::CoreClient(const std::string me) {
 	mCore->setAudioPort(-1);
 	mCore->setVideoPort(-1);
 	mCore->setUseFiles(true);
-	mCore->enableVideoCapture(true); // We must be able to simulate capture to make video calls
+	mCore->enableVideoCapture(true);  // We must be able to simulate capture to make video calls
 	mCore->enableVideoDisplay(false); // No need to bother displaying the received video
 	// final check on call successfully established is based on bandwidth used,
 	// so use file as input to make sure there is some traffic
@@ -68,15 +68,20 @@ void CoreClient::registerTo(std::shared_ptr<Server> server) {
 	mServer = server;
 
 	// Clients register to the first of the list of transports read in the proxy configuration
-	auto route = linphone::Factory::get()->createAddress(
-		flexisip::GenericManager::get()->getRoot()->get<flexisip::GenericStruct>("global")->get<flexisip::ConfigStringList>("transports")->read().front());
+	auto route = linphone::Factory::get()->createAddress(flexisip::GenericManager::get()
+	                                                         ->getRoot()
+	                                                         ->get<flexisip::GenericStruct>("global")
+	                                                         ->get<flexisip::ConfigStringList>("transports")
+	                                                         ->read()
+	                                                         .front());
 
 	auto clientAccountParams = mCore->createAccountParams();
 	clientAccountParams->setIdentityAddress(mMe);
 	clientAccountParams->enableRegister(true);
 	clientAccountParams->setServerAddress(route);
 	clientAccountParams->setRoutesAddresses({route});
-	auto account = mCore->createAccount(clientAccountParams); // store the account pointer in local var to capture it in lambda
+	auto account =
+	    mCore->createAccount(clientAccountParams); // store the account pointer in local var to capture it in lambda
 	mCore->addAccount(account);
 	mAccount = account;
 
@@ -94,27 +99,27 @@ CoreClient::~CoreClient() {
 			return account->getState() == linphone::RegistrationState::Cleared;
 		}));
 	}
-	mCore->stopAsync(); // stopAsync is not really async, we must clear the account first or it will wait for the unregistration on server
+	mCore->stopAsync(); // stopAsync is not really async, we must clear the account first or it will wait for the
+	                    // unregistration on server
 	CoreAssert({mCore}, mServer->getAgent()).wait([core] {
 		return core->getGlobalState() == linphone::GlobalState::Off;
 	});
 }
 
 std::shared_ptr<linphone::Call> CoreClient::callVideo(std::shared_ptr<CoreClient> callee,
-													  std::shared_ptr<linphone::CallParams> callerCallParams,
-													  std::shared_ptr<linphone::CallParams> calleeCallParams) {
+                                                      std::shared_ptr<linphone::CallParams> callerCallParams,
+                                                      std::shared_ptr<linphone::CallParams> calleeCallParams) {
 	std::shared_ptr<linphone::CallParams> callParams = callerCallParams;
 	if (callParams == nullptr) {
 		callParams = mCore->createCallParams(nullptr);
 	}
 	callParams->enableVideo(true);
 	return call(callee, callParams, calleeCallParams);
-
 }
 
 std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> callee,
-												 std::shared_ptr<linphone::CallParams> callerCallParams,
-												 std::shared_ptr<linphone::CallParams> calleeCallParams) {
+                                                 std::shared_ptr<linphone::CallParams> callerCallParams,
+                                                 std::shared_ptr<linphone::CallParams> calleeCallParams) {
 	std::shared_ptr<linphone::CallParams> callParams = callerCallParams;
 	if (callParams == nullptr) {
 		callParams = mCore->createCallParams(nullptr);
@@ -126,12 +131,12 @@ std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> cal
 		return nullptr;
 	}
 
-	std::initializer_list<std::shared_ptr<linphone::Core>> coreList={mCore, callee->getCore()};
+	std::initializer_list<std::shared_ptr<linphone::Core>> coreList = {mCore, callee->getCore()};
 	// Check call get the incoming call and caller is in OutgoingRinging state
 	if (!BC_ASSERT_TRUE(CoreAssert(coreList, mServer->getAgent()).wait([callee] {
-		return ( (callee->getCore()->getCurrentCall() != nullptr)
-		&& (callee->getCore()->getCurrentCall()->getState() == linphone::Call::State::IncomingReceived) );
-	}))) {
+		    return ((callee->getCore()->getCurrentCall() != nullptr) &&
+		            (callee->getCore()->getCurrentCall()->getState() == linphone::Call::State::IncomingReceived));
+	    }))) {
 		return nullptr;
 	}
 	auto calleeCall = callee->getCore()->getCurrentCall();
@@ -141,8 +146,8 @@ std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> cal
 	}
 
 	if (!BC_ASSERT_TRUE(CoreAssert(coreList, mServer->getAgent()).wait([callerCall] {
-		return (callerCall->getState() == linphone::Call::State::OutgoingRinging);
-	}))) {
+		    return (callerCall->getState() == linphone::Call::State::OutgoingRinging);
+	    }))) {
 		return nullptr;
 	}
 
@@ -152,9 +157,9 @@ std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> cal
 	};
 
 	if (!BC_ASSERT_TRUE(CoreAssert(coreList, mServer->getAgent()).wait([calleeCall, callerCall] {
-		return ( callerCall->getState() == linphone::Call::State::StreamsRunning
-			&& calleeCall->getState() == linphone::Call::State::StreamsRunning );
-	}))) {
+		    return (callerCall->getState() == linphone::Call::State::StreamsRunning &&
+		            calleeCall->getState() == linphone::Call::State::StreamsRunning);
+	    }))) {
 		return nullptr;
 	}
 
@@ -163,27 +168,35 @@ std::shared_ptr<linphone::Call> CoreClient::call(std::shared_ptr<CoreClient> cal
 	if (callParams->videoEnabled()) {
 		mCore->setStaticPictureFps(24.0);
 		calleeCall->getCore()->setStaticPictureFps(24.0);
-		// give more time for videocall to fully establish to cover ZRTP case that start video channel after the audio channel is secured
+		// give more time for videocall to fully establish to cover ZRTP case that start video channel after the audio
+		// channel is secured
 		timeout = std::chrono::seconds(6);
 	}
 
-	if (!BC_ASSERT_TRUE(CoreAssert(coreList, mServer->getAgent()).waitUntil(timeout, [calleeCall,callerCall,callParams] {
-		// Check both sides for download and upload
-		bool ret = (calleeCall->getAudioStats() && callerCall->getAudioStats() && calleeCall->getAudioStats()->getDownloadBandwidth() > 10 && callerCall->getAudioStats()->getDownloadBandwidth() > 10);
-		if (callParams->videoEnabled()) { // check on original callParams given, not current one as callee could have refused the video
-			ret = ret && (calleeCall->getVideoStats() && callerCall->getVideoStats() && calleeCall->getVideoStats()->getDownloadBandwidth() > 10 && callerCall->getVideoStats()->getDownloadBandwidth() > 10);
-		} else {
-			ret = ret && (callerCall->getCurrentParams()->videoEnabled() == false) && (calleeCall->getCurrentParams()->videoEnabled() == false);
-		}
-		return ret;
-	}))) {
+	if (!BC_ASSERT_TRUE(
+	        CoreAssert(coreList, mServer->getAgent()).waitUntil(timeout, [calleeCall, callerCall, callParams] {
+		        // Check both sides for download and upload
+		        bool ret = (calleeCall->getAudioStats() && callerCall->getAudioStats() &&
+		                    calleeCall->getAudioStats()->getDownloadBandwidth() > 10 &&
+		                    callerCall->getAudioStats()->getDownloadBandwidth() > 10);
+		        if (callParams->videoEnabled()) { // check on original callParams given, not current one as callee could
+			                                      // have refused the video
+			        ret = ret && (calleeCall->getVideoStats() && callerCall->getVideoStats() &&
+			                      calleeCall->getVideoStats()->getDownloadBandwidth() > 10 &&
+			                      callerCall->getVideoStats()->getDownloadBandwidth() > 10);
+		        } else {
+			        ret = ret && (callerCall->getCurrentParams()->videoEnabled() == false) &&
+			              (calleeCall->getCurrentParams()->videoEnabled() == false);
+		        }
+		        return ret;
+	        }))) {
 		return nullptr;
 	}
 
 	return callerCall;
 }
 
-bool CoreClient::callUpdate(std::shared_ptr<CoreClient> peer, std::shared_ptr<linphone::CallParams> callParams)  {
+bool CoreClient::callUpdate(std::shared_ptr<CoreClient> peer, std::shared_ptr<linphone::CallParams> callParams) {
 	if (callParams == nullptr) {
 		BC_FAIL("Cannot update call without new call params");
 	}
@@ -200,29 +213,39 @@ bool CoreClient::callUpdate(std::shared_ptr<CoreClient> peer, std::shared_ptr<li
 
 	// Wait for the update to be concluded
 	if (!BC_ASSERT_TRUE(CoreAssert({mCore, peer->getCore()}, mServer->getAgent()).wait([selfCall, peerCall] {
-		return ( selfCall->getState() == linphone::Call::State::StreamsRunning
-			&& peerCall->getState() == linphone::Call::State::StreamsRunning );
-	}))) return false;
+		    return (selfCall->getState() == linphone::Call::State::StreamsRunning &&
+		            peerCall->getState() == linphone::Call::State::StreamsRunning);
+	    })))
+		return false;
 
 	auto timeout = std::chrono::seconds(2);
 	// If this is a video call, force Fps to generate traffic (This must be done once the video call is ongoing)
 	if (callParams->videoEnabled()) {
 		mCore->setStaticPictureFps(24.0);
 		peerCall->getCore()->setStaticPictureFps(24.0);
-		// give more time for videocall to fully establish to cover ZRTP case that start video channel after the audio channel is secured
+		// give more time for videocall to fully establish to cover ZRTP case that start video channel after the audio
+		// channel is secured
 		timeout = std::chrono::seconds(6);
 	}
 
-	if (!BC_ASSERT_TRUE(CoreAssert({mCore, peer->getCore()}, mServer->getAgent()).waitUntil(timeout, [peerCall,selfCall,callParams] {
-		// Check both sides for download and upload
-		bool ret = (peerCall->getAudioStats() && selfCall->getAudioStats() && peerCall->getAudioStats()->getDownloadBandwidth() > 10 && selfCall->getAudioStats()->getDownloadBandwidth() > 10);
-		if (callParams->videoEnabled()) { // check on original callParams given, not current one as callee could have refused the video
-			ret = ret && (peerCall->getVideoStats() && selfCall->getVideoStats() && peerCall->getVideoStats()->getDownloadBandwidth() > 10 && selfCall->getVideoStats()->getDownloadBandwidth() > 10);
-		} else {
-			ret = ret && (selfCall->getCurrentParams()->videoEnabled() == false) && (peerCall->getCurrentParams()->videoEnabled() == false);
-		}
-		return ret;
-	}))) return false;
+	if (!BC_ASSERT_TRUE(CoreAssert({mCore, peer->getCore()}, mServer->getAgent())
+	                        .waitUntil(timeout, [peerCall, selfCall, callParams] {
+		                        // Check both sides for download and upload
+		                        bool ret = (peerCall->getAudioStats() && selfCall->getAudioStats() &&
+		                                    peerCall->getAudioStats()->getDownloadBandwidth() > 10 &&
+		                                    selfCall->getAudioStats()->getDownloadBandwidth() > 10);
+		                        if (callParams->videoEnabled()) { // check on original callParams given, not current one
+			                                                      // as callee could have refused the video
+			                        ret = ret && (peerCall->getVideoStats() && selfCall->getVideoStats() &&
+			                                      peerCall->getVideoStats()->getDownloadBandwidth() > 10 &&
+			                                      selfCall->getVideoStats()->getDownloadBandwidth() > 10);
+		                        } else {
+			                        ret = ret && (selfCall->getCurrentParams()->videoEnabled() == false) &&
+			                              (peerCall->getCurrentParams()->videoEnabled() == false);
+		                        }
+		                        return ret;
+	                        })))
+		return false;
 
 	return true;
 }
@@ -236,7 +259,9 @@ bool CoreClient::endCurrentCall(std::shared_ptr<CoreClient> peer) {
 	}
 	mCore->getCurrentCall()->terminate();
 	if (!BC_ASSERT_TRUE(CoreAssert({mCore, peer->getCore()}, mServer->getAgent()).wait([selfCall, peerCall] {
-		return (selfCall->getState() == linphone::Call::State::Released && peerCall->getState() == linphone::Call::State::Released);
-	}))) return false;
+		    return (selfCall->getState() == linphone::Call::State::Released &&
+		            peerCall->getState() == linphone::Call::State::Released);
+	    })))
+		return false;
 	return true;
 }

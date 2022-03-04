@@ -22,124 +22,168 @@ namespace trenscrypter {
 
 // unamed namespace for local functions
 namespace {
-	/**
-	 * convert a configuration string to a linphone::MediaEncryption
-	 *
-	 * @param[in]	configString	the configuration string, one of: zrtp, sdes, dtls-srtp, none
-	 * @param[out]	encryptionMode	the converted value, None if the input string was invalid
-	 * @return		true if the given string is valid, false otherwise
-	 **/
-	bool string2MediaEncryption(const std::string configString, linphone::MediaEncryption &encryptionMode) {
-		if (configString == std::string{"zrtp"}) { encryptionMode = linphone::MediaEncryption::ZRTP; return true;}
-		if (configString == std::string{"sdes"}) { encryptionMode = linphone::MediaEncryption::SRTP; return true;}
-		if (configString == std::string{"dtls-srtp"}) { encryptionMode = linphone::MediaEncryption::DTLS; return true;}
-		if (configString == std::string{"none"}) { encryptionMode = linphone::MediaEncryption::None; return true;}
+/**
+ * convert a configuration string to a linphone::MediaEncryption
+ *
+ * @param[in]	configString	the configuration string, one of: zrtp, sdes, dtls-srtp, none
+ * @param[out]	encryptionMode	the converted value, None if the input string was invalid
+ * @return		true if the given string is valid, false otherwise
+ **/
+bool string2MediaEncryption(const std::string configString, linphone::MediaEncryption& encryptionMode) {
+	if (configString == std::string{"zrtp"}) {
+		encryptionMode = linphone::MediaEncryption::ZRTP;
+		return true;
+	}
+	if (configString == std::string{"sdes"}) {
+		encryptionMode = linphone::MediaEncryption::SRTP;
+		return true;
+	}
+	if (configString == std::string{"dtls-srtp"}) {
+		encryptionMode = linphone::MediaEncryption::DTLS;
+		return true;
+	}
+	if (configString == std::string{"none"}) {
 		encryptionMode = linphone::MediaEncryption::None;
-		return false;
+		return true;
 	}
-
-	/**
-	 * convert a linphone::MediaEncryption to string
-	 *
-	 * @param[in]	encryptionMode	The MediaEncryption to be converted
-	 * @return	The corresponding string, one of: zrtp, sdes, dtls-srtp, none. An error message if no match were found.
-	 **/
-	std::string MediaEncryption2string(const linphone::MediaEncryption mode) {
-		switch (mode) {
-			case linphone::MediaEncryption::ZRTP: return "zrtp";
-			case linphone::MediaEncryption::SRTP: return "sdes";
-			case linphone::MediaEncryption::DTLS: return "dtls-srtp";
-			case linphone::MediaEncryption::None: return "none";
-		}
-		return "Error - MediaEncryption2string is missing a case of MediaEncryption value";
-	}
-
-	/**
-	 * convert a configuration string to a linphone::SrtpSuite
-	 *
-	 * @param[in]	configString	the configuration string, one of: AES_CM_128_HMAC_SHA1_80, AES_CM_128_HMAC_SHA1_32,
-	 *								AES_192_CM_HMAC_SHA1_80, AES_192_CM_HMAC_SHA1_32,
-	 *								AES_256_CM_HMAC_SHA1_80, AES_256_CM_HMAC_SHA1_32
-	 *								AEAD_AES_128_GCM, AEAD_AES_256_GCM
-	 * @param[out]	encryptionMode	the converted value, Invalid if the input string was invalid
-	 * @return		true if the given string is valid, false otherwise:%s
-	 **/
-	linphone::SrtpSuite string2SrtpSuite(const std::string configString) {
-		if (configString == std::string{"AES_CM_128_HMAC_SHA1_80"}) { return linphone::SrtpSuite::AESCM128HMACSHA180;}
-		if (configString == std::string{"AES_CM_128_HMAC_SHA1_32"}) { return linphone::SrtpSuite::AESCM128HMACSHA132;}
-		if (configString == std::string{"AES_192_CM_HMAC_SHA1_80"}) { return linphone::SrtpSuite::AES192CMHMACSHA180;}
-		if (configString == std::string{"AES_192_CM_HMAC_SHA1_32"}) { return linphone::SrtpSuite::AES192CMHMACSHA132;}
-		if (configString == std::string{"AES_256_CM_HMAC_SHA1_80"}) { return linphone::SrtpSuite::AES256CMHMACSHA180;}
-		if (configString == std::string{"AES_256_CM_HMAC_SHA1_32"}) { return linphone::SrtpSuite::AES256CMHMACSHA132;}
-		if (configString == std::string{"AEAD_AES_128_GCM"}) { return linphone::SrtpSuite::AEADAES128GCM;}
-		if (configString == std::string{"AEAD_AES_256_GCM"}) { return linphone::SrtpSuite::AEADAES256GCM;}
-		return linphone::SrtpSuite::Invalid;
-	}
-
-	std::string SrtpSuite2string(const linphone::SrtpSuite suite) {
-		switch (suite) {
-			case linphone::SrtpSuite::AESCM128HMACSHA180: return "AES_CM_128_HMAC_SHA1_80";
-			case linphone::SrtpSuite::AESCM128HMACSHA132: return "AES_CM_128_HMAC_SHA1_32";
-			case linphone::SrtpSuite::AES192CMHMACSHA180: return "AES_192_CM_HMAC_SHA1_80";
-			case linphone::SrtpSuite::AES192CMHMACSHA132: return "AES_192_CM_HMAC_SHA1_32";
-			case linphone::SrtpSuite::AES256CMHMACSHA180: return "AES_256_CM_HMAC_SHA1_80";
-			case linphone::SrtpSuite::AES256CMHMACSHA132: return "AES_256_CM_HMAC_SHA1_32";
-			case linphone::SrtpSuite::AEADAES128GCM: return "AEAD_AES_128_GCM";
-			case linphone::SrtpSuite::AEADAES256GCM: return "AEAD_AES_256_GCM";
-			case linphone::SrtpSuite::Invalid: return "Invalid";
-		}
-		return "Invalid";
-	}
-	std::string SrtpSuite2string(const std::list<linphone::SrtpSuite> suites) {
-		std::string ret{};
-		for(const auto suite:suites) {
-			ret.append(SrtpSuite2string(suite) + ", ");
-		}
-		return ret;
-	}
-	/**
-	 * Explode a string into a vector of strings according to a delimiter
-	 *
-	 * @param[in]	s 			the string to explode
-	 * @param[in]	delimiter	the delimiter to use
-	 * @return	a vector of strings
-	 */
-	std::vector<std::string> explode(const std::string& s, char delimiter)
-	{
-		std::vector<std::string> tokens;
-		std::string token;
-		std::istringstream tokenStream(s);
-		while (std::getline(tokenStream, token, delimiter))
-		{
-			tokens.push_back(token);
-		}
-		return tokens;
-	}
+	encryptionMode = linphone::MediaEncryption::None;
+	return false;
 }
 
-linphone::Reason Trenscrypter::onCallCreate(linphone::CallParams& outgoingCallParams, const linphone::Call& incomingCall) {
+/**
+ * convert a linphone::MediaEncryption to string
+ *
+ * @param[in]	encryptionMode	The MediaEncryption to be converted
+ * @return	The corresponding string, one of: zrtp, sdes, dtls-srtp, none. An error message if no match were found.
+ **/
+std::string MediaEncryption2string(const linphone::MediaEncryption mode) {
+	switch (mode) {
+		case linphone::MediaEncryption::ZRTP:
+			return "zrtp";
+		case linphone::MediaEncryption::SRTP:
+			return "sdes";
+		case linphone::MediaEncryption::DTLS:
+			return "dtls-srtp";
+		case linphone::MediaEncryption::None:
+			return "none";
+	}
+	return "Error - MediaEncryption2string is missing a case of MediaEncryption value";
+}
+
+/**
+ * convert a configuration string to a linphone::SrtpSuite
+ *
+ * @param[in]	configString	the configuration string, one of: AES_CM_128_HMAC_SHA1_80, AES_CM_128_HMAC_SHA1_32,
+ *								AES_192_CM_HMAC_SHA1_80, AES_192_CM_HMAC_SHA1_32,
+ *								AES_256_CM_HMAC_SHA1_80, AES_256_CM_HMAC_SHA1_32
+ *								AEAD_AES_128_GCM, AEAD_AES_256_GCM
+ * @param[out]	encryptionMode	the converted value, Invalid if the input string was invalid
+ * @return		true if the given string is valid, false otherwise:%s
+ **/
+linphone::SrtpSuite string2SrtpSuite(const std::string configString) {
+	if (configString == std::string{"AES_CM_128_HMAC_SHA1_80"}) {
+		return linphone::SrtpSuite::AESCM128HMACSHA180;
+	}
+	if (configString == std::string{"AES_CM_128_HMAC_SHA1_32"}) {
+		return linphone::SrtpSuite::AESCM128HMACSHA132;
+	}
+	if (configString == std::string{"AES_192_CM_HMAC_SHA1_80"}) {
+		return linphone::SrtpSuite::AES192CMHMACSHA180;
+	}
+	if (configString == std::string{"AES_192_CM_HMAC_SHA1_32"}) {
+		return linphone::SrtpSuite::AES192CMHMACSHA132;
+	}
+	if (configString == std::string{"AES_256_CM_HMAC_SHA1_80"}) {
+		return linphone::SrtpSuite::AES256CMHMACSHA180;
+	}
+	if (configString == std::string{"AES_256_CM_HMAC_SHA1_32"}) {
+		return linphone::SrtpSuite::AES256CMHMACSHA132;
+	}
+	if (configString == std::string{"AEAD_AES_128_GCM"}) {
+		return linphone::SrtpSuite::AEADAES128GCM;
+	}
+	if (configString == std::string{"AEAD_AES_256_GCM"}) {
+		return linphone::SrtpSuite::AEADAES256GCM;
+	}
+	return linphone::SrtpSuite::Invalid;
+}
+
+std::string SrtpSuite2string(const linphone::SrtpSuite suite) {
+	switch (suite) {
+		case linphone::SrtpSuite::AESCM128HMACSHA180:
+			return "AES_CM_128_HMAC_SHA1_80";
+		case linphone::SrtpSuite::AESCM128HMACSHA132:
+			return "AES_CM_128_HMAC_SHA1_32";
+		case linphone::SrtpSuite::AES192CMHMACSHA180:
+			return "AES_192_CM_HMAC_SHA1_80";
+		case linphone::SrtpSuite::AES192CMHMACSHA132:
+			return "AES_192_CM_HMAC_SHA1_32";
+		case linphone::SrtpSuite::AES256CMHMACSHA180:
+			return "AES_256_CM_HMAC_SHA1_80";
+		case linphone::SrtpSuite::AES256CMHMACSHA132:
+			return "AES_256_CM_HMAC_SHA1_32";
+		case linphone::SrtpSuite::AEADAES128GCM:
+			return "AEAD_AES_128_GCM";
+		case linphone::SrtpSuite::AEADAES256GCM:
+			return "AEAD_AES_256_GCM";
+		case linphone::SrtpSuite::Invalid:
+			return "Invalid";
+	}
+	return "Invalid";
+}
+std::string SrtpSuite2string(const std::list<linphone::SrtpSuite> suites) {
+	std::string ret{};
+	for (const auto suite : suites) {
+		ret.append(SrtpSuite2string(suite) + ", ");
+	}
+	return ret;
+}
+/**
+ * Explode a string into a vector of strings according to a delimiter
+ *
+ * @param[in]	s 			the string to explode
+ * @param[in]	delimiter	the delimiter to use
+ * @return	a vector of strings
+ */
+std::vector<std::string> explode(const std::string& s, char delimiter) {
+	std::vector<std::string> tokens;
+	std::string token;
+	std::istringstream tokenStream(s);
+	while (std::getline(tokenStream, token, delimiter)) {
+		tokens.push_back(token);
+	}
+	return tokens;
+}
+} // namespace
+
+linphone::Reason Trenscrypter::onCallCreate(linphone::CallParams& outgoingCallParams,
+                                            const linphone::Call& incomingCall) {
 	const auto calleeAddressUriOnly = incomingCall.getToAddress()->asStringUriOnly();
 	outgoingCallParams.setFromHeader(incomingCall.getRemoteAddress()->asString());
 
 	// select an outgoing encryption
 	bool outgoingEncryptionSet = false;
-	for (auto &outEncSetting: mOutgoingEncryption) {
+	for (auto& outEncSetting : mOutgoingEncryption) {
 		if (std::regex_match(calleeAddressUriOnly, outEncSetting.pattern)) {
-			SLOGD<<"b2bua server: call to "<<calleeAddressUriOnly<<" matches regex "<<outEncSetting.stringPattern<<" assign encryption mode "<<MediaEncryption2string(outEncSetting.mode);
+			SLOGD << "b2bua server: call to " << calleeAddressUriOnly << " matches regex "
+			      << outEncSetting.stringPattern << " assign encryption mode "
+			      << MediaEncryption2string(outEncSetting.mode);
 			outgoingCallParams.setMediaEncryption(outEncSetting.mode);
 			outgoingEncryptionSet = true;
 			break; // stop at the first matching regexp
 		}
 	}
 	if (outgoingEncryptionSet == false) {
-		SLOGD<<"b2bua server: call to "<<calleeAddressUriOnly<<" uses incoming encryption setting";
+		SLOGD << "b2bua server: call to " << calleeAddressUriOnly << " uses incoming encryption setting";
 	}
 
 	// When outgoing encryption mode is sdes, select a crypto suite list setting if a pattern matches
 	if (outgoingCallParams.getMediaEncryption() == linphone::MediaEncryption::SRTP) {
-		for (auto &outSrtpSetting: mSrtpConf) {
+		for (auto& outSrtpSetting : mSrtpConf) {
 			if (std::regex_match(calleeAddressUriOnly, outSrtpSetting.pattern)) {
-				SLOGD<<"b2bua server: call to "<<calleeAddressUriOnly<<" matches SRTP suite regex "<<outSrtpSetting.stringPattern<<" assign Srtp Suites to "<<SrtpSuite2string(outSrtpSetting.suites);
+				SLOGD << "b2bua server: call to " << calleeAddressUriOnly << " matches SRTP suite regex "
+				      << outSrtpSetting.stringPattern << " assign Srtp Suites to "
+				      << SrtpSuite2string(outSrtpSetting.suites);
 				outgoingCallParams.setSrtpSuites(outSrtpSetting.suites);
 				break; // stop at the first matching regexp
 			}
@@ -148,7 +192,9 @@ linphone::Reason Trenscrypter::onCallCreate(linphone::CallParams& outgoingCallPa
 
 	// Check the selected outgoing encryption setting is available
 	if (!mCore->isMediaEncryptionSupported(outgoingCallParams.getMediaEncryption())) {
-		SLOGD<<"b2bua server tries to place an output call using "<<MediaEncryption2string(outgoingCallParams.getMediaEncryption())<<" encryption mode but it is not available";
+		SLOGD << "b2bua server tries to place an output call using "
+		      << MediaEncryption2string(outgoingCallParams.getMediaEncryption())
+		      << " encryption mode but it is not available";
 		return linphone::Reason::NotAcceptable;
 	}
 
@@ -172,18 +218,21 @@ void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexi
 	// Parse configuration for outgoing encryption mode
 	auto outgoingEncryptionList = config.get<ConfigStringList>("outgoing-enc-regex")->read();
 	// parse from the list begining, we shall have couple : encryption_mode regex
-	while (outgoingEncryptionList.size()>=2) {
+	while (outgoingEncryptionList.size() >= 2) {
 		linphone::MediaEncryption outgoingEncryption = linphone::MediaEncryption::None;
 		if (string2MediaEncryption(outgoingEncryptionList.front(), outgoingEncryption)) {
 			outgoingEncryptionList.pop_front();
 			try {
 				mOutgoingEncryption.emplace_back(outgoingEncryption, outgoingEncryptionList.front());
-			} catch (std::exception &e) {
-				BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid regex : "<<outgoingEncryptionList.front();
+			} catch (std::exception& e) {
+				BCTBX_SLOGE << "b2bua configuration error: outgoing-enc-regex contains invalid regex : "
+				            << outgoingEncryptionList.front();
 			}
 			outgoingEncryptionList.pop_front();
 		} else {
-			BCTBX_SLOGE<<"b2bua configuration error: outgoing-enc-regex contains invalid encryption mode: "<<outgoingEncryptionList.front()<<" valids modes are : zrtp, sdes, dtls-srtp, none. Ignore this setting";
+			BCTBX_SLOGE << "b2bua configuration error: outgoing-enc-regex contains invalid encryption mode: "
+			            << outgoingEncryptionList.front()
+			            << " valids modes are : zrtp, sdes, dtls-srtp, none. Ignore this setting";
 			outgoingEncryptionList.pop_front();
 			outgoingEncryptionList.pop_front();
 		}
@@ -194,30 +243,33 @@ void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexi
 	// If no regexp match, use the default configuration from rcfile
 	// each suites is a ; separated list of suites
 	auto outgoingSrptSuiteList = config.get<ConfigStringList>("outgoing-srtp-regex")->read();
-	while (outgoingSrptSuiteList.size()>=2) {
+	while (outgoingSrptSuiteList.size() >= 2) {
 		// first part is a ; separated list of suite, explode it and get each one of them
 		auto srtpSuites = explode(outgoingSrptSuiteList.front(), ';');
 		std::list<linphone::SrtpSuite> srtpCryptoSuites{};
 		// turn the string list into a std::list of linphone::SrtpSuite
-		for (auto &suiteName: srtpSuites) {
+		for (auto& suiteName : srtpSuites) {
 			srtpCryptoSuites.push_back(string2SrtpSuite(suiteName));
 		}
-		if (srtpCryptoSuites.size()>0) {
+		if (srtpCryptoSuites.size() > 0) {
 			outgoingSrptSuiteList.pop_front();
 			// get the associated regex
 			try {
 				mSrtpConf.emplace_back(srtpCryptoSuites, outgoingSrptSuiteList.front());
-			} catch (std::exception &e) {
-				BCTBX_SLOGE<<"b2bua configuration error: outgoing-srtp-regex contains invalid regex : "<<outgoingSrptSuiteList.front();
+			} catch (std::exception& e) {
+				BCTBX_SLOGE << "b2bua configuration error: outgoing-srtp-regex contains invalid regex : "
+				            << outgoingSrptSuiteList.front();
 			}
 			outgoingSrptSuiteList.pop_front();
 		} else {
-				BCTBX_SLOGE<<"b2bua configuration error: outgoing-srtp-regex contains invalid suite: "<<outgoingSrptSuiteList.front()<<". Ignore this setting";
-				outgoingSrptSuiteList.pop_front();
-				outgoingSrptSuiteList.pop_front();
+			BCTBX_SLOGE << "b2bua configuration error: outgoing-srtp-regex contains invalid suite: "
+			            << outgoingSrptSuiteList.front() << ". Ignore this setting";
+			outgoingSrptSuiteList.pop_front();
+			outgoingSrptSuiteList.pop_front();
 		}
 	}
-
 }
 
-}}} // flexisip::b2bua::trenscrypter
+} // namespace trenscrypter
+} // namespace b2bua
+} // namespace flexisip

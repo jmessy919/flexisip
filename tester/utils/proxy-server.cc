@@ -14,8 +14,8 @@
  You should have received a copy of the GNU Affero General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "flexisip/registrardb.hh"
 #include "proxy-server.hh"
+#include "flexisip/registrardb.hh"
 /**
  * A class to manage the flexisip proxy server
  */
@@ -25,16 +25,16 @@ Server::Server(const std::string& configFile) {
 	mAgent = std::make_shared<flexisip::Agent>(mRoot);
 
 	if (!configFile.empty()) {
-		flexisip::GenericManager *cfg = flexisip::GenericManager::get();
+		flexisip::GenericManager* cfg = flexisip::GenericManager::get();
 
 		auto configFilePath = bcTesterRes(configFile);
-		int ret=-1;
-		if (bctbx_file_exist(configFilePath.c_str()) == 0 ) {
+		int ret = -1;
+		if (bctbx_file_exist(configFilePath.c_str()) == 0) {
 			ret = cfg->load(configFilePath);
 		} else {
 			ret = cfg->load(std::string(TESTER_DATA_DIR).append(configFile));
 		}
-		if (ret!=0) {
+		if (ret != 0) {
 			BC_FAIL("Unable to load configuration file");
 		}
 		mAgent->loadConfig(cfg);

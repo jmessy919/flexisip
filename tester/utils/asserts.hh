@@ -20,38 +20,38 @@
 
 class BcAssert {
 public:
-	void addCustomIterate(const std::function<void ()> &iterate) {
+	void addCustomIterate(const std::function<void()>& iterate) {
 		mIterateFuncs.push_back(iterate);
 	}
-	bool waitUntil( std::chrono::duration<double> timeout ,const std::function<bool ()> &condition) {
+	bool waitUntil(std::chrono::duration<double> timeout, const std::function<bool()>& condition) {
 		auto start = std::chrono::steady_clock::now();
 
 		bool result;
 		while (!(result = condition()) && (std::chrono::steady_clock::now() - start < timeout)) {
-			for (const auto &iterate:mIterateFuncs) {
+			for (const auto& iterate : mIterateFuncs) {
 				iterate();
 			}
 			std::this_thread::sleep_for(std::chrono::milliseconds(10));
 		}
 		return result;
 	}
-	bool wait(const std::function<bool ()> &condition) {
-		return waitUntil(std::chrono::seconds(2),condition);
+	bool wait(const std::function<bool()>& condition) {
+		return waitUntil(std::chrono::seconds(2), condition);
 	}
+
 private:
-	std::list<std::function<void ()>> mIterateFuncs;
+	std::list<std::function<void()>> mIterateFuncs;
 };
 
 class CoreAssert : public BcAssert {
 public:
 	CoreAssert(std::initializer_list<std::shared_ptr<linphone::Core>> cores) {
-		for (std::shared_ptr<linphone::Core> core: cores) {
-			addCustomIterate([core] {
-				core->iterate();
-			});
+		for (std::shared_ptr<linphone::Core> core : cores) {
+			addCustomIterate([core] { core->iterate(); });
 		}
 	}
-	CoreAssert(std::initializer_list<std::shared_ptr<linphone::Core>> cores, std::shared_ptr<flexisip::Agent> agent) : CoreAssert(cores) {
-		addCustomIterate([agent] { agent->getRoot()->step(std::chrono::milliseconds(1) ); });
+	CoreAssert(std::initializer_list<std::shared_ptr<linphone::Core>> cores, std::shared_ptr<flexisip::Agent> agent)
+	    : CoreAssert(cores) {
+		addCustomIterate([agent] { agent->getRoot()->step(std::chrono::milliseconds(1)); });
 	}
 };
