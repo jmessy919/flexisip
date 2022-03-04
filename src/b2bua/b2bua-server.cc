@@ -55,8 +55,6 @@ std::shared_ptr<linphone::Call> getPeerCall(std::shared_ptr<linphone::Call> call
 }
 } // namespace
 
-B2buaServer::Init B2buaServer::sStaticInit; // The Init object is instanciated to load the config
-
 B2buaServer::B2buaServer(const std::shared_ptr<sofiasip::SuRoot>& root) : ServiceServer(root) {
 }
 
@@ -81,7 +79,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core>& core
 			// add this custom header so this call will not be intercepted by the b2bua
 			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
 
-			const auto decline = mModule->onCallCreate(*outgoingCallParams, *call);
+			const auto decline = mDelegate->onCallCreate(*outgoingCallParams, *call);
 			if (decline != linphone::Reason::None) {
 				call->decline(decline);
 				return;
@@ -182,6 +180,7 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core>& core
 		case linphone::Call::State::Error:
 			// when call in error we shall kill the conf, just do as in End
 		case linphone::Call::State::End: {
+			mDelegate->onCallEnd(*call);
 			// If there are some data in that call, it is the first one to end
 			if (call->dataExists(B2buaServer::confKey)) {
 				auto peerCall = getPeerCall(call);
@@ -259,7 +258,8 @@ void B2buaServer::_init() {
 	/* Handle the case where the  directory is not created.
 	 * This is for convenience, because our rpm and deb packages create it already. - NO THEY DO NOT DO THAT
 	 * However, in other case (like developper environnement) this is painful to create it all the time manually.*/
-	auto config = GenericManager::get()->getRoot()->get<GenericStruct>("b2bua-server");
+	const auto configRoot = GenericManager::get()->getRoot();
+	auto config = configRoot->get<GenericStruct>(b2bua::configSection);
 	auto dataDirPath = config->get<ConfigString>("data-directory")->read();
 	if (!bctbx_directory_exists(dataDirPath.c_str())) {
 		BCTBX_SLOGI << "Creating b2bua data directory " << dataDirPath;
@@ -325,8 +325,8 @@ void B2buaServer::_init() {
 	mCore->setTransports(b2buaTransport);
 	mCore->addListener(shared_from_this());
 
-	mModule = std::make_unique<b2bua::trenscrypter::Trenscrypter>();
-	mModule->init(mCore, *config);
+	mDelegate = std::make_unique<b2bua::trenscrypter::Trenscrypter>();
+	mDelegate->init(mCore, *configRoot);
 
 	mCore->start();
 }
@@ -339,73 +339,12 @@ void B2buaServer::_stop() {
 	mCore->removeListener(shared_from_this());
 }
 
-B2buaServer::Init::Init() {
+namespace {
+// Statically define default configuration items
+auto defineConfig = [] {
 	ConfigItemDescriptor items[] = {
 	    {String, "transport", "SIP uri on which the back-to-back user agent server is listening on.",
 	     "sip:127.0.0.1:6067;transport=tcp"},
-	    {StringList, "outgoing-enc-regex",
-	     "Select the call outgoing encryption mode, this is a list of regular expressions and encryption mode.\n"
-	     "Valid encryption modes are: zrtp, dtls-srtp, sdes, none.\n\n"
-	     "The list is formatted in the following mode:\n"
-	     "mode1 regex1 mode2 regex2 ... moden regexn\n"
-	     "regex use posix syntax, any invalid one is skipped\n"
-	     "Each regex is applied, in the given order, on the callee sip uri(including parameters if any). First match "
-	     "found determines the encryption mode. "
-	     "if no regex matches, the incoming call encryption mode is used.\n\n"
-	     "Example: zrtp .*@sip\\.secure-example\\.org dtsl-srtp .*dtls@sip\\.example\\.org zrtp "
-	     ".*zrtp@sip\\.example\\.org sdes .*@sip\\.example\\.org\n"
-	     "In this example: the address is matched in order with\n"
-	     ".*@sip\\.secure-example\\.org so any call directed to an address on domain sip.secure-example-org uses zrtp "
-	     "encryption mode\n"
-	     ".*dtls@sip\\.example\\.org any call on sip.example.org to a username ending with dtls uses dtls-srtp "
-	     "encryption mode\n"
-	     ".*zrtp@sip\\.example\\.org any call on sip.example.org to a username ending with zrtp uses zrtp encryption "
-	     "mode\n"
-	     "The previous example will fail to match if the call is directed to a specific device(having a GRUU as callee "
-	     "address)\n"
-	     "To ignore sip URI parameters, use (;.*)? at the end of the regex. Example: "
-	     ".*@sip\\.secure-example\\.org(;.*)?\n"
-	     "Default:"
-	     "Selected encryption mode(if any) is enforced and the call will fail if the callee does not support this mode",
-	     ""},
-	    {StringList, "outgoing-srtp-regex",
-	     "Outgoing SRTP crypto suite in SDES encryption mode:\n"
-	     "Select the call outgoing SRTP crypto suite when outgoing encryption mode is SDES, this is a list of regular "
-	     "expressions and crypto suites list.\n"
-	     "Valid srtp crypto suites are :\n"
-	     "AES_CM_128_HMAC_SHA1_80, AES_CM_128_HMAC_SHA1_32\n"
-	     "AES_192_CM_HMAC_SHA1_80, AES_192_CM_HMAC_SHA1_32 // currently not supported\n"
-	     "AES_256_CM_HMAC_SHA1_80, AES_256_CM_HMAC_SHA1_80\n"
-	     "AEAD_AES_128_GCM, AEAD_AES_256_GCM // currently not supported\n"
-	     "\n"
-	     "The list is formatted in the following mode:\n"
-	     "cryptoSuiteList1 regex1 cryptoSuiteList2 regex2 ... crytoSuiteListn regexn\n"
-	     "with cryptoSuiteList being a ; separated list of crypto suites.\n"
-	     "\n"
-	     "Regex use posix syntax, any invalid one is skipped\n"
-	     "Each regex is applied, in the given order, on the callee sip uri(including parameters if any). First match "
-	     "found determines the crypto suite list used.\n"
-	     "\n"
-	     "if no regex matches, core setting is applied\n"
-	     "or default to "
-	     "AES_CM_128_HMAC_SHA1_80;AES_CM_128_HMAC_SHA1_32;AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 when no core "
-	     "setting is available\n"
-	     "\n"
-	     "Example:\n"
-	     "AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 .*@sip\\.secure-example\\.org AES_CM_128_HMAC_SHA1_80 "
-	     ".*@sip\\.example\\.org\n"
-	     "\n"
-	     "In this example: the address is matched in order with\n"
-	     ".*@sip\\.secure-example\\.org so any call directed to an address on domain sip.secure-example-org uses "
-	     "AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 suites (in that order)\n"
-	     ".*@sip\\.example\\.org any call directed to an address on domain sip.example.org use AES_CM_128_HMAC_SHA1_80 "
-	     "suite\n"
-	     "The previous example will fail to match if the call is directed to a specific device(having a GRUU as callee "
-	     "address)\n"
-	     "To ignore sip URI parameters, use (;.*)? at the end of the regex. Example: "
-	     ".*@sip\\.secure-example\\.org(;.*)?\n"
-	     "Default:",
-	     ""},
 	    {String, "data-directory",
 	     "Directory where to store b2bua core local files\n"
 	     "Default",
@@ -415,9 +354,14 @@ B2buaServer::Init::Init() {
 	     "sip:127.0.0.1:5060;transport=tcp"},
 	    config_item_end};
 
-	auto uS = make_unique<GenericStruct>("b2bua-server", "Flexisip back-to-back user agent server parameters.", 0);
-	auto s = GenericManager::get()->getRoot()->addChild(move(uS));
-	s->addChildrenValues(items);
-}
+	GenericManager::get()
+	    ->getRoot()
+	    ->addChild(
+	        std::make_unique<GenericStruct>(b2bua::configSection, "Flexisip back-to-back user agent server parameters.", 0))
+	    ->addChildrenValues(items);
+
+	return nullptr;
+}();
+} // namespace
 
 } // namespace flexisip

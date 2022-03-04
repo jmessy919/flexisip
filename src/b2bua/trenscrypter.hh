@@ -53,7 +53,7 @@ public:
 /**
  * Media encryption transcoder
  */
-class Trenscrypter : public IModule {
+class Trenscrypter : public BridgedCallDelegate {
 	std::shared_ptr<linphone::Core> mCore;
 	std::list<encryptionConfiguration> mOutgoingEncryption;
 	std::list<srtpConfiguration> mSrtpConf;

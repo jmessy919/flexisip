@@ -28,22 +28,28 @@
 
 namespace flexisip {
 namespace b2bua {
-class IModule {
+class BridgedCallDelegate {
 public:
-	virtual void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) = 0;
+	virtual void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& configRoot) = 0;
 	/**
-	 * lets the module run some business logic before the outgoing call is placed.
+	 * lets the delegate run some business logic before the outgoing call is placed.
 	 *
-	 * @param[out]	outgoingCallParams	the params of the outgoing call to be created. They will be modified according
-	 *to the business logic of the module.
-	 * @param[out]	incomingCall	the call that triggered the B2BUA.
+	 * @param[inout]	outgoingCallParams	the params of the outgoing call to be created. They will be modified
+	 *according to the business logic of the delegate.
+	 * @param[in]	incomingCall	the call that triggered the B2BUA.
 	 * @return		a reason to abort the bridging and decline the incoming call. Reason::None if the call should go
 	 *through.
 	 **/
 	virtual linphone::Reason onCallCreate(linphone::CallParams& outgoingCallParams,
 	                                      const linphone::Call& incomingCall) = 0;
-	virtual ~IModule() = default;
+	virtual void onCallEnd(const linphone::Call& call) {
+	}
+	virtual ~BridgedCallDelegate() = default;
 };
+
+// Name of the corresponding section in the configuration file
+constexpr auto configSection = "b2bua-server";
+
 } // namespace b2bua
 class B2buaServer : public ServiceServer,
                     public std::enable_shared_from_this<B2buaServer>,
@@ -64,14 +70,8 @@ protected:
 	void _stop() override;
 
 private:
-	class Init {
-	public:
-		Init();
-	};
-
-	static Init sStaticInit;
 	std::shared_ptr<linphone::Core> mCore;
-	std::unique_ptr<b2bua::IModule> mModule;
+	std::unique_ptr<b2bua::BridgedCallDelegate> mDelegate;
 };
 
 } // namespace flexisip

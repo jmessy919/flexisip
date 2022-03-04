@@ -154,6 +154,10 @@ std::vector<std::string> explode(const std::string& s, char delimiter) {
 	}
 	return tokens;
 }
+
+// Name of the corresponding section in the configuration file
+constexpr auto configSection = "b2bua-server::trenscrypter";
+
 } // namespace
 
 linphone::Reason Trenscrypter::onCallCreate(linphone::CallParams& outgoingCallParams,
@@ -201,11 +205,13 @@ linphone::Reason Trenscrypter::onCallCreate(linphone::CallParams& outgoingCallPa
 	return linphone::Reason::None;
 }
 
-void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) {
+void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& configRoot) {
 	mCore = core;
+	const auto config = configRoot.get<GenericStruct>(configSection);
 
 	// create a non registered account to force route outgoing call through the proxy
-	auto route = mCore->createAddress(config.get<ConfigString>("outbound-proxy")->read());
+	auto route = mCore->createAddress(
+	    configRoot.get<GenericStruct>(b2bua::configSection)->get<ConfigString>("outbound-proxy")->read());
 	auto accountParams = mCore->createAccountParams();
 	accountParams->setIdentityAddress(mCore->createAddress(mCore->getPrimaryContact()));
 	accountParams->enableRegister(false);
@@ -216,7 +222,7 @@ void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexi
 	mCore->setDefaultAccount(account);
 
 	// Parse configuration for outgoing encryption mode
-	auto outgoingEncryptionList = config.get<ConfigStringList>("outgoing-enc-regex")->read();
+	auto outgoingEncryptionList = config->get<ConfigStringList>("outgoing-enc-regex")->read();
 	// parse from the list begining, we shall have couple : encryption_mode regex
 	while (outgoingEncryptionList.size() >= 2) {
 		linphone::MediaEncryption outgoingEncryption = linphone::MediaEncryption::None;
@@ -242,7 +248,7 @@ void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexi
 	// we shall have a space separated list of suites regex suites regex ... suites regex
 	// If no regexp match, use the default configuration from rcfile
 	// each suites is a ; separated list of suites
-	auto outgoingSrptSuiteList = config.get<ConfigStringList>("outgoing-srtp-regex")->read();
+	auto outgoingSrptSuiteList = config->get<ConfigStringList>("outgoing-srtp-regex")->read();
 	while (outgoingSrptSuiteList.size() >= 2) {
 		// first part is a ; separated list of suite, explode it and get each one of them
 		auto srtpSuites = explode(outgoingSrptSuiteList.front(), ';');
@@ -269,6 +275,85 @@ void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexi
 		}
 	}
 }
+
+namespace {
+
+// Statically define default configuration items
+auto defineConfig = [] {
+	ConfigItemDescriptor items[] = {
+	    {StringList, "outgoing-enc-regex",
+	     "Select the call outgoing encryption mode, this is a list of regular expressions and encryption mode.\n"
+	     "Valid encryption modes are: zrtp, dtls-srtp, sdes, none.\n\n"
+	     "The list is formatted in the following mode:\n"
+	     "mode1 regex1 mode2 regex2 ... moden regexn\n"
+	     "regex use posix syntax, any invalid one is skipped\n"
+	     "Each regex is applied, in the given order, on the callee sip uri(including parameters if any). First match "
+	     "found determines the encryption mode. "
+	     "if no regex matches, the incoming call encryption mode is used.\n\n"
+	     "Example: zrtp .*@sip\\.secure-example\\.org dtsl-srtp .*dtls@sip\\.example\\.org zrtp "
+	     ".*zrtp@sip\\.example\\.org sdes .*@sip\\.example\\.org\n"
+	     "In this example: the address is matched in order with\n"
+	     ".*@sip\\.secure-example\\.org so any call directed to an address on domain sip.secure-example-org uses zrtp "
+	     "encryption mode\n"
+	     ".*dtls@sip\\.example\\.org any call on sip.example.org to a username ending with dtls uses dtls-srtp "
+	     "encryption mode\n"
+	     ".*zrtp@sip\\.example\\.org any call on sip.example.org to a username ending with zrtp uses zrtp encryption "
+	     "mode\n"
+	     "The previous example will fail to match if the call is directed to a specific device(having a GRUU as callee "
+	     "address)\n"
+	     "To ignore sip URI parameters, use (;.*)? at the end of the regex. Example: "
+	     ".*@sip\\.secure-example\\.org(;.*)?\n"
+	     "Default:"
+	     "Selected encryption mode(if any) is enforced and the call will fail if the callee does not support this mode",
+	     ""},
+	    {StringList, "outgoing-srtp-regex",
+	     "Outgoing SRTP crypto suite in SDES encryption mode:\n"
+	     "Select the call outgoing SRTP crypto suite when outgoing encryption mode is SDES, this is a list of regular "
+	     "expressions and crypto suites list.\n"
+	     "Valid srtp crypto suites are :\n"
+	     "AES_CM_128_HMAC_SHA1_80, AES_CM_128_HMAC_SHA1_32\n"
+	     "AES_192_CM_HMAC_SHA1_80, AES_192_CM_HMAC_SHA1_32 // currently not supported\n"
+	     "AES_256_CM_HMAC_SHA1_80, AES_256_CM_HMAC_SHA1_80\n"
+	     "AEAD_AES_128_GCM, AEAD_AES_256_GCM // currently not supported\n"
+	     "\n"
+	     "The list is formatted in the following mode:\n"
+	     "cryptoSuiteList1 regex1 cryptoSuiteList2 regex2 ... crytoSuiteListn regexn\n"
+	     "with cryptoSuiteList being a ; separated list of crypto suites.\n"
+	     "\n"
+	     "Regex use posix syntax, any invalid one is skipped\n"
+	     "Each regex is applied, in the given order, on the callee sip uri(including parameters if any). First match "
+	     "found determines the crypto suite list used.\n"
+	     "\n"
+	     "if no regex matches, core setting is applied\n"
+	     "or default to "
+	     "AES_CM_128_HMAC_SHA1_80;AES_CM_128_HMAC_SHA1_32;AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 when no core "
+	     "setting is available\n"
+	     "\n"
+	     "Example:\n"
+	     "AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 .*@sip\\.secure-example\\.org AES_CM_128_HMAC_SHA1_80 "
+	     ".*@sip\\.example\\.org\n"
+	     "\n"
+	     "In this example: the address is matched in order with\n"
+	     ".*@sip\\.secure-example\\.org so any call directed to an address on domain sip.secure-example-org uses "
+	     "AES_256_CM_HMAC_SHA1_80;AES_256_CM_HMAC_SHA1_32 suites (in that order)\n"
+	     ".*@sip\\.example\\.org any call directed to an address on domain sip.example.org use AES_CM_128_HMAC_SHA1_80 "
+	     "suite\n"
+	     "The previous example will fail to match if the call is directed to a specific device(having a GRUU as callee "
+	     "address)\n"
+	     "To ignore sip URI parameters, use (;.*)? at the end of the regex. Example: "
+	     ".*@sip\\.secure-example\\.org(;.*)?\n"
+	     "Default:",
+	     ""},
+	    config_item_end};
+
+	GenericManager::get()
+	    ->getRoot()
+	    ->addChild(std::make_unique<GenericStruct>(configSection, "Encryption transcoder bridge parameters.", 0))
+	    ->addChildrenValues(items);
+
+	return nullptr;
+}();
+} // namespace
 
 } // namespace trenscrypter
 } // namespace b2bua
