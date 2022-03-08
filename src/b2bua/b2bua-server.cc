@@ -39,7 +39,7 @@ struct callsRefs {
 // unamed namespace for local functions
 namespace {
 /**
- * Given one leg of the tranfered call, it returns the other legA
+ * Given one leg of the tranfered call, it returns the other leg
  *
  * @param[in]	call one of the call in the two call conference created by the b2bua
  *
@@ -49,7 +49,7 @@ std::shared_ptr<linphone::Call> getPeerCall(std::shared_ptr<linphone::Call> call
 	auto& confData = call->getData<flexisip::b2bua::callsRefs>(B2buaServer::confKey);
 	if (call->getDir() == linphone::Call::Dir::Outgoing) {
 		return confData.legA;
-	} else { // This is legA, pause legB
+	} else {
 		return confData.legB;
 	}
 }
