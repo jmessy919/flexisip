@@ -16,7 +16,13 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 #pragma once
-#include <linphone++/linphone.hh>
+
+#include <chrono>
+#include <functional>
+#include <thread>
+
+#include "flexisip/agent.hh"
+#include "linphone++/linphone.hh"
 
 class BcAssert {
 public:
