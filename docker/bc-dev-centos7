@@ -10,6 +10,4 @@ MAINTAINER François Grisez <francois.grisez@belledonne-communications.com>
 # To get FFMPEG, we need cheese repository, which we enable only to get FFMPEG and its dev libs. It stays disabled after that to avoid conflicts with official packages.
 
 # Install extra Flexisip dependencies
-#RUN sudo su -c 'yum -y install jansson-devel libnghttp2-devel net-snmp-devel protobuf-devel devtoolset-8-libasan-devel devtoolset-8-libubsan-devel && yum localinstall --nogpgcheck https://mirrors.rpmfusion.org/free/el/rpmfusion-free-release-7.noarch.rpm -y && yum-config-manager --disable rpmfusion-free-updates -y && yum install --enablerepo=rpmfusion-free-updates ffmpeg -y && yum -y clean all'
-
 RUN sudo su -c 'yum -y install jansson-devel libnghttp2-devel net-snmp-devel protobuf-devel devtoolset-8-libasan-devel devtoolset-8-libubsan-devel && yum localinstall --nogpgcheck http://www.nosuchhost.net/~cheese/fedora/packages/epel-7/x86_64/cheese-release-7-1.noarch.rpm -y && yum-config-manager --disable cheese -y && yum install --enablerepo=cheese ffmpeg libavcodec-devel libavutil-devel libswscale-devel -y && yum -y clean all'
