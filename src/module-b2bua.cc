@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2021  Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2022  Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -16,18 +16,19 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "flexisip/utils/sip-uri.hh"
 #include <flexisip/agent.hh>
 #include <flexisip/logmanager.hh>
 #include <flexisip/module.hh>
 #include <flexisip/plugin.hh>
 
-using namespace flexisip;
+#include "flexisip/utils/sip-uri.hh"
+
 using namespace std;
 
 // =============================================================================
 // Module declaration
 // =============================================================================
+namespace flexisip {
 
 class B2bua : public Module, ModuleToolbox {
 public:
@@ -115,3 +116,5 @@ void B2bua::onRequest(shared_ptr<RequestSipEvent>& ev) {
 
 void B2bua::onResponse(shared_ptr<ResponseSipEvent>& ev) {
 }
+
+} // namespace flexisip

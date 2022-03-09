@@ -16,11 +16,13 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "b2bua-server.hh"
+#include <mediastreamer2/ms_srtp.h>
+
 #include "flexisip/logmanager.hh"
 #include "flexisip/utils/sip-uri.hh"
+
+#include "b2bua-server.hh"
 #include "trenscrypter.hh"
-#include <mediastreamer2/ms_srtp.h>
 
 using namespace std;
 using namespace linphone;
@@ -356,8 +358,8 @@ auto defineConfig = [] {
 
 	GenericManager::get()
 	    ->getRoot()
-	    ->addChild(
-	        std::make_unique<GenericStruct>(b2bua::configSection, "Flexisip back-to-back user agent server parameters.", 0))
+	    ->addChild(std::make_unique<GenericStruct>(b2bua::configSection,
+	                                               "Flexisip back-to-back user agent server parameters.", 0))
 	    ->addChildrenValues(items);
 
 	return nullptr;

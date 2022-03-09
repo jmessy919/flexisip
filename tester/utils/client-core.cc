@@ -16,9 +16,9 @@
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "client-core.hh"
 #include "asserts.hh"
 
+#include "client-core.hh"
 /**
  * Class to manage a client Core
  */
