@@ -1,0 +1,22 @@
+# https://docs.gitlab.com/ee/ci/yaml/index.html#rules
+
+# Rules override one another, so each job should extend one and only one of the rules described in this file
+
+# Master, releases and scheduled pipelines
+.rules-deploy:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "master"
+    - if: $CI_COMMIT_BRANCH =~  /^release/
+    - if: $SCHEDULE_RUN
+
+# Development branches (excluded from deployments)
+.rules-dev:
+  rules:
+    - if: $DEPLOY_RUN
+      when: never
+    - when: always
+
+.rules-nightyl-only:
+  rules:
+    - if: !$NIGHTLY
+      when: never

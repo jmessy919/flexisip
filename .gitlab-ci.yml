@@ -19,6 +19,14 @@ variables:
   UBUNTU_18_04_IMAGE_VERSION: 20210624_packaging
   UBUNTU_ROLLING_IMAGE_VERSION: 20210624_packaging
 
+#https://docs.gitlab.com/ee/ci/yaml/index.html#workflow
+workflow:
+  rules:
+    # Allow merge request pipelines
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE !~ /^Draft:.*/
+    # Allow scheduled pipelines
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
 before_script:
   - git submodule foreach --recursive git fetch --tags
 
@@ -27,6 +35,7 @@ before_script:
 #################################################
 
 include:
+  - '.gitlab-ci-files/rules.yml'
   - '.gitlab-ci-files/job-linux.yml'
   - '.gitlab-ci-files/job-linux-archlinux.yml'
   - '.gitlab-ci-files/job-linux-centos7.yml'
