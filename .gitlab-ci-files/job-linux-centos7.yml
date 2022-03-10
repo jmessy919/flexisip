@@ -6,11 +6,15 @@
 #
 #  tags: [ "docker" ]
 #  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-centos7:$CENTOS_7_IMAGE_VERSION
+#  except:
+#    variables:
+#      - $DEPLOY_RUN
+#      - $DEPLOY_UBUNTU
 #  variables:
 #    CMAKE_GENERATOR: Unix Makefiles
 #    CC: gcc
 #    CXX: g++
-#  extends: .nightly-only-job-linux
+#  extends: .scheduled-job-linux
 #  before_script:
 #    - source /opt/rh/devtoolset-8/enable
 #
@@ -36,15 +40,19 @@
 #################################################
 
 job-centos7-ninja-gcc:
-  extends: .nightly-only-job-linux
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-centos7:$CENTOS_7_IMAGE_VERSION
+  except:
+    variables:
+      - $DEPLOY_RUN
+      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
     CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON -DINTERNAL_LIBSRTP2=ON
     CC: gcc
     CXX: g++
+  extends: .scheduled-job-linux
   before_script:
     - source /opt/rh/devtoolset-8/enable
 

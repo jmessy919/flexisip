@@ -150,21 +150,26 @@ docker-build-flexisip-src:
 # Schedule
 #################################################
 
-.nightly-only-job-linux:
-  extends:
-    - .job-linux
-    - .rules-nightly-only
+.scheduled-job-linux:
+
+  extends: .job-linux
+  only:
+    variables:
+      - $NIGHTLY_MASTER
+      - $NIGHTLY_RELEASE
 
 #################################################
 # Tests
 #################################################
 
 tests-flexisip-mr:
-  extends: .rules-dev
-
   stage: test
   tags: [ "linux-nuc"]
   allow_failure: true
+  except:
+    variables:
+      - $DEPLOY_RUN
+      - $DEPLOY_UBUNTU
   needs :
     - docker-build-flexisip-src
   variables:

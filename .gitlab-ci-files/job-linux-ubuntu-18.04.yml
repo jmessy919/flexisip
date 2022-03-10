@@ -3,25 +3,33 @@
 #################################################
 
 job-ubuntu-18.04-makefile-gcc:
-  extends: .nightly-only-job-linux
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-ubuntu-18-04-lts:$UBUNTU_18_04_IMAGE_VERSION
+  except:
+    variables:
+      - $DEPLOY_RUN
+      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Unix Makefiles
     CC: gcc
     CXX: g++
+  extends: .scheduled-job-linux
 
 
 job-ubuntu-18.04-makefile-clang:
-  extends: .nightly-only-job-linux
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-ubuntu-18-04-lts:$UBUNTU_18_04_IMAGE_VERSION
+  except:
+    variables:
+      - $DEPLOY_RUN
+      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Unix Makefiles
     CC: clang
     CXX: clang++
+  extends: .scheduled-job-linux
 
 #################################################
 # Ninja
@@ -43,14 +51,18 @@ job-ubuntu-18.04-ninja-gcc:
 
 
 job-ubuntu-18.04-ninja-clang:
-  extends: .nightly-only-job-linux
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-ubuntu-18-04-lts:$UBUNTU_18_04_IMAGE_VERSION
+  except:
+    variables:
+      - $DEPLOY_RUN
+      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
     CC: clang
     CXX: clang++
+  extends: .scheduled-job-linux
   
 #################################################
 # DEB
