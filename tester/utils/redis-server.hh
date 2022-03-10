@@ -64,7 +64,7 @@ public:
 	 */
 	void kill();
 	/**
-	 * Check whether a redis-server process has been spwaned.
+	 * Check whether a redis-server process has been spawned.
 	 * @return true if the RedisServer actually handles a redis-server processus.
 	 */
 	bool isStarted() const noexcept {
