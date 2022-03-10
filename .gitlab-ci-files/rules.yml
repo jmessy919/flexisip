@@ -12,7 +12,7 @@
 # Development branches (excluded from deployments)
 .rules-dev:
   rules:
-    - when: always  # But still overridden by the `workflow` rules
+    - when: manual  # But still overridden by the `workflow` rules
     - if: $DEPLOY_RUN
       when: never
 
