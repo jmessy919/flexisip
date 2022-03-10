@@ -163,13 +163,11 @@ docker-build-flexisip-src:
 #################################################
 
 tests-flexisip-mr:
+  extends: .rules-dev
+
   stage: test
   tags: [ "linux-nuc"]
   allow_failure: true
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
   needs :
     - docker-build-flexisip-src
   variables:
