@@ -36,18 +36,16 @@ job-archlinux-latest-makefile-clang:
 #################################################
 
 job-archlinux-latest-ninja-gcc:
+  extends:
+    - .job-linux
+    - .rules-dev
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
     CC: gcc
     CXX: g++
-  extends: .job-linux
 
 
 job-archlinux-latest-ninja-clang:
