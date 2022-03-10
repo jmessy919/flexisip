@@ -12,11 +12,11 @@
 # Development branches (excluded from deployments)
 .rules-dev:
   rules:
+    - when: always  # But still overridden by the `workflow` rules
     - if: $DEPLOY_RUN
       when: never
-    - when: always
 
-.rules-nightyl-only:
+.rules-nightly-only:
   rules:
     - if: !$NIGHTLY
       when: never
