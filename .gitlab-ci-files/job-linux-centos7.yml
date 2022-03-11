@@ -58,19 +58,17 @@ job-centos7-ninja-gcc:
 
 
 job-centos7-ninja-clang:
+  extends:
+    - .job-linux
+    - .rules-dev
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-centos7:$CENTOS_7_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
     CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON -DINTERNAL_LIBSRTP2=ON
     CC: clang
     CXX: clang++
-  extends: .job-linux
   before_script:
     - source /opt/rh/llvm-toolset-7/enable
 

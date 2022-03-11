@@ -51,19 +51,17 @@ job-debian11-ninja-gcc:
 
 
 job-debian11-ninja-clang:
+  extends:
+    - .job-linux
+    - .rules-dev
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian11:$DEBIAN_11_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
     CC: clang
     CXX: clang++
     CMAKE_OPTIONS: -DENABLE_UNIT_TESTS=ON -DENABLE_UNIT_TESTS_MYSQL=ON
-  extends: .job-linux
   artifacts:
     paths:
        - OUTPUT/*
@@ -122,13 +120,11 @@ job-debian11-deb-deploy:
 #################################################
 
 job-debian11-unit-test:
+  extends: .rules-dev
+
   stage : test
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian11:$DEBIAN_11_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
   needs :
     - job-debian11-ninja-clang
   script :

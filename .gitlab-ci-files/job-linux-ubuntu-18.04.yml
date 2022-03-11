@@ -36,18 +36,16 @@ job-ubuntu-18.04-makefile-clang:
 #################################################
 
 job-ubuntu-18.04-ninja-gcc:
+  extends:
+    - .job-linux
+    - .rules-dev
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-ubuntu-18-04-lts:$UBUNTU_18_04_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
     CC: gcc
     CXX: g++
-  extends: .job-linux
 
 
 job-ubuntu-18.04-ninja-clang:
