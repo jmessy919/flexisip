@@ -1,10 +1,6 @@
 .job-macosx:
   stage: build
   tags: [ "macosx-xcode12" ]
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
 
   script:
     - ccache -s
@@ -24,6 +20,10 @@
     variables:
       - $NIGHTLY_MASTER
       - $NIGHTLY_RELEASE
+  except:
+    variables:
+      - $DEPLOY_RUN
+      - $DEPLOY_UBUNTU
 
 #################################################
 # Makefile
@@ -41,10 +41,13 @@ job-macosx-makefile:
 #################################################
 
 job-macosx-ninja:
+  extends:
+    - .job-macosx
+    - .rules-dev
+
   variables:
     CMAKE_GENERATOR: Ninja
     NJOBS: $NINJA_JOBS
-  extends: .job-macosx
 
 #################################################
 # Xcode
