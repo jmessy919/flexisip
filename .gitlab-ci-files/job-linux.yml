@@ -40,13 +40,7 @@
     - mkdir work && cd work
     - cmake -G "$CMAKE_GENERATOR" $DEFAULT_CMAKE_OPTIONS -DCMAKE_INSTALL_PREFIX="$PWD/../OUTPUT" $CMAKE_OPTIONS ..
     - cmake --build . --target install
-  
-
-control-job-nightly:
-  extends:
-    - .rules-nightly
-  script:
-    - echo hello
+ 
 
 #################################################
 # RPM
@@ -157,13 +151,10 @@ docker-build-flexisip-src:
 # Schedule
 #################################################
 
-.scheduled-job-linux:
-
-  extends: .job-linux
-  only:
-    variables:
-      - $NIGHTLY_MASTER
-      - $NIGHTLY_RELEASE
+.job-linux-nightly:
+  extends:
+    - .job-linux
+    - .rules-nightly
 
 #################################################
 # Tests
