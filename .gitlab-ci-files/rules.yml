@@ -12,11 +12,15 @@
 # Development branches (excluded from deployments)
 .rules-dev:
   rules:
-    - when: manual  # But still overridden by the `workflow` rules
-    - if: $DEPLOY_RUN
+    - &exclude-from-deploy
+      if: $DEPLOY_RUN
       when: never
+    - &manual
+      when: manual  # But still overridden by the `workflow` rules
 
-.rules-nightly-only:
+.rules-nightly:
   rules:
     - if: !$NIGHTLY
       when: never
+    - *exclude-from-deploy
+    - *manual
