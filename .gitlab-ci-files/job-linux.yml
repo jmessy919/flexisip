@@ -40,6 +40,13 @@
     - mkdir work && cd work
     - cmake -G "$CMAKE_GENERATOR" $DEFAULT_CMAKE_OPTIONS -DCMAKE_INSTALL_PREFIX="$PWD/../OUTPUT" $CMAKE_OPTIONS ..
     - cmake --build . --target install
+  
+
+control-job-nightly:
+  extends:
+    - .rules-dev
+  script:
+    - echo hello
 
 #################################################
 # RPM
