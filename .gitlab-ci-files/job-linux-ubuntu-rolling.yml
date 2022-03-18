@@ -28,18 +28,16 @@ job-ubuntu-rolling-makefile-clang:
 #################################################
 
 job-ubuntu-rolling-ninja-gcc:
+  extends:
+    - .job-linux
+    - .rules-dev
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-ubuntu-rolling:$UBUNTU_ROLLING_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
     CC: gcc
     CXX: g++
-  extends: .job-linux
 
 
 job-ubuntu-rolling-ninja-clang:

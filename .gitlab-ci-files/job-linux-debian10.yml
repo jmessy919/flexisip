@@ -63,9 +63,6 @@ job-debian10-deb:
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian10:$DEBIAN_10_IMAGE_VERSION
   extends: .job-linux-deb
-  except:
-    variables:
-      - $DEPLOY_UBUNTU
 
 
 job-debian10-deb-deploy:

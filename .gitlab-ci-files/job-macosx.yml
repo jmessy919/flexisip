@@ -12,25 +12,18 @@
     - ccache -s
 
 
-.nightly-only-job-macosx:
-  extends: .job-macosx
-  only:
-    variables:
-      - $NIGHTLY
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
-
 #################################################
 # Makefile
 #################################################
 
 job-macosx-makefile:
+  extends:
+    - .job-macosx
+    - .rules-nightly
+
   variables:
     CMAKE_GENERATOR: Unix Makefiles
     NJOBS: $MAKEFILE_JOBS
-  extends: .nightly-only-job-macosx
 
 #################################################
 # Ninja
@@ -50,7 +43,10 @@ job-macosx-ninja:
 #################################################
 
 job-macosx-xcode:
+  extends:
+    - .job-macosx
+    - .rules-nightly
+
   variables:
     CMAKE_GENERATOR: Xcode
     NJOBS: $MAX_NUMBER_TASK_XCODE
-  extends: .nightly-only-job-macosx
