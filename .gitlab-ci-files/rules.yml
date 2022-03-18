@@ -20,7 +20,5 @@
 
 .rules-nightly:
   rules:
-    - if: !$NIGHTLY
-      when: never
     - *exclude-from-deploy
     - *manual

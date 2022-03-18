@@ -44,7 +44,7 @@
 
 control-job-nightly:
   extends:
-    - .rules-dev
+    - .rules-nightly
   script:
     - echo hello
 
