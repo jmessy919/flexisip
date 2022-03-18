@@ -3,18 +3,16 @@
 #################################################
 
 job-archlinux-latest-makefile-gcc:
+  extends:
+    - .job-linux
+    - .rules-nightly
 
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Unix Makefiles
     CC: gcc
     CXX: g++
-  extends: .scheduled-job-linux
 
 
 job-archlinux-latest-makefile-clang:
