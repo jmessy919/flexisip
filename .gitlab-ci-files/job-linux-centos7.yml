@@ -14,7 +14,7 @@
 #    CMAKE_GENERATOR: Unix Makefiles
 #    CC: gcc
 #    CXX: g++
-#  extends: .scheduled-job-linux
+#  extends: .nightly-only-job-linux
 #  before_script:
 #    - source /opt/rh/devtoolset-8/enable
 #
@@ -52,7 +52,7 @@ job-centos7-ninja-gcc:
     CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON -DINTERNAL_LIBSRTP2=ON
     CC: gcc
     CXX: g++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
   before_script:
     - source /opt/rh/devtoolset-8/enable
 

@@ -15,7 +15,7 @@
 #    CMAKE_OPTIONS: -DINTERNAL_LIBSRTP2=ON
 #    CC: gcc
 #    CXX: g++
-#  extends: .scheduled-job-linux
+#  extends: .nightly-only-job-linux
 #
 #job-centos8-makefile-clang:
 #
@@ -49,7 +49,7 @@ job-centos8-ninja-gcc:
     CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON -DINTERNAL_LIBSRTP2=ON
     CC: gcc
     CXX: g++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 job-centos8-ninja-clang:
 

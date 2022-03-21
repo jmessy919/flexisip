@@ -23,21 +23,29 @@ variables:
 before_script:
   - git submodule foreach --recursive git fetch --tags
 
+#https://docs.gitlab.com/ee/ci/yaml/index.html#workflow
+workflow:
+  rules:
+    # Allow merge request pipelines
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE !~ /^Draft:.*/
+    # Allow scheduled pipelines
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
 #################################################
 # Platforms to test
 #################################################
 
 include:
   - '.gitlab-ci-files/job-linux.yml'
-  - '.gitlab-ci-files/job-linux-archlinux.yml'
-  - '.gitlab-ci-files/job-linux-centos7.yml'
-  - '.gitlab-ci-files/job-linux-centos8.yml'
-  - '.gitlab-ci-files/job-linux-debian9.yml'
-  - '.gitlab-ci-files/job-linux-debian10.yml'
-  - '.gitlab-ci-files/job-linux-debian11.yml'
-#  - '.gitlab-ci-files/job-linux-ubuntu-rolling.yml'
-  - '.gitlab-ci-files/job-linux-ubuntu-18.04.yml'
-  - '.gitlab-ci-files/job-macosx.yml'
+#  - '.gitlab-ci-files/job-linux-archlinux.yml'
+#  - '.gitlab-ci-files/job-linux-centos7.yml'
+#  - '.gitlab-ci-files/job-linux-centos8.yml'
+#  - '.gitlab-ci-files/job-linux-debian9.yml'
+#  - '.gitlab-ci-files/job-linux-debian10.yml'
+#  - '.gitlab-ci-files/job-linux-debian11.yml'
+##  - '.gitlab-ci-files/job-linux-ubuntu-rolling.yml'
+#  - '.gitlab-ci-files/job-linux-ubuntu-18.04.yml'
+##  - '.gitlab-ci-files/job-macosx.yml'
 
 
 

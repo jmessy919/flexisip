@@ -14,7 +14,7 @@ job-debian10-makefile-gcc:
     CMAKE_GENERATOR: Unix Makefiles
     CC: gcc
     CXX: g++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 
 job-debian10-makefile-clang:
@@ -29,7 +29,7 @@ job-debian10-makefile-clang:
     CMAKE_GENERATOR: Unix Makefiles
     CC: clang
     CXX: clang++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 #################################################
 # Ninja
@@ -47,7 +47,7 @@ job-debian10-ninja-gcc:
     CMAKE_GENERATOR: Ninja
     CC: gcc
     CXX: g++
-  extends: .scheduled-job-linux
+  extends: .nightly-only-job-linux
 
 
 job-debian10-ninja-clang:

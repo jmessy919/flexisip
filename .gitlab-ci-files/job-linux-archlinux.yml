@@ -3,63 +3,23 @@
 #################################################
 
 job-archlinux-latest-makefile-gcc:
-
-  tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
-  variables:
-    CMAKE_GENERATOR: Unix Makefiles
-    CC: gcc
-    CXX: g++
-  extends: .scheduled-job-linux
+  extends: .job-makefile-gcc
 
 
 job-archlinux-latest-makefile-clang:
-
-  tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
-  variables:
-    CMAKE_GENERATOR: Unix Makefiles
-    CC: clang
-    CXX: clang++
-  extends: .scheduled-job-linux
+  extends: .job-makefile-clang
 
 #################################################
 # Ninja
 #################################################
 
 job-archlinux-latest-ninja-gcc:
-
-  tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
-  variables:
-    CMAKE_GENERATOR: Ninja
-    CC: gcc
-    CXX: g++
-  extends: .job-linux
+  extends: .job-ninja-gcc
 
 
 job-archlinux-latest-ninja-clang:
-
-  tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
-  except:
-    variables:
-      - $DEPLOY_RUN
-      - $DEPLOY_UBUNTU
-  variables:
-    CMAKE_GENERATOR: Ninja
-    CC: clang
-    CXX: clang++
-  extends: .scheduled-job-linux
+  extends: .job-ninja-clang

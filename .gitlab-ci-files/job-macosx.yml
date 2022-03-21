@@ -5,7 +5,6 @@
     variables:
       - $DEPLOY_RUN
       - $DEPLOY_UBUNTU
-
   script:
     - ccache -s
     - export OPENSSL_ROOT_DIR=/usr/local/opt/openssl
@@ -17,24 +16,21 @@
     - ccache -s
 
 
-.scheduled-job-macosx:
-
+.nightly-only-job-macosx:
   extends: .job-macosx
   only:
     variables:
-      - $NIGHTLY_MASTER
-      - $NIGHTLY_RELEASE
+      - $NIGHTLY
 
 #################################################
 # Makefile
 #################################################
 
 job-macosx-makefile:
-
   variables:
     CMAKE_GENERATOR: Unix Makefiles
     NJOBS: $MAKEFILE_JOBS
-  extends: .scheduled-job-macosx
+  extends: .nightly-only-job-macosx
 
 #################################################
 # Ninja
@@ -54,4 +50,4 @@ job-macosx-xcode:
   variables:
     CMAKE_GENERATOR: Xcode
     NJOBS: $MAX_NUMBER_TASK_XCODE
-  extends: .scheduled-job-macosx
+  extends: .nightly-only-job-macosx
