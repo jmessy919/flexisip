@@ -58,13 +58,12 @@ job-debian11-ninja-clang:
 # XWiki reference documentation
 #################################################
 job-debian11-xwiki-doc-deploy:
+  extends:
+    - .rules-deploy
+
   stage: build
   tags: [ "docker" ]
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian11:$DEBIAN_11_IMAGE_VERSION
-
-  only:
-    variables:
-      - $SCHEDULE_RUN
 
   script:
     - prefix=/opt/belledonne-communications
