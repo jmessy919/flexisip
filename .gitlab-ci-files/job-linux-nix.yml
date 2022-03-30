@@ -1,0 +1,13 @@
+#################################################
+# Ninja
+#################################################
+
+job-nix-ninja-clang:
+  extends: .job-linux
+
+  tags: [ "docker" ]
+  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-nix-full:$NIX_IMAGE_VERSION
+  variables:
+    CMAKE_GENERATOR: Ninja
+    CC: clang
+    CXX: clang++

@@ -17,6 +17,7 @@ variables:
   DEBIAN_9_IMAGE_VERSION: 20220323_add_jsoncpp
   DEBIAN_10_IMAGE_VERSION: 20220413_fix_mariadb_autostart
   DEBIAN_11_IMAGE_VERSION: 20220421_add_jsoncpp
+  NIX_IMAGE_VERSION: 20220323_init
   UBUNTU_18_04_IMAGE_VERSION: 20220323_add_jsoncpp
   UBUNTU_ROLLING_IMAGE_VERSION: 20210624_packaging
 
@@ -35,6 +36,7 @@ include:
   - '.gitlab-ci-files/job-linux-debian9.yml'
   - '.gitlab-ci-files/job-linux-debian10.yml'
   - '.gitlab-ci-files/job-linux-debian11.yml'
+  - '.gitlab-ci-files/job-linux-nix.yml'
 #  - '.gitlab-ci-files/job-linux-ubuntu-rolling.yml'
   - '.gitlab-ci-files/job-linux-ubuntu-18.04.yml'
   - '.gitlab-ci-files/job-macosx.yml'
