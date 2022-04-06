@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2021  Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -14,7 +14,7 @@
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+*/
 
 #include "flexisip/fork-context/fork-message-context-soci-repository.hh"
 
@@ -106,7 +106,7 @@ ForkMessageContextSociRepository::ForkMessageContextSociRepository(const string&
 	} catch (const runtime_error& e) {
 		LOGF("ForkMessageContextSociRepository - A problem occurred during database creation. Fix it or disable "
 		     "save-fork-late-message-in-db before restart. \nException : %s",
-		     e.what())
+		     e.what());
 	}
 }
 
@@ -127,8 +127,7 @@ ForkMessageContextDb ForkMessageContextSociRepository::findForkMessageByUuid(con
 	return dbFork;
 }
 
-string
-ForkMessageContextSociRepository::saveForkMessageContext(const ForkMessageContextDb& dbFork) {
+string ForkMessageContextSociRepository::saveForkMessageContext(const ForkMessageContextDb& dbFork) {
 	session sql(mConnectionPool);
 	string insertedUuid{};
 
@@ -146,7 +145,8 @@ ForkMessageContextSociRepository::saveForkMessageContext(const ForkMessageContex
 	}
 
 	for (const auto& dbBranch : dbFork.dbBranches) {
-		sql << "insert into branch_info(fork_uuid, contact_uid, request, last_response, priority, cleared_count) values "
+		sql << "insert into branch_info(fork_uuid, contact_uid, request, last_response, priority, cleared_count) "
+		       "values "
 		       "(UuidToBin(:fork_uuid), :contact_uid, :request, :last_response, :priority, :cleared_count)",
 		    use(insertedUuid, "fork_uuid"), use(dbBranch);
 	}
@@ -168,7 +168,8 @@ void ForkMessageContextSociRepository::updateForkMessageContext(const ForkMessag
 	for (const auto& dbBranch : dbFork.dbBranches) {
 		// Delete all branch before this could be considered because of test's cases scenario,
 		// but in real life no branch is never removed (only replaced).
-		sql << "insert into branch_info(fork_uuid, contact_uid, request, last_response, priority, cleared_count) values "
+		sql << "insert into branch_info(fork_uuid, contact_uid, request, last_response, priority, cleared_count) "
+		       "values "
 		       "(UuidToBin(:fork_uuid), :contact_uid, :request, :last_response, :priority, :cleared_count)"
 		       "ON DUPLICATE KEY UPDATE contact_uid=:contact_uid, request=:request, last_response=:last_response, "
 		       "priority=:priority, cleared_count=:cleared_count",
