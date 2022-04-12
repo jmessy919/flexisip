@@ -60,7 +60,7 @@ Content-Length: 0)sip"};
 
 static int beforeAll() {
 	ForkMessageContextSociRepository::prepareConfiguration(
-	    "mysql", "db='flexisip_messages' user='belledonne' password='cOmmu2015nicatiOns' host='127.0.0.1'", 10);
+	    "mysql", "db='flexisip_messages' user='belledonne' password='cOmmu2015nicatiOns' host='localhost'", 10);
 
 	return 0;
 }
