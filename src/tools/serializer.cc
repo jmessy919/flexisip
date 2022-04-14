@@ -79,7 +79,10 @@ int test_bind_without_ecc(ExtendedContactCommon &ecc, const unique_ptr<RecordSer
 	sip->sip_expires = sip_expires_create(homeSip, now);
 	sip->sip_cseq = sip_cseq_create(homeSip, cseq, sip_method_unknown, nullptr);
 
-	initial.update(sip, globalexpire, alias, 0, nullptr);
+	BindingParameters parameters;
+	parameters.globalExpire = globalexpire;
+	parameters.alias = alias;
+	initial.update(sip, parameters, nullptr);
 
 	msg_unref(msg);
 

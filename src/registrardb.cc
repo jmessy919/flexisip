@@ -564,7 +564,7 @@ bool Record::updateFromUrlEncodedParams(const char *key, const char *uid, const 
 	return false;
 }
 
-void Record::update(const sip_t *sip, int globalExpire, bool alias, int version, const shared_ptr<ContactUpdateListener> &listener) {
+void Record::update(const sip_t *sip, const BindingParameters &parameters, const shared_ptr<ContactUpdateListener> &listener) {
 	list<string> stlPath;
 	sofiasip::Home home;
 	string userAgent;
@@ -583,19 +583,21 @@ void Record::update(const sip_t *sip, int globalExpire, bool alias, int version,
 	userAgent = (sip->sip_user_agent) ? sip->sip_user_agent->g_string : "";
 
 	while (contacts) {
-		char buffer[20]={0};
 		list<string> paramName;
 		ostringstream contactId;
 		string transport;
 		string uniqueId = extractUniqueId(contacts);
+		size_t sz;
 
-		if (url_param(contacts->m_url[0].url_params, "transport", buffer, sizeof(buffer) - 1) > 0) {
-			transport = buffer;
-		}
+		transport.resize(20);
+		if ((sz = url_param(contacts->m_url[0].url_params, "transport", &transport[0], transport.size()-1)) > 0) {
+			transport.resize(sz);
+		}else transport.resize(0);
 
 		defineContactId(contactId, contacts->m_url, transport);
 		ExtendedContactCommon ecc(contactId.str().c_str(), stlPath, sip->sip_call_id->i_id, uniqueId);
-		auto exc = make_shared<ExtendedContact>(ecc, contacts, globalExpire, (sip->sip_cseq) ? sip->sip_cseq->cs_seq : 0, getCurrentTime(), alias, acceptHeaders, userAgent);
+		bool alias = parameters.isAliasFunction ? parameters.isAliasFunction(contacts->m_url) : parameters.alias;
+		auto exc = make_shared<ExtendedContact>(ecc, contacts, parameters.globalExpire, (sip->sip_cseq) ? sip->sip_cseq->cs_seq : 0, getCurrentTime(), alias, acceptHeaders, userAgent);
 		exc->mUsedAsRoute = sip->sip_from->a_url->url_user == nullptr;
 		insertOrUpdateBinding(exc, listener);
 
@@ -1000,6 +1002,7 @@ class RecursiveRegistrarDbListener : public ContactUpdateListener,
 	int m_request = 1;
 	int m_step = 0;
 	SipUri m_url;
+	float mOriginalQ = 1.0; // the q parameter. When recursing, we choose to inherit it from the original target.
 	static int sMaxStep;
 
   public:
@@ -1011,9 +1014,8 @@ class RecursiveRegistrarDbListener : public ContactUpdateListener,
 	void onRecordFound(const shared_ptr<Record> &r) override{
 		if (r != nullptr) {
 			auto &extlist = r->getExtendedContacts();
-			list<sip_contact_t *> vectToRecurseOn;
-			for (auto it : extlist) {
-				shared_ptr<ExtendedContact> ec = it;
+			list<shared_ptr<ExtendedContact>> vectToRecurseOn;
+			for (auto ec : extlist) {
 				// Also add alias for late forking (context in the forks map for this alias key)
 				SLOGD << "Step: " << m_step << (ec->mAlias ? "\tFound alias " : "\tFound contact ") << m_url << " -> "
 					  << ExtendedContact::urlToString(ec->mSipContact->m_url) << " usedAsRoute:" << ec->mUsedAsRoute;
@@ -1021,22 +1023,19 @@ class RecursiveRegistrarDbListener : public ContactUpdateListener,
 					ec = transformContactUsedAsRoute(m_url.str(), ec);
 				}
 				m_record->pushContact(ec);
+				ec->mQ = ec->mQ * mOriginalQ;
 				if (ec->mAlias && m_step > 0) {
-					sip_contact_t *contact = sip_contact_create(m_home.home(), (url_string_t*)ec->mSipContact->m_url, nullptr);
-					if (contact) {
-						vectToRecurseOn.push_back(contact);
-					} else {
-						SLOGW << "Can't create sip_contact of " << ExtendedContact::urlToString(ec->mSipContact->m_url);
-					}
+					vectToRecurseOn.push_back(ec);
 				}
 			}
 			m_request += vectToRecurseOn.size();
 			for (auto itrec : vectToRecurseOn) {
 				try {
-					SipUri uri(itrec->m_url);
+					SipUri uri(itrec->mSipContact->m_url);
 					auto listener = make_shared<RecursiveRegistrarDbListener>(
 						m_database, this->shared_from_this(), uri, m_step - 1
 					);
+					listener->mOriginalQ = itrec->mQ;
 					m_database->fetch(uri, listener, false);
 				} catch (const sofiasip::InvalidUrlError &e) {
 					SLOGE << "Invalid fetched URI while fetching [" << m_url.str() << "] recusively." << endl
@@ -1222,7 +1221,7 @@ void RegistrarDb::bind(const MsgSip &sipMsg, const BindingParameters &parameter,
 		return;
 	}
 
-	doBind(msgCopy, parameter.globalExpire, parameter.alias, parameter.version, listener);
+	doBind(msgCopy, parameter, listener);
 }
 
 void RegistrarDb::bind(const SipUri &from, const sip_contact_t *contact, const BindingParameters &parameter, const shared_ptr<ContactUpdateListener> &listener) {

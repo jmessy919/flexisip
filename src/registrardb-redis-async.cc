@@ -745,7 +745,7 @@ void RegistrarDbRedisAsync::handleBind(redisReply *reply, RegistrarUserData *dat
 	}
 }
 
-void RegistrarDbRedisAsync::doBind(const MsgSip &msg, int globalExpire, bool alias, int version, const std::shared_ptr<ContactUpdateListener> &listener) {
+void RegistrarDbRedisAsync::doBind(const MsgSip &msg, const BindingParameters &parameters, const std::shared_ptr<ContactUpdateListener> &listener) {
 	// Update the AOR Hashmap using HSET
 	// If there is an error, try again
 	// Once it is done, fetch all the contacts in the AOR and call the onRecordFound of the listener
@@ -756,7 +756,7 @@ void RegistrarDbRedisAsync::doBind(const MsgSip &msg, int globalExpire, bool ali
 
 	RegistrarUserData *data = new RegistrarUserData(this, fromUri, listener);
 
-	data->mRecord->update(sip, globalExpire, alias, version, data->listener);
+	data->mRecord->update(sip, parameters, data->listener);
 	mLocalRegExpire->update(data->mRecord);
 
 	if (!isConnected() && !connect()) {
@@ -774,7 +774,7 @@ void RegistrarDbRedisAsync::doBind(const MsgSip &msg, int globalExpire, bool ali
 	} else {
 		uid = data->mRecord->getExtendedContacts().front()->getUniqueId();
 	}
-	if (globalExpire > 0 || message_expires > 0) {
+	if (parameters.globalExpire > 0 || message_expires > 0) {
 		check_redis_command(redisAsyncCommand(mContext, (void (*)(redisAsyncContext*, void*, void*))sHandleBindStart,
 			data, "HGETALL fs:%s", key), data);
 	} else {
