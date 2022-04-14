@@ -43,6 +43,7 @@
 namespace flexisip {
 
 class ContactUpdateListener;
+struct BindingParameters;
 
 struct ExtendedContactCommon {
 	std::string mContactId{};
@@ -242,7 +243,7 @@ class Record {
 	}
 	bool isInvalidRegister(const std::string &call_id, uint32_t cseq);
 	void clean(time_t time, const std::shared_ptr<ContactUpdateListener> &listener);
-	void update(const sip_t *sip, int globalExpire, bool alias, int version, const std::shared_ptr<ContactUpdateListener> &listener);
+	void update(const sip_t *sip, const BindingParameters &parameters, const std::shared_ptr<ContactUpdateListener> &listener);
 	//Deprecated: this one is used by protobuf serializer
 	void update(const ExtendedContactCommon &ecc, const char *sipuri, long int expireAt, float q, uint32_t cseq,
 				time_t updated_time, bool alias, const std::list<std::string> accept, bool usedAsRoute,
@@ -343,13 +344,16 @@ public:
 };
 
 struct BindingParameters {
-	bool alias;
+	bool alias; /* < Indicates whether the Contact supplied is an alias, which means it has to be recursed
+		       during fetch() operations. */
 	bool withGruu;
 	int globalExpire;
 	int version;
 	std::string callId;
 	std::string path;
 	std::string userAgent;
+	/* when supplied, the isAliasFunction() overrides the "alias" setting on a per-contact basis.*/
+	std::function <bool (const url_t *)> isAliasFunction; 
 
 	BindingParameters() {
 		alias = false;
@@ -447,7 +451,7 @@ class RegistrarDb {
 		void unsubscribe(LocalRegExpireListener *listener);
 		void notifyLocalRegExpireListener(unsigned int count);
 	};
-	virtual void doBind(const MsgSip &sip, int globalExpire, bool alias, int version, const std::shared_ptr<ContactUpdateListener> &listener) = 0;
+	virtual void doBind(const MsgSip &sip, const BindingParameters & parameters, const std::shared_ptr<ContactUpdateListener> &listener) = 0;
 	virtual void doClear(const MsgSip &sip, const std::shared_ptr<ContactUpdateListener> &listener) = 0;
 	virtual void doFetch(const SipUri &url, const std::shared_ptr<ContactUpdateListener> &listener) = 0;
 	virtual void doFetchInstance(const SipUri &url, const std::string &uniqueId, const std::shared_ptr<ContactUpdateListener> &listener) = 0;
