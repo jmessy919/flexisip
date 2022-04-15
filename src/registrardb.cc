@@ -995,70 +995,73 @@ const string RegistrarDb::getMessageExpires(const msg_param_t *m_params) {
 class RecursiveRegistrarDbListener : public ContactUpdateListener,
 									 public enable_shared_from_this<RecursiveRegistrarDbListener> {
   private:
-	sofiasip::Home m_home;
-	RegistrarDb *m_database = nullptr;
+	sofiasip::Home mHome;
+	RegistrarDb *mDatabase = nullptr;
 	shared_ptr<ContactUpdateListener> mOriginalListener;
-	shared_ptr<Record> m_record;
-	int m_request = 1;
-	int m_step = 0;
-	SipUri m_url;
+	shared_ptr<Record> mRecord;
+	int mPendingRequests = 1;
+	int mStep = 0;
+	SipUri mUrl;
 	float mOriginalQ = 1.0; // the q parameter. When recursing, we choose to inherit it from the original target.
+	bool mRecursionDone = false;
 	static int sMaxStep;
 
   public:
 	RecursiveRegistrarDbListener(RegistrarDb *database, const shared_ptr<ContactUpdateListener> &original_listerner,
 								 const SipUri &url, int step = sMaxStep):
-		m_database(database), mOriginalListener(original_listerner), m_record(make_shared<Record>(url)),
-		m_step(step), m_url(url) {}
+		mDatabase(database), mOriginalListener(original_listerner), mRecord(make_shared<Record>(url)),
+		mStep(step), mUrl(url) {}
 
 	void onRecordFound(const shared_ptr<Record> &r) override{
+		mPendingRequests--;
 		if (r != nullptr) {
 			auto &extlist = r->getExtendedContacts();
 			list<shared_ptr<ExtendedContact>> vectToRecurseOn;
 			for (auto ec : extlist) {
 				// Also add alias for late forking (context in the forks map for this alias key)
-				SLOGD << "Step: " << m_step << (ec->mAlias ? "\tFound alias " : "\tFound contact ") << m_url << " -> "
+				SLOGD << "Step: " << mStep << (ec->mAlias ? "\tFound alias " : "\tFound contact ") << mUrl << " -> "
 					  << ExtendedContact::urlToString(ec->mSipContact->m_url) << " usedAsRoute:" << ec->mUsedAsRoute;
 				if (!ec->mAlias && ec->mUsedAsRoute) {
-					ec = transformContactUsedAsRoute(m_url.str(), ec);
+					ec = transformContactUsedAsRoute(mUrl.str(), ec);
 				}
-				m_record->pushContact(ec);
+				mRecord->pushContact(ec);
 				ec->mQ = ec->mQ * mOriginalQ;
-				if (ec->mAlias && m_step > 0) {
+				if (ec->mAlias && mStep > 0 && !mRecursionDone) {
 					vectToRecurseOn.push_back(ec);
 				}
 			}
-			m_request += vectToRecurseOn.size();
+			mPendingRequests += vectToRecurseOn.size();
+			mRecursionDone = true;
 			for (auto itrec : vectToRecurseOn) {
 				try {
 					SipUri uri(itrec->mSipContact->m_url);
 					auto listener = make_shared<RecursiveRegistrarDbListener>(
-						m_database, this->shared_from_this(), uri, m_step - 1
+						mDatabase, this->shared_from_this(), uri, mStep - 1
 					);
 					listener->mOriginalQ = itrec->mQ;
-					m_database->fetch(uri, listener, false);
+					mDatabase->fetch(uri, listener, false);
 				} catch (const sofiasip::InvalidUrlError &e) {
-					SLOGE << "Invalid fetched URI while fetching [" << m_url.str() << "] recusively." << endl
+					SLOGE << "Invalid fetched URI while fetching [" << mUrl.str() << "] recusively." << endl
 						<< "The invalid URI is [" << e.getUrl() << "]. Reason: " << e.getReason();
 				}
 			}
 		}
 
 		if (waitPullUpOrFail()) {
-			SLOGD << "Step: " << m_step << "\tNo contact found for " << m_url;
+			SLOGD << "Step: " << mStep << "\tNo contact found for " << mUrl;
 			mOriginalListener->onRecordFound(nullptr);
 		}
 	}
 
 	void onError() override{
-		SLOGW << "Step: " << m_step << "\tError during recursive fetch of " << m_url;
+		SLOGW << "Step: " << mStep << "\tError during recursive fetch of " << mUrl;
 		if (waitPullUpOrFail()) {
 			mOriginalListener->onError();
 		}
 	}
 
 	void onInvalid() override{
-		SLOGW << "Step: " << m_step << "\tInvalid during recursive fetch of " << m_url;
+		SLOGW << "Step: " << mStep << "\tInvalid during recursive fetch of " << mUrl;
 		if (waitPullUpOrFail()) {
 			mOriginalListener->onInvalid();
 		}
@@ -1089,17 +1092,17 @@ class RecursiveRegistrarDbListener : public ContactUpdateListener,
 	}
 
 	bool waitPullUpOrFail() {
-		if (--m_request != 0)
+		if (mPendingRequests != 0)
 			return false; // wait for all pending responses
 
 		// No more results expected for this recursion level
-		if (m_record->getExtendedContacts().empty()) {
+		if (mRecord->getExtendedContacts().empty()) {
 			return true; // no contacts collected on below recursion levels
 		}
 
 		// returning records collected on below recursion levels
-		SLOGD << "Step: " << m_step << "\tReturning collected records " << m_record->getExtendedContacts().size();
-		mOriginalListener->onRecordFound(m_record);
+		SLOGD << "Step: " << mStep << "\tReturning collected records " << mRecord->getExtendedContacts().size();
+		mOriginalListener->onRecordFound(mRecord);
 		return false;
 	}
 };
