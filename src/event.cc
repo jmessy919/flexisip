@@ -165,10 +165,6 @@ RequestSipEvent::RequestSipEvent(const shared_ptr<RequestSipEvent> &sipEvent)
 	: SipEvent(*sipEvent), mRecordRouteAdded(sipEvent->mRecordRouteAdded) {
 }
 
-RequestSipEvent::RequestSipEvent(const shared_ptr<RequestSipEvent>& sipEvent)
-    : SipEvent(*sipEvent), mRecordRouteAdded(sipEvent->mRecordRouteAdded), mIncomingTport(sipEvent->mIncomingTport) {
-}
-
 void RequestSipEvent::send(
     const shared_ptr<MsgSip>& msg, url_string_t const* u, tag_type_t tag, tag_value_t value, ...) {
 
