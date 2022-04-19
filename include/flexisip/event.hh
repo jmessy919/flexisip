@@ -183,9 +183,6 @@ public:
 	const char* findIncomingSubject(const std::list<std::string>& in) const;
 	bool matchIncomingSubject(regex_t* regex);
 	void unlinkTransactions();
-	const std::shared_ptr<tport_t>& getIncomingTport() const {
-		return mIncomingTport;
-	}
 	bool mRecordRouteAdded;
 
 private:

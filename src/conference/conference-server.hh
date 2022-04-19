@@ -31,8 +31,6 @@
 #define DEFAULT_VAR_LIB_DIR "/var/opt/belledonne-communications/lib"
 
 namespace flexisip {
-	class Conference;
-
 	class ConferenceServer
 		: public ServiceServer
 		, public RegistrarDbStateListener
@@ -96,11 +94,6 @@ namespace flexisip {
 			const std::shared_ptr<linphone::ChatRoom> &cr,
 			linphone::ChatRoom::State state
 		) override;
-		void onConferenceStateChanged (
-		 const std::shared_ptr<linphone::Core> & core,
-		 const std::shared_ptr<linphone::Conference> & conference,
-		 linphone::Conference::State state
-		) override;
 
 		// ChatRoomListener implementation
 		void onConferenceAddressGeneration (const std::shared_ptr<linphone::ChatRoom> &cr) override;
@@ -118,8 +111,6 @@ namespace flexisip {
 						const std::shared_ptr<linphone::Call> & call, 
 				  linphone::Call::State cstate, const std::string & message) override;
 		void enableSelectedCodecs(const std::list<std::shared_ptr<linphone::PayloadType>>& codecs, const std::list<std::string> &mimeTypes);
-		void initStaticConferences();
-		void createConference(const std::shared_ptr<const linphone::Address> & address);
 		std::string getUuidFilePath() const;
 		std::string getStateDir()const;
 		const std::string & readUuid();
@@ -130,7 +121,6 @@ namespace flexisip {
 		std::string mPath{};
 		SipUri mTransport{};
 		std::list<std::shared_ptr<linphone::ChatRoom>> mChatRooms{};
-		std::map<std::string, std::shared_ptr<Conference> > mConferences{};
 		ParticipantRegistrationSubscriptionHandler mSubscriptionHandler;
 		MediaConfig mMediaConfig;
 		std::list<std::pair<std::string,std::string>> mConfServerUris{};

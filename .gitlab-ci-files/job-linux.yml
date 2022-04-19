@@ -398,7 +398,6 @@
 #       junit:
 #         - liblinphone_tester_workspace/BCUnitAutomated-Results.xml
 #     expire_in: 4 week
-=======
 #
 ##################################################
 ## Schedule

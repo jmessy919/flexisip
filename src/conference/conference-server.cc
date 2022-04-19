@@ -26,7 +26,6 @@
 
 #include "conference-address-generator.hh"
 #include "registration-events/client.hh"
-#include "conference.hh"
 #include "utils/uri-utils.hh"
 
 #include "conference-server.hh"
@@ -155,8 +154,8 @@ void ConferenceServer::_init () {
 			accountParams->setIdentityAddress(factoryUri);
 		}
 		accountParams->setServerAddress(outboundProxyAddress);
-		accountParams->setRegisterEnabled(false);
-		accountParams->setOutboundProxyEnabled(true);
+		accountParams->enableRegister(false);
+		accountParams->enableOutboundProxy(true);
 		accountParams->setConferenceFactoryUri(factoryUri->asString());
 		auto account = mCore->createAccount(accountParams);
 		mCore->addAccount(account);
@@ -304,8 +303,6 @@ void ConferenceServer::bindAddresses() {
 	if (mMediaConfig.audioEnabled || mMediaConfig.videoEnabled){
 		/* Bind focus URIs */
 		bindFocusUris();
-		/* Initialize static conferences - to be removed */
-		initStaticConferences();
 	}
 	mAddressesBound = true;
 }
@@ -492,25 +489,6 @@ void ConferenceServer::onCallStateChanged(const std::shared_ptr<linphone::Core> 
 */
 }
 
-void ConferenceServer::createConference(const shared_ptr<const linphone::Address> &address){
-	mConferences[address->getUsername()] = make_shared<Conference>(*this, address);
-	bindChatRoom(address->asStringUriOnly(), mTransport.str(), "", nullptr);
-}
-
-void ConferenceServer::initStaticConferences(){
-	int i;
-
-	shared_ptr<linphone::Account> account = mCore->getDefaultAccount();
-	shared_ptr<const linphone::Address> identity = account->getParams()->getIdentityAddress();
-	shared_ptr<linphone::Address> confUri = identity->clone();
-	for (i = 0 ; i < 10 ; ++i){
-		ostringstream ostr;
-		ostr << "video-conference2-" << i;
-		confUri->setUsername(ostr.str());
-		createConference(confUri);
-	}
-}
-
 ConferenceServer::Init::Init() {
 	ConfigItemDescriptor items[] = {
 	    {Boolean, "enabled",
@@ -522,6 +500,10 @@ ConferenceServer::Init::Init() {
 	     "List of SIP uris used by clients to create a conference. This implicitely defines the list of SIP domains "
 	     "managed by the conference server. For example:\n"
 	     "conference-factory-uris=sip:conference-factory@sip.linphone.org sip:conference-factory@sip.linhome.org",
+	     ""},
+	    {StringList, "conference-focus-uris",
+	     "uri used as conference server contact address. For example:\n"
+	     "conference-focus-uris=sip:conference-factory@sip.linphone.org sip:conference-factory@sip.linhome.org",
 	     ""},
 	    {String, "outbound-proxy",
 	     "The Flexisip proxy URI to which the conference server should sent all its outgoing SIP requests.",
@@ -552,11 +534,15 @@ ConferenceServer::Init::Init() {
 	     "The capability check is currently limited to Linphone client that put a +org.linphone.specs contact parameter"
 	     " in order to indicate whether they support group chat and secured group chat.",
 	     "true"},
-
 	    // Deprecated paramters:
 	    {String, "conference-factory-uri",
 	     "uri where the client must ask to create a conference. For example:\n"
 	     "conference-factory-uri=sip:conference-factory@sip.linphone.org",
+	     ""},
+	    {StringList, "supported-media-types",
+	     "List of media supported by the conference server.\n"
+	     "Valid values are: audio, video and text. For example:\n"
+	     "supported-media-types=audio video text",
 	     ""},
 	    {Boolean, "enable-one-to-one-chat-room", "Whether one-to-one chat room creation is allowed or not.", "true"},
 
