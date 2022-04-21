@@ -1,0 +1,13 @@
+[Unit]
+Description=Linphone-deamon unit. Used to send SIP messages to Flexisip
+Documentation=https://linphone.org/technical-corner/linphone
+After=syslog.target network.service network.target
+[Service]
+Type=forking
+ExecStart=@bindir@/linphone-daemon --pipe linphone-daemon --factory-config /root/linphonedaemon-linphonerc --log /var/opt/belledonne-communications/log/linphone-daemon.log
+ExecStartPost=/usr/bin/chown root:apache /tmp/linphone-daemon && /usr/bin/chmod 660 /tmp/linphone-daemon
+
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

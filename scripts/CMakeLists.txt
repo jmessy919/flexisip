@@ -23,7 +23,9 @@
 # logrotate conf
 set(logrotate_dir "${SYSCONF_INSTALL_DIR}/logrotate.d")
 install(FILES flexisip-logrotate DESTINATION "${logrotate_dir}")
+install(FILES linphone-daemon-logrotate DESTINATION "${logrotate_dir}")
 set(FLEXISIP_LOGROTATE_INSTALL_LOCATION "${logrotate_dir}/flexisip-logrotate" PARENT_SCOPE)
+set(LINPHONEDAEMON_LOGROTATE_INSTALL_LOCATION "${logrotate_dir}/linphone-daemon-logrotate" PARENT_SCOPE)
 
 
 # legacy script
@@ -40,6 +42,7 @@ endif()
 
 # systemd
 set(systemd_services "flexisip-proxy.service" "flexisip-proxy@.service")
+list(APPEND systemd_services "linphone-daemon.service")
 if(ENABLE_PRESENCE)
 	list(APPEND systemd_services "flexisip-presence.service" "flexisip-presence@.service")
 endif()

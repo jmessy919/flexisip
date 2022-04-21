@@ -90,6 +90,9 @@ foreach(service ${FLEXISIP_SYSTEMD_SERVICES})
 	list(APPEND CONFIG_FILES "${FLEXISIP_SYSTEMD_INSTALL_DIR}/${service}")
 endforeach()
 
+# Add linphone-daemon-logrotate.conf
+list(APPEND CONFIG_FILES "${LINPHONEDAEMON_LOGROTATE_INSTALL_LOCATION}")
+
 
 #######################################################################################################################
 # RedHat/CentOS package
