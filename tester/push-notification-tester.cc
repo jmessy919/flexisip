@@ -1,20 +1,20 @@
 /*
- Flexisip, a flexible SIP proxy server with media capabilities.
- Copyright (C) 2010-2021  Belledonne Communications SARL, All rights reserved.
+    Flexisip, a flexible SIP proxy server with media capabilities.
+    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
- This program is free software: you can redistribute it and/or modify
- it under the terms of the GNU Affero General Public License as
- published by the Free Software Foundation, either version 3 of the
- License, or (at your option) any later version.
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
 
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
 
- You should have received a copy of the GNU Affero General Public License
- along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <chrono>
 #include <future>
@@ -48,8 +48,12 @@ static int afterSuite() {
 	return 0;
 }
 
-static void startPushTest(Client& client, const shared_ptr<Request>& request, const string& reqBodyPattern,
-                          int responseCode, const string& responseBody, const Request::State& expectedFinalState,
+static void startPushTest(Client& client,
+                          const shared_ptr<Request>& request,
+                          const string& reqBodyPattern,
+                          int responseCode,
+                          const string& responseBody,
+                          const Request::State& expectedFinalState,
                           bool timeout = false) {
 	std::promise<bool> barrier{};
 	std::future<bool> barrier_future = barrier.get_future();
@@ -67,9 +71,10 @@ static void startPushTest(Client& client, const shared_ptr<Request>& request, co
 		BC_FAIL("Http2 mock server didn't start correctly");
 	}
 
+	if (timeout) client.setRequestTimeout(2);
 	// Send the push notification and wait until the request the request state is "Successful" or "Failed"
 	client.sendPush(request);
-	sofiasip::Timer timer{root, 500};
+	sofiasip::Timer timer{root, 50};
 	auto beforePlus2 = system_clock::now() + 2s;
 	timer.run([&request, &beforePlus2, &timeout]() {
 		if (request->getState() == Request::State::Successful || request->getState() == Request::State::Failed) {
@@ -93,8 +98,11 @@ static void startPushTest(Client& client, const shared_ptr<Request>& request, co
 	}
 }
 
-static void startApplePushTest(const PushInfo& pushInfo, const string& reqBodyPattern, int responseCode,
-                               const string& responseBody, const Request::State& expectedFinalState,
+static void startApplePushTest(const PushInfo& pushInfo,
+                               const string& reqBodyPattern,
+                               int responseCode,
+                               const string& responseBody,
+                               const Request::State& expectedFinalState,
                                bool timeout = false) {
 	AppleClient::APN_DEV_ADDRESS = "localhost";
 	AppleClient::APN_PORT = "3000";
@@ -106,8 +114,11 @@ static void startApplePushTest(const PushInfo& pushInfo, const string& reqBodyPa
 	startPushTest(appleClient, move(request), reqBodyPattern, responseCode, responseBody, expectedFinalState, timeout);
 }
 
-static void startFirebasePushTest(const PushInfo& pushInfo, const string& reqBodyPattern, int responseCode,
-                                  const string& responseBody, const Request::State& expectedFinalState,
+static void startFirebasePushTest(const PushInfo& pushInfo,
+                                  const string& reqBodyPattern,
+                                  int responseCode,
+                                  const string& responseBody,
+                                  const Request::State& expectedFinalState,
                                   bool timeout = false) {
 	FirebaseClient::FIREBASE_ADDRESS = "localhost";
 	FirebaseClient::FIREBASE_PORT = "3000";
@@ -453,7 +464,7 @@ static void tlsTimeoutTest(void) {
 	firebaseClient.sendPush(request2);
 	firebaseClient.sendPush(request3);
 	firebaseClient.sendPush(request4);
-	sofiasip::Timer timer{root, 500};
+	sofiasip::Timer timer{root, 50};
 	timer.run([request, &barrier]() {
 		// All the requests should be rejected in the same loop, we can only watch one of them.
 		if (request->getState() == Request::State::Successful || request->getState() == Request::State::Failed) {
@@ -483,8 +494,7 @@ static test_t tests[] = {
                 applePushTestConnectErrorAndReconnect),
     TEST_NO_TAG("Tls timeout test", tlsTimeoutTest),
     TEST_NO_TAG("Firebase push notification test timeout", firebasePushTestTimeout),
-    TEST_NO_TAG("Apple push notification test timeout", applePushTestTimeout)
-};
+    TEST_NO_TAG("Apple push notification test timeout", applePushTestTimeout)};
 
 test_suite_t push_notification_suite = {
     "Push notification", beforeSuite, afterSuite, nullptr, nullptr, sizeof(tests) / sizeof(tests[0]), tests};
