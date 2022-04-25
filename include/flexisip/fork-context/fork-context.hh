@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2021  Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -14,7 +14,7 @@
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+*/
 
 #pragma once
 
@@ -60,7 +60,7 @@ public:
 
 	// Called by the Router module to create a new branch.
 	virtual std::shared_ptr<BranchInfo> addBranch(const std::shared_ptr<RequestSipEvent>& ev,
-	                       const std::shared_ptr<ExtendedContact>& contact) = 0;
+	                                              const std::shared_ptr<ExtendedContact>& contact) = 0;
 	virtual bool allCurrentBranchesAnswered(bool ignore_errors_and_timeouts = false) const = 0;
 	// Request if the fork has other branches with lower priorities to try
 	virtual bool hasNextBranches() const = 0;
@@ -77,14 +77,16 @@ public:
 	virtual void addKey(const std::string& key) = 0;
 	virtual const std::vector<std::string>& getKeys() const = 0;
 
+	using DispatchFunction = std::function<std::shared_ptr<BranchInfo>()>;
 	/**
 	 * Informs the forked call context that a new register from a potential destination of the fork just arrived.
-	 * If the fork context is interested in handling this new destination, then it should add the dispatch function to
-	 * the main loop, do nothing otherwise. Typical case for refusing it is when another transaction already exists or
-	 * existed for this contact.
+	 * If the fork context is interested in handling this new destination, then it run the dispatch function, do nothing
+	 * otherwise. If dispatch function return a newly created branch, OnNewRegister must return it too, an empty
+	 * shared_ptr otherwise.
+	 * Typical case for refusing it is when another transaction already exists or existed for this contact.
 	 */
-	virtual bool
-	onNewRegister(const SipUri& dest, const std::string& uid, const std::function<void()>& dispatchFunction) = 0;
+	virtual std::shared_ptr<BranchInfo>
+	onNewRegister(const SipUri& dest, const std::string& uid, const DispatchFunction& dispatchFunction) = 0;
 	// Notifies the cancellation of the fork process.
 	virtual void onCancel(const std::shared_ptr<RequestSipEvent>& ev) = 0;
 	// Notifies the arrival of a new response on a given branch
@@ -92,9 +94,11 @@ public:
 	virtual const std::shared_ptr<RequestSipEvent>& getEvent() = 0;
 	virtual const std::shared_ptr<ForkContextConfig>& getConfig() const = 0;
 	virtual bool isFinished() const = 0;
+	virtual void checkFinished() = 0;
 
 protected:
 	std::string errorLogPrefix() const;
+	virtual const char* getClassName() const = 0;
 };
 
 class ForkContextListener {

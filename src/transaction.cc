@@ -1,20 +1,20 @@
 /*
- Flexisip, a flexible SIP proxy server with media capabilities.
- Copyright (C) 2010-2015  Belledonne Communications SARL, All rights reserved.
+    Flexisip, a flexible SIP proxy server with media capabilities.
+    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
- This program is free software: you can redistribute it and/or modify
- it under the terms of the GNU Affero General Public License as
- published by the Free Software Foundation, either version 3 of the
- License, or (at your option) any later version.
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
 
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU Affero General Public License for more details.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
 
- You should have received a copy of the GNU Affero General Public License
- along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #include <algorithm>
 
@@ -25,6 +25,8 @@
 #include "flexisip/agent.hh"
 #include "flexisip/common.hh"
 #include "flexisip/event.hh"
+#include "flexisip/fork-context/branch-info.hh"
+
 #include "flexisip/transaction.hh"
 
 using namespace std;
@@ -37,8 +39,7 @@ Transaction::Property Transaction::_getProperty(const std::string& name) const n
 		return it->second;
 	} else {
 		auto wit = mWeakProperties.find(name);
-		if (wit == mWeakProperties.cend())
-			return Property{};
+		if (wit == mWeakProperties.cend()) return Property{};
 		const auto& prop = wit->second;
 		return Property{prop.value.lock(), prop.type};
 	}
@@ -70,23 +71,45 @@ su_home_t* OutgoingTransaction::getHome() {
 	return mHome.home();
 }
 
-void OutgoingTransaction::cancel() {
+void OutgoingTransaction::cancel(std::weak_ptr<BranchInfo> branch) {
 	if (mOutgoing) {
-		nta_outgoing_cancel(mOutgoing);
-		destroy();
+		// WARNING : magicWeak MUST be deleted in callback
+		auto* magicWeak = new weak_ptr<BranchInfo>(branch);
+		nta_outgoing_tcancel(mOutgoing, OutgoingTransaction::onCancelResponse, (nta_outgoing_magic_t*)magicWeak,
+		                     TAG_END());
 	} else {
 		LOGE("OutgoingTransaction::cancel(): transaction already destroyed.");
 	}
 }
 
-void OutgoingTransaction::cancelWithReason(sip_reason_t* reason) {
+void OutgoingTransaction::cancelWithReason(sip_reason_t* reason, std::weak_ptr<BranchInfo> branch) {
 	if (mOutgoing) {
-		// nta_outgoing_cancel(mOutgoing);
-		nta_outgoing_tcancel(mOutgoing, NULL, NULL, SIPTAG_REASON(reason), TAG_END());
-		destroy();
+		// WARNING : magicWeak MUST be deleted in callback
+		auto* magicWeak = new weak_ptr<BranchInfo>(branch);
+		nta_outgoing_tcancel(mOutgoing, OutgoingTransaction::onCancelResponse, (nta_outgoing_magic_t*)magicWeak,
+		                     SIPTAG_REASON(reason), TAG_END());
 	} else {
 		LOGE("OutgoingTransaction::cancel(): transaction already destroyed.");
 	}
+}
+
+int OutgoingTransaction::onCancelResponse(nta_outgoing_magic_t* magic, nta_outgoing_t* irq, const sip_t* sip) {
+	auto* magicWeakBranch = reinterpret_cast<weak_ptr<BranchInfo>*>(magic);
+
+	if (sip != nullptr) {
+		if (sip->sip_status && sip->sip_status->st_status >= 200 && sip->sip_status->st_status < 300) {
+			if (auto sharedBranch = magicWeakBranch->lock()) {
+				sharedBranch->cancelCompleted = true;
+				if (auto sharedFork = sharedBranch->mForkCtx.lock()) {
+					sharedFork->checkFinished();
+				}
+			}
+		}
+	}
+
+	delete magicWeakBranch;
+
+	return 0;
 }
 
 const url_t* OutgoingTransaction::getRequestUri() const {
@@ -116,8 +139,8 @@ shared_ptr<MsgSip> OutgoingTransaction::getRequestMsg() {
 	return request;
 }
 
-void OutgoingTransaction::send(const shared_ptr<MsgSip>& ms, url_string_t const* u, tag_type_t tag, tag_value_t value,
-                               ...) {
+void OutgoingTransaction::send(
+    const shared_ptr<MsgSip>& ms, url_string_t const* u, tag_type_t tag, tag_value_t value, ...) {
 	ta_list ta;
 
 	LOGD("Message is sent through an outgoing transaction.");
@@ -229,8 +252,8 @@ shared_ptr<MsgSip> IncomingTransaction::createResponse(int status, char const* p
 	return shared_ptr<MsgSip>();
 }
 
-void IncomingTransaction::send(const shared_ptr<MsgSip>& ms, url_string_t const* u, tag_type_t tag, tag_value_t value,
-                               ...) {
+void IncomingTransaction::send(
+    const shared_ptr<MsgSip>& ms, url_string_t const* u, tag_type_t tag, tag_value_t value, ...) {
 	if (mIncoming) {
 		msg_t* msg =
 		    msg_ref_create(ms->getMsg()); // need to increment refcount of the message because mreply will decrement it.
@@ -244,8 +267,8 @@ void IncomingTransaction::send(const shared_ptr<MsgSip>& ms, url_string_t const*
 	}
 }
 
-void IncomingTransaction::reply(const shared_ptr<MsgSip>& msgIgnored, int status, char const* phrase, tag_type_t tag,
-                                tag_value_t value, ...) {
+void IncomingTransaction::reply(
+    const shared_ptr<MsgSip>& msgIgnored, int status, char const* phrase, tag_type_t tag, tag_value_t value, ...) {
 	if (mIncoming) {
 		mAgent->incrReplyStat(status);
 		ta_list ta;

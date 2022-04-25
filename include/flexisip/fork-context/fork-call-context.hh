@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2021  Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -14,7 +14,7 @@
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+*/
 
 #pragma once
 
@@ -32,7 +32,8 @@ enum class ForkStatus { AcceptedElsewhere, DeclineElsewhere, Standard };
 
 class ForkCallContext : public ForkContextBase {
 public:
-	static std::shared_ptr<ForkCallContext> make(Agent* agent, const std::shared_ptr<RequestSipEvent>& event,
+	static std::shared_ptr<ForkCallContext> make(Agent* agent,
+	                                             const std::shared_ptr<RequestSipEvent>& event,
 	                                             const std::shared_ptr<ForkContextConfig>& cfg,
 	                                             const std::weak_ptr<ForkContextListener>& listener,
 	                                             const std::weak_ptr<StatPair>& counter);
@@ -49,11 +50,20 @@ public:
 
 protected:
 	void onResponse(const std::shared_ptr<BranchInfo>& br, const std::shared_ptr<ResponseSipEvent>& event) override;
-	bool onNewRegister(const SipUri& url, const std::string& uid, const std::function<void()>& dispatchFunction) override;
+
+	std::shared_ptr<BranchInfo>
+	onNewRegister(const SipUri& url, const std::string& uid, const DispatchFunction& dispatchFunction) override;
+
+	static constexpr auto CLASS_NAME = "ForkCallContext";
+	const char* getClassName() const override {
+		return CLASS_NAME;
+	};
 
 private:
-	ForkCallContext(Agent* agent, const std::shared_ptr<RequestSipEvent>& event,
-	                const std::shared_ptr<ForkContextConfig>& cfg, const std::weak_ptr<ForkContextListener>& listener,
+	ForkCallContext(Agent* agent,
+	                const std::shared_ptr<RequestSipEvent>& event,
+	                const std::shared_ptr<ForkContextConfig>& cfg,
+	                const std::weak_ptr<ForkContextListener>& listener,
 	                const std::weak_ptr<StatPair>& counter);
 	const int* getUrgentCodes();
 	void onShortTimer();
@@ -62,12 +72,18 @@ private:
 	void cancelOthers(const std::shared_ptr<BranchInfo>& br, sip_t* received_cancel);
 	void cancelOthersWithStatus(const std::shared_ptr<BranchInfo>& br, ForkStatus status);
 	void logResponse(const std::shared_ptr<ResponseSipEvent>& ev);
+	void cancelBranch(const std::shared_ptr<BranchInfo>& brit);
+	bool shouldFinish() override {
+		return !mCfg->mForkLate;
+	}
 	static const int sUrgentCodesWithout603[];
 
+	sofiasip::Home mHome{};
 	std::unique_ptr<sofiasip::Timer> mShortTimer{}; // optionaly used to send retryable responses
 	std::unique_ptr<sofiasip::Timer> mPushTimer{};  // used to track push responses
 	std::shared_ptr<CallLog> mLog{};
 	bool mCancelled = false;
+	sip_reason_t* mCancelReason = nullptr;
 };
 
 } // namespace flexisip
