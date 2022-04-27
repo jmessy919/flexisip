@@ -1,19 +1,19 @@
 /*
-	Flexisip, a flexible SIP proxy server with media capabilities.
-	Copyright (C) 2010-2021  Belledonne Communications SARL, All rights reserved.
+    Flexisip, a flexible SIP proxy server with media capabilities.
+    Copyright (C) 2010-2022  Belledonne Communications SARL, All rights reserved.
 
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU Affero General Public License as
-	published by the Free Software Foundation, either version 3 of the
-	License, or (at your option) any later version.
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Affero General Public License as
+    published by the Free Software Foundation, either version 3 of the
+    License, or (at your option) any later version.
 
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU Affero General Public License for more details.
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU Affero General Public License for more details.
 
-	You should have received a copy of the GNU Affero General Public License
-	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    You should have received a copy of the GNU Affero General Public License
+    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <algorithm>
@@ -29,8 +29,8 @@
 #include <flexisip/common.hh>
 #include <flexisip/logmanager.hh>
 
-#include "request.hh"
-#include "service.hh"
+#include "pushnotification/request.hh"
+#include "pushnotification/service.hh"
 
 #include "legacy-client.hh"
 
@@ -39,13 +39,13 @@ using namespace std;
 namespace flexisip {
 namespace pushnotification {
 
-int TlsTransport::sendPush(Request &req, bool hurryUp, const OnSuccessCb &onSuccess, const OnErrorCb &onError) {
+int TlsTransport::sendPush(LegacyRequest& req, bool hurryUp, const OnSuccessCb& onSuccess, const OnErrorCb& onError) {
 	if (mLastUse == 0 || !mConn->isConnected()) {
 		mConn->resetConnection();
 		/*the client was inactive possibly for a long time. In such case, close and re-create the socket.*/
 	} else if (getCurrentTime() - mLastUse > 60) {
 		SLOGD << "PushNotificationTransportTls PNR " << &req << " previous was " << getCurrentTime() - mLastUse
-			  << " secs ago, re-creating connection with server.";
+		      << " secs ago, re-creating connection with server.";
 		mConn->resetConnection();
 	}
 
@@ -56,7 +56,7 @@ int TlsTransport::sendPush(Request &req, bool hurryUp, const OnSuccessCb &onSucc
 
 	/* send push to the server */
 	mLastUse = getCurrentTime();
-	auto buffer = req.getData();
+	auto buffer = req.getData(mUrl, mMethod);
 	int wcount = mConn->write(buffer);
 
 	SLOGD << "PushNotificationTransportTls PNR " << &req << " sent " << wcount << "/" << buffer.size() << " data";
@@ -82,8 +82,8 @@ int TlsTransport::sendPush(Request &req, bool hurryUp, const OnSuccessCb &onSucc
 		polls.events = POLLIN;
 
 		int timeout =
-			hurryUp ? 0
-					: 1000; /*if there are many pending push notification request in our queue, we will not wait
+		    hurryUp ? 0
+		            : 1000; /*if there are many pending push notification request in our queue, we will not wait
 	  the answer from the server (we are in the case where there is an answer ONLY if the push request had an error*/
 		int nRet = poll(&polls, 1, timeout);
 		// this is specific to iOS which does not send a response in case of success
@@ -93,7 +93,7 @@ int TlsTransport::sendPush(Request &req, bool hurryUp, const OnSuccessCb &onSucc
 			return 0;
 		} else if (nRet == -1) {
 			SLOGD << "PushNotificationTransportTls PNR " << &req << " poll error (" << strerror(errno)
-				  << "), assuming success";
+			      << "), assuming success";
 			onSuccess(req);
 			mConn->resetConnection(); // our socket is not going so well if we go here.
 			return 0;
@@ -116,7 +116,7 @@ int TlsTransport::sendPush(Request &req, bool hurryUp, const OnSuccessCb &onSucc
 	string error = req.isValidResponse(responseStr);
 	if (!error.empty()) {
 		onError(req, "Invalid server response: " + error);
-		// on iOS at least, when an error happens, the socket is semibroken (server ignore all future requests),
+		// on iOS at least, when an error happens, the socket is semi-broken (server ignore all future requests),
 		// so we force to recreate the connection
 		mConn->resetConnection();
 		return -1;
@@ -136,14 +136,15 @@ LegacyClient::~LegacyClient() {
 	if (mThreadRunning) {
 		mThreadRunning = false;
 		mMutex.lock();
-		if (mThreadWaiting)
-			mCondVar.notify_one();
+		if (mThreadWaiting) mCondVar.notify_one();
 		mMutex.unlock();
 		mThread.join();
 	}
 }
 
-void LegacyClient::sendPush(const std::shared_ptr<Request> &req) {
+void LegacyClient::sendPush(const std::shared_ptr<Request>& req) {
+	auto legacyReq = dynamic_pointer_cast<LegacyRequest>(req);
+
 	if (!mThreadRunning) {
 		// start thread only when we have at least one push to send
 		mThreadRunning = true;
@@ -155,18 +156,18 @@ void LegacyClient::sendPush(const std::shared_ptr<Request> &req) {
 	auto size = mRequestQueue.size();
 	if (size >= mMaxQueueSize) {
 		mMutex.unlock();
-		SLOGW << "LegacyClient PushNotificationClient " << mName << " PNR " << req.get() << " queue full, push lost";
-		onError(*req, "Error queue full");
-		req->setState(Request::State::Failed);
+		SLOGW << "LegacyClient PushNotificationClient " << mName << " PNR " << legacyReq.get()
+		      << " queue full, push lost";
+		onError(*legacyReq, "Error queue full");
+		legacyReq->setState(Request::State::Failed);
 	} else {
-		req->setState(Request::State::InProgress);
-		mRequestQueue.push(req);
+		legacyReq->setState(Request::State::InProgress);
+		mRequestQueue.push(legacyReq);
 		/*client is running, it will pop the queue as soon he is finished with current request*/
-		SLOGD << "LegacyClient PushNotificationClient " << mName << " PNR " << req.get()
-			  << " running, queue_size=" << size;
+		SLOGD << "LegacyClient PushNotificationClient " << mName << " PNR " << legacyReq.get()
+		      << " running, queue_size=" << size;
 
-		if (mThreadWaiting)
-			mCondVar.notify_one();
+		if (mThreadWaiting) mCondVar.notify_one();
 		mMutex.unlock();
 	}
 }
@@ -182,12 +183,12 @@ void LegacyClient::run() {
 			lock.unlock();
 
 			// send push to the server and wait for its answer
-			auto _onSuccess = [this](Request &req) { this->onSuccess(req); };
-			auto _onError = [this](Request &req, const std::string &msg) { this->onError(req, msg); };
+			auto _onSuccess = [this](auto& req) { this->onSuccess(req); };
+			auto _onError = [this](auto& req, const std::string& msg) { this->onError(req, msg); };
 			bool hurryUp = size > 2;
 			if (mTransport->sendPush(*req, hurryUp, _onSuccess, _onError) == -2) {
 				SLOGD << "LegacyClient PushNotificationClient " << mName << " PNR " << req.get()
-					  << ": try to send again";
+				      << ": try to send again";
 				mTransport->sendPush(*req, hurryUp, _onSuccess, _onError);
 			}
 
@@ -200,13 +201,13 @@ void LegacyClient::run() {
 	}
 }
 
-void LegacyClient::onError(Request& req, const string& msg) {
+void LegacyClient::onError(LegacyRequest& req, const string& msg) {
 	SLOGW << "LegacyClient PushNotificationClient " << mName << " PNR " << &req << " failed: " << msg;
 	req.setState(Request::State::Failed);
 	incrFailedCounter();
 }
 
-void LegacyClient::onSuccess(Request& req) {
+void LegacyClient::onSuccess(LegacyRequest& req) {
 	req.setState(Request::State::Successful);
 	incrSentCounter();
 }
