@@ -166,11 +166,12 @@ static void forkMessageContextSociRepositoryFullLoadMysqlUnitTests() {
 	}
 
 	auto dbForks = ForkMessageContextSociRepository::getInstance()->findAllForkMessage();
-	map<string, shared_ptr<ForkMessageContext>> actualForks{};
+	map<string, shared_ptr<ForkMessageContextDbProxy>> actualForks{};
 
 	for (auto dbFork : dbForks) {
-		auto actualFork = ForkMessageContext::make(server->getAgent().get(), shared_ptr<ForkContextConfig>{},
-		                                           shared_ptr<ForkContextListener>{}, shared_ptr<StatPair>{}, dbFork);
+		auto actualFork = ForkMessageContextDbProxy::make(server->getAgent().get(), shared_ptr<ForkContextConfig>{},
+		                                                  shared_ptr<ForkContextListener>{}, shared_ptr<StatPair>{},
+		                                                  shared_ptr<StatPair>{}, dbFork);
 		actualForks.insert(make_pair(dbFork.uuid, actualFork));
 		BC_ASSERT_TRUE(!dbFork.dbKeys.empty());
 	}
@@ -180,9 +181,7 @@ static void forkMessageContextSociRepositoryFullLoadMysqlUnitTests() {
 	}
 	for (const auto& actualFork : actualForks) {
 		auto it = expectedForks.find(actualFork.first);
-		if (it != expectedForks.end()) {
-			actualFork.second->assertEqualMinimal(it->second);
-		} else {
+		if (it == expectedForks.end()) {
 			BC_FAIL("Forks with UUID " << actualFork.first << "not expected");
 		}
 	}
@@ -247,9 +246,10 @@ static void globalTest() {
 	// Check that request in DB is the same that request sent.
 	auto allMessages = ForkMessageContextSociRepository::getInstance()->findAllForkMessage();
 	if (allMessages.size() == 1) {
-		auto requestInDb = allMessages.cbegin()->request;
-		if (requestInDb.find(rawBody) == string::npos) BC_FAIL("Body not found");
+		auto requestInDb =
+		    ForkMessageContextSociRepository::getInstance()->findForkMessageByUuid(allMessages.cbegin()->uuid).request;
 		// We only compare body because headers can be modified a bit by the proxy
+		if (requestInDb.find(rawBody) == string::npos) BC_FAIL("Body not found");
 	} else BC_FAIL("No message in DB, or too much");
 
 	// Client REGISTER and receive message
@@ -270,9 +270,97 @@ static void globalTest() {
 }
 
 /**
+ * Same test as globalTest, but this time we send a lot of large message while receiver is not reachable.
+ * This test try to saturate sofia-sip queue when receiver register again. If all messages are received test is passed.
+ */
+static void globalTestMultipleMessages() {
+	// This test log too much, modify this value to "BCTBX_LOG_DEBUG" if you need logs
+	bctbx_set_log_level(nullptr, BCTBX_LOG_FATAL);
+	auto server = make_shared<Server>("/config/flexisip_fork_context_db.conf");
+	server->start();
+
+	auto receiverClient = make_shared<CoreClient>("sip:provencal_le_gaulois@sip.test.org", server);
+	receiverClient->getCore()->setNetworkReachable(false);
+
+	unsigned nbAcceptedMessages = 0;
+	BellesipUtils bellesipUtils{"0.0.0.0", -1, "TCP", [&nbAcceptedMessages](int status) {
+		                            if (status != 100) {
+			                            BC_ASSERT_EQUAL(status, 202, int, "%i");
+			                            ++nbAcceptedMessages;
+		                            }
+	                            }};
+
+	unsigned int i = 0;
+	std::string rawBody(10000, 'a');
+	rawBody.append("\r\n\r\n");
+	for (; i < 1000; ++i) {
+		ostringstream rawHeaders;
+		rawHeaders << "MESSAGE sip:provencal_le_gaulois@sip.test.org SIP/2.0\r\n"
+		              "Via: SIP/2.0/TCP 127.0.0.1:6066;branch=z9hG4bK.PAWTmCZv1;rport=49828\r\n"
+		              "From: <sip:kijou@sip.linphone.org;gr=8aabdb1c>;tag=l3qXxwsO~\r\n"
+		              "To: <sip:provencal_le_gaulois@sip.test.org>\r\n"
+		              "CSeq: 20 MESSAGE\r\n"
+		              "Call-ID: Tvw6USHXYv"
+		           << i
+		           << "\r\n"
+		              "Max-Forwards: 70\r\n"
+		              "Route: <sip:127.0.0.1:5960;transport=tcp;lr>\r\n"
+		              "Supported: replaces, outbound, gruu\r\n"
+		              "Date: Fri, 01 Apr 2022 11:18:26 GMT\r\n"
+		              "Content-Type: text/plain\r\n\r\n";
+		bellesipUtils.sendRawRequest(rawHeaders.str(), rawBody);
+	}
+
+	auto beforePlus10 = system_clock::now() + 10s;
+	while (nbAcceptedMessages != i && beforePlus10 >= system_clock::now()) {
+		bellesipUtils.stackSleep(10);
+		server->getAgent()->getRoot()->step(10ms);
+	}
+
+	/*
+	 * Assert that db fork is still present because device is offline, message fork is destroyed because message is
+	 * saved
+	 */
+	const auto& moduleRouter = dynamic_pointer_cast<ModuleRouter>(server->getAgent()->findModule("Router"));
+	BC_ASSERT_PTR_NOT_NULL(moduleRouter);
+	if (!CoreAssert({receiverClient->getCore()}, server->getAgent()).wait([&moduleRouter, i] {
+		    return moduleRouter->mStats.mCountMessageForks->finish->read() == i;
+	    })) {
+		BC_ASSERT_EQUAL(moduleRouter->mStats.mCountMessageForks->finish->read(), i, int, "%i");
+	}
+	BC_ASSERT_EQUAL(moduleRouter->mStats.mCountMessageProxyForks->start->read(), i, int, "%i");
+	BC_ASSERT_EQUAL(moduleRouter->mStats.mCountMessageProxyForks->finish->read(), 0, int, "%i");
+	BC_ASSERT_EQUAL(moduleRouter->mStats.mCountMessageForks->start->read(), i, int, "%i");
+
+	// Client REGISTER and receive message
+	receiverClient->getCore()->setNetworkReachable(true);
+	if (!CoreAssert({receiverClient->getCore()}, server->getAgent()).waitUntil(20s, [receiverClient, i] {
+		    return receiverClient->getAccount()->getState() == RegistrationState::Ok &&
+		           (unsigned int)receiverClient->getCore()->getUnreadChatMessageCount() == i;
+	    })) {
+		BC_ASSERT_EQUAL(receiverClient->getCore()->getUnreadChatMessageCount(), i, int, "%i");
+	}
+
+	// Assert Fork is destroyed after being delivered
+	if (!CoreAssert({receiverClient->getCore()}, server->getAgent()).waitUntil(10s, [&moduleRouter, i] {
+		    return moduleRouter->mStats.mCountMessageProxyForks->finish->read() == i;
+	    })) {
+		BC_ASSERT_EQUAL(moduleRouter->mStats.mCountMessageProxyForks->finish->read(), i, int, "%i");
+	}
+	if (moduleRouter) {
+		BC_ASSERT_EQUAL(moduleRouter->mStats.mCountMessageProxyForks->start->read(), i, int, "%i");
+		BC_ASSERT_EQUAL(moduleRouter->mStats.mCountMessageForks->start->read(), 2 * i, int, "%i");
+		BC_ASSERT_EQUAL(moduleRouter->mStats.mCountMessageForks->finish->read(), 2 * i, int, "%i");
+	}
+
+	// MANDATORY, see first line of this test
+	bctbx_set_log_level(nullptr, BCTBX_LOG_DEBUG);
+}
+
+/*
  * We send a message to a client with one idle device, to force the message saving in DB.
  * To simulate a problem with the message in DB we delete everything in DB.
- * Then we put the client back online and we check that nothing is delivered and that no crash happened.
+ * Then we put the client back online, and we check that nothing is delivered and that no crash happened.
  * All along we check fork stats and client state.
  */
 static void globalTestDatabaseDeleted() {
@@ -350,6 +438,7 @@ static test_t tests[] = {
     TEST_NO_TAG("Unit test fork message repository with mysql, load at startup",
                 forkMessageContextSociRepositoryFullLoadMysqlUnitTests),
     TEST_NO_TAG("Global test ForkMessage with mysql", globalTest),
+    TEST_NO_TAG("Global test ForkMessage with mysql, sending a lot of large messages", globalTestMultipleMessages),
     TEST_NO_TAG("Global test fork message with mysql, db deleted before restoration", globalTestDatabaseDeleted),
 };
 

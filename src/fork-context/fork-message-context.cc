@@ -233,6 +233,7 @@ void ForkMessageContext::onNewBranch(const shared_ptr<BranchInfo>& br) {
 std::shared_ptr<BranchInfo> ForkMessageContext::onNewRegister(const SipUri& dest,
                                                               const std::string& uid,
                                                               const DispatchFunction& dispatchFunction) {
+	LOGD("ForkMessageContext[%p] onNewRegister", this);
 	shared_ptr<BranchInfo> fakeBranch{};
 	auto alreadyHaveTransaction = ForkContextBase::onNewRegister(dest, uid, [&fakeBranch]() { return fakeBranch; });
 	if (alreadyHaveTransaction != fakeBranch) return nullptr;
@@ -308,10 +309,5 @@ void ForkMessageContext::assertEqual(const shared_ptr<ForkMessageContext>& expec
 	} else {
 		BC_FAIL("Waiting branch list is not the same size");
 	}
-}
-
-void ForkMessageContext::assertEqualMinimal(const shared_ptr<ForkMessageContext>& expected) {
-	BC_ASSERT_TRUE(mExpirationDate == expected->mExpirationDate);
-	BC_ASSERT_TRUE(mEvent->getMsgSip()->printString() == expected->mEvent->getMsgSip()->printString());
 }
 #endif
