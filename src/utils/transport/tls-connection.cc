@@ -22,8 +22,8 @@
 #include <sstream>
 #include <thread>
 
-#include <poll.h>
 #include <math.h>
+#include <poll.h>
 
 #include <nghttp2/nghttp2.h>
 #include <nghttp2/nghttp2ver.h>
@@ -40,16 +40,16 @@ using namespace std;
 
 namespace flexisip {
 
-TlsConnection::TlsConnection(const string& host, const string& port, bool mustBeHttp2) noexcept
+TlsConnection::TlsConnection(const string& host, const string& port, bool mustBeHttp2)
     : mHost{host}, mPort{port}, mMustBeHttp2{mustBeHttp2} {
 
-	auto ctx = getDefaultCtx();
-	SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+	auto* ctx = getDefaultCtx();
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, nullptr);
 	mCtx.reset(ctx);
 }
 
-TlsConnection::TlsConnection(const string& host, const string& port, const string& trustStorePath,
-                             const string& certPath, bool mustBeHttp2)
+TlsConnection::TlsConnection(
+    const string& host, const string& port, const string& trustStorePath, const string& certPath, bool mustBeHttp2)
     : mHost{host}, mPort{port}, mMustBeHttp2{mustBeHttp2} {
 
 	if (certPath.empty()) {
@@ -60,13 +60,14 @@ TlsConnection::TlsConnection(const string& host, const string& port, const strin
 	auto ctx = getDefaultCtx();
 
 	if (trustStorePath.empty()) {
-		SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+		SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, nullptr);
 	} else {
-		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
-		SSL_CTX_set_cert_verify_callback(ctx, handleVerifyCallback, NULL);
+		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nullptr);
+		SSL_CTX_set_cert_verify_callback(ctx, handleVerifyCallback, nullptr);
 	}
 
-	if (!SSL_CTX_load_verify_locations(ctx, trustStorePath.empty() ? NULL : trustStorePath.c_str(), "/etc/ssl/certs")) {
+	if (!SSL_CTX_load_verify_locations(ctx, trustStorePath.empty() ? nullptr : trustStorePath.c_str(),
+	                                   "/etc/ssl/certs")) {
 		SLOGE << "Error loading trust store";
 		ERR_print_errors_fp(stderr);
 		throw runtime_error("Error during TlsConnection creation");
@@ -95,7 +96,7 @@ TlsConnection::TlsConnection(const string& host, const string& port, const strin
 }
 
 void TlsConnection::connectAsync(su_root_t& root, const function<void()>& onConnectCb) noexcept {
-	auto result = async(launch::async, [this, &root, onConnectCb]() { this->doConnectAsync(root, onConnectCb); });
+	thread{[this, &root, onConnectCb]() { this->doConnectAsync(root, onConnectCb); }}.detach();
 }
 
 void TlsConnection::doConnectAsync(su_root_t& root, const function<void()>& onConnectCb) {
@@ -121,8 +122,7 @@ void TlsConnection::doConnectCb(su_root_magic_t* rm, su_msg_r msg, void* u) {
 }
 
 void TlsConnection::connect() noexcept {
-	if (isConnected())
-		return;
+	if (isConnected()) return;
 
 	/* Create and setup the connection */
 	auto hostname = mHost + ":" + mPort;
@@ -367,8 +367,7 @@ int TlsConnection::ASN1_TIME_toString(const ASN1_TIME* time, char* buffer, uint3
 	int write = 0;
 	BIO* bio = BIO_new(BIO_s_mem());
 	if (bio) {
-		if (ASN1_TIME_print(bio, time))
-			write = BIO_read(bio, buffer, buff_length - 1);
+		if (ASN1_TIME_print(bio, time)) write = BIO_read(bio, buffer, buff_length - 1);
 		BIO_free_all(bio);
 	}
 	buffer[write] = '\0';
