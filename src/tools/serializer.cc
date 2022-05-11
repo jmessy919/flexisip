@@ -141,7 +141,7 @@ int main(int argc, char **argv) {
 	float quality = 1;
 	bool alias = false;
 
-	ExtendedContactCommon ecc(contactid.c_str(), paths, callid.c_str(), line.c_str());
+	ExtendedContactCommon ecc( paths, callid.c_str(), line.c_str());
 
 	sip_contact_t *sip_contact =
 		sip_contact_format(home.h, "<%s>;q=%f;expires=%d", contact.c_str(), quality, expire_delta);
