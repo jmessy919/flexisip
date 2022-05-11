@@ -159,7 +159,7 @@ string Record::extractUniqueId(const sip_contact_t *contact) {
 	return "";
 }
 
-const shared_ptr<ExtendedContact> Record::extractContactByUniqueId(string uid) {
+const shared_ptr<ExtendedContact> Record::extractContactByUniqueId(const string &uid) const {
 	const auto contacts = getExtendedContacts();
 	for (auto it = contacts.begin(); it != contacts.end(); ++it) {
 		const shared_ptr<ExtendedContact> ec = *it;
@@ -249,54 +249,61 @@ SipUri Record::makeUrlFromKey(const string &key) {
 }
 
 void Record::insertOrUpdateBinding(const shared_ptr<ExtendedContact> &ec, const shared_ptr<ContactUpdateListener> &listener) {
-	time_t now = ec->mUpdatedTime;
+	time_t now = time(NULL);
 
-	SLOGD << "Trying to insert new contact " << *ec;
+	SLOGD << "Updating record with contact " << *ec;
 
 	if (sAssumeUniqueDomains && mIsDomain) {
+		for (auto & ct : mContacts) mContactsToRemove.push_back(ct);
 		mContacts.clear();
 	}
 	for (auto it = mContacts.begin(); it != mContacts.end();) {
-		if (now >= (*it)->mExpireAt) {
-			SLOGD << "Cleaning expired contact " << (*it)->mContactId;
-			it = mContacts.erase(it);
-		} else if (!(*it)->mUniqueId.empty() && (*it)->mUniqueId == ec->mUniqueId) {
-			if (ec->mExpireAt == now){
-				/*case of ;expires=0 in contact header*/
-				if ((*it)->mCSeq == ec->mCSeq && (*it)->mCallId == ec->mCallId) {
-					/*this happens when a client (like Linphone) sends this kind of very ambiguous Contact header in a REGISTER
-					 * Contact: <sip:marie_-jSau@ip1:39936;transport=tcp>;+sip.instance="<urn:uuid:bfb7514b-f793-4d85-b322-232044dc3731>"
-					 * Contact: <sip:marie_-jSau@ip1:39934;transport=tcp>;+sip.instance="<urn:uuid:bfb7514b-f793-4d85-b322-232044dc3731>";expires=0
-					 *
-					 * We don't want the second line to unregister the first one, so don't touch anything*/
-					return;
-				} else {
-					/*this contact should be removed*/
-					it = mContacts.erase(it);
-					return;
-				}
+		if (!(*it)->mUniqueId.empty() && (*it)->mUniqueId == ec->mUniqueId) {
+			if (ec->isExpired()){
+				SLOGD << "Contact removed based on unique id";
+				mContactsToRemove.push_back(*it);
+			}else{
+				SLOGD << "Contact updated based on unique id";
 			}
-			SLOGD << "Cleaning older line '" << ec->mUniqueId << "' for contact " << (*it)->mContactId;
 			if (listener) listener->onContactUpdated(*it);
 			it = mContacts.erase(it);
 		} else if ((*it)->mUniqueId.empty() && (*it)->callId() && (*it)->mCallId == ec->mCallId) {
-			/*we don't accept to clean a contact from call-id if the unique id was set previously*/
-			SLOGD << "Cleaning same call id contact " << (*it)->mContactId << "(" << ec->mCallId << ")";
+			if (ec->isExpired()){
+				SLOGD << "Contact removed based on Call-ID";
+				mContactsToRemove.push_back(*it);
+			}else{
+				SLOGD << "Contact updated based on Call-ID";
+			}
 			if (listener) listener->onContactUpdated(*it);
 			it = mContacts.erase(it);
 		} else if ((*it)->mPushParamList == ec->mPushParamList) {
 			if((*it)->mUpdatedTime < ec->mUpdatedTime) {
-				SLOGD << "Avoiding contact with push param in common : new[" << ec->mPushParamList << "], actual["
+				SLOGD << "Removing contact [" << (*it)->contactId() << "] with push param in common : new[" << ec->mPushParamList << "], actual["
 				      << (*it)->mPushParamList << "]";
+				mContactsToRemove.push_back(*it);
 				it = mContacts.erase(it);
 			} else {
-				return;
+				SLOGW << "Inserted contact has same push parameters of another more recent contact, this should not happen.";
+				++it;
 			}
-		} else {
+		} else if (ec->isExpired() && url_cmp_all(ec->mSipContact->m_url, (*it)->mSipContact->m_url) == 0 ){
+			/*case of ;expires=0 in contact header. Try to match the uri content directly.*/
+			SLOGD << "Contact removed based on uri match.";
+			mContactsToRemove.push_back(*it);
+			it = mContacts.erase(it);
+		} else if (now >= (*it)->mExpireAt) {
+			SLOGD << "Cleaning expired contact '" << (*it)->contactId() << "'";
+			mContactsToRemove.push_back(*it);
+			it = mContacts.erase(it);
+		}else {
 			++it;
 		}
 	}
-	mContacts.push_back(ec);
+	/* Add the new contact, if not expired (ie with expires=0) */
+	if (!ec->isExpired()){
+		mContacts.push_back(ec);
+		mContactsToAddOrUpdate.push_back(ec);
+	}
 
 	if (ec->mCallId.find("static-record") == string::npos) {
 		mOnlyStaticContacts = false;
@@ -366,15 +373,6 @@ void Record::applyMaxAor() {
 	}
 }
 
-static void defineContactId(ostringstream &oss, const url_t *url, const string &transport) {
-	if (!transport.empty())
-		oss << transport << ":";
-	if (url->url_user != nullptr)
-		oss << url->url_user << ":";
-	oss << url->url_host;
-	if (url->url_port)
-		oss << ":" << url->url_port;
-}
 
 string ExtendedContact::serializeAsUrlEncodedParams() {
 	sofiasip::Home home;
@@ -549,19 +547,48 @@ void ExtendedContact::extractInfoFromUrl(const char* full_url) {
 	}
 }
 
+bool ExtendedContact::isSame(const ExtendedContact &otherContact)const{
+	return mCallId == otherContact.mCallId && 
+		getUniqueId() == otherContact.getUniqueId() &&
+		url_cmp_all(mSipContact->m_url, otherContact.mSipContact->m_url) == 0;
+	/* FIXME: the comparison is not complete */
+}
+
 InvalidAorError::InvalidAorError(const url_t *aor): invalid_argument("") {
 	mAor = url_as_string(mHome.home(), aor);
 }
 
-bool Record::updateFromUrlEncodedParams(const char *key, const char *uid, const char *full_url, const shared_ptr<ContactUpdateListener> &listener) {
-	auto exc = make_shared<ExtendedContact>(key, uid, full_url);
+bool Record::updateFromUrlEncodedParams(const char *uid, const char *full_url, const shared_ptr<ContactUpdateListener> &listener) {
+	auto exc = make_shared<ExtendedContact>(uid, full_url);
 
-	if (exc->mSipContact && getCurrentTime() < exc->mExpireAt) {
+	if (exc->mSipContact) {
 		insertOrUpdateBinding(exc, listener);
 		return true;
 	}
-
 	return false;
+}
+
+void Record::eliminateAmbiguousContacts(list<shared_ptr<ExtendedContact>> & extendedContacts){
+	/* This happens when a client (like Linphone) sends this kind of very ambiguous Contact header in a REGISTER
+	 * Contact: <sip:marie_-jSau@ip1:39936;transport=tcp>;+sip.instance="<urn:uuid:bfb7514b-f793-4d85-b322-232044dc3731>"
+	 * Contact: <sip:marie_-jSau@ip1:39934;transport=tcp>;+sip.instance="<urn:uuid:bfb7514b-f793-4d85-b322-232044dc3731>";expires=0
+	 * We want to drop the second one.
+	 */
+	for (auto it = extendedContacts.begin(); it != extendedContacts.end(); ){
+		shared_ptr<ExtendedContact> exc = *it;
+		if (exc->mUpdatedTime == exc->mExpireAt && !exc->mUniqueId.empty() ){
+			auto duplicate = find_if(extendedContacts.begin(), extendedContacts.end(), 
+						 [exc](const shared_ptr<ExtendedContact> &exc2)->bool{
+							 return exc != exc2 && exc->mUniqueId == exc2->mUniqueId;
+						 });
+			if (duplicate != extendedContacts.end()){
+				LOGD("Eliminating duplicate contact with unique id [%s]", exc->mUniqueId.c_str());
+				it = extendedContacts.erase(it);
+				continue;
+			}
+		}
+		++it;
+	}
 }
 
 void Record::update(const sip_t *sip, const BindingParameters &parameters, const shared_ptr<ContactUpdateListener> &listener) {
@@ -571,6 +598,8 @@ void Record::update(const sip_t *sip, const BindingParameters &parameters, const
 	const sip_contact_t* contacts = sip->sip_contact;
 	const sip_accept_t *accept = sip->sip_accept;
 	list<string> acceptHeaders;
+	list<shared_ptr<ExtendedContact>> extendedContacts;
+	
 	while (accept != nullptr) {
 		acceptHeaders.push_back(accept->ac_type);
 		accept = accept->ac_next;
@@ -582,27 +611,25 @@ void Record::update(const sip_t *sip, const BindingParameters &parameters, const
 
 	userAgent = (sip->sip_user_agent) ? sip->sip_user_agent->g_string : "";
 
+	// Build ExtendedContacts from sip contacts.
 	while (contacts) {
-		list<string> paramName;
-		ostringstream contactId;
-		string transport;
 		string uniqueId = extractUniqueId(contacts);
-		size_t sz;
 
-		transport.resize(20);
-		if ((sz = url_param(contacts->m_url[0].url_params, "transport", &transport[0], transport.size()-1)) > 0) {
-			transport.resize(sz);
-		}else transport.resize(0);
-
-		defineContactId(contactId, contacts->m_url, transport);
-		ExtendedContactCommon ecc(contactId.str().c_str(), stlPath, sip->sip_call_id->i_id, uniqueId);
+		ExtendedContactCommon ecc(stlPath, sip->sip_call_id->i_id, uniqueId);
 		bool alias = parameters.isAliasFunction ? parameters.isAliasFunction(contacts->m_url) : parameters.alias;
 		auto exc = make_shared<ExtendedContact>(ecc, contacts, parameters.globalExpire, (sip->sip_cseq) ? sip->sip_cseq->cs_seq : 0, getCurrentTime(), alias, acceptHeaders, userAgent);
 		exc->mUsedAsRoute = sip->sip_from->a_url->url_user == nullptr;
-		insertOrUpdateBinding(exc, listener);
-
+		extendedContacts.push_back(exc);
 		contacts = contacts->m_next;
 	}
+	
+	eliminateAmbiguousContacts(extendedContacts);
+	
+	// Update the Record.
+	for (auto exc : extendedContacts){
+		insertOrUpdateBinding(exc, listener);
+	}
+	
 	applyMaxAor();
 
 	SLOGD << *this;
@@ -630,6 +657,30 @@ void Record::update(const ExtendedContactCommon &ecc, const char *sipuri, long e
 	applyMaxAor();
 
 	SLOGD << *this;
+}
+
+/* This function is designed for non-regression tests. It is not performant and non-exhaustive in the compararison */
+bool Record::isSame(const Record & other) const{
+	if (getAor() != other.getAor()) {
+		LOGD("Record::isSame(): aors differ.");
+		return false;
+	}
+	if (getExtendedContacts().size() !=  other.getExtendedContacts().size()) {
+		LOGD("Record::isSame(): number of extended contacts differ.");
+		return false;
+	}
+	for (const auto &exc : getExtendedContacts()){
+		const auto & otherExc = extractContactByUniqueId(exc->getUniqueId());
+		if (otherExc == nullptr){
+			LOGD("Record::isSame(): no contact with uniqueId [%s] in other record.", exc->getUniqueId().c_str());
+			return false;
+		}
+		if (!exc->isSame(*otherExc)){
+			SLOGD << "Record::isSame(): contacts differ: [" << *this << "] <> [" << *otherExc << "]"; 
+			return false;
+		}
+	}
+	return true;
 }
 
 void Record::print(ostream &stream) const {
@@ -1195,7 +1246,7 @@ url_t *RegistrarDb::synthesizePubGruu(su_home_t *home, const MsgSip &sipMsg){
 }
 
 void RegistrarDb::bind(const MsgSip &sipMsg, const BindingParameters &parameter, const shared_ptr<ContactUpdateListener> &listener) {
-	/* Copy the SIP message because the below code modifies the message whereas bind() API suggests that it don't. */
+	/* Copy the SIP message because the below code modifies the message whereas bind() API suggests that it does not. */
 	MsgSip msgCopy{sipMsg};
 	sip_t *sip = msgCopy.getSip();
 

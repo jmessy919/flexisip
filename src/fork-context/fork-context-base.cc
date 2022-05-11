@@ -195,7 +195,7 @@ void ForkContextBase::removeBranch(const shared_ptr<BranchInfo>& br) {
 }
 
 const list<shared_ptr<BranchInfo>>& ForkContextBase::getBranches() const {
-	return mWaitingBranches;
+	return mCurrentBranches;
 }
 
 // this implementation looks for already pending or failed transactions and then rejects handling of a new one that
