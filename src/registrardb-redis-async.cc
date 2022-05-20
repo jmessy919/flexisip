@@ -373,7 +373,7 @@ void RegistrarDbRedisAsync::handleAuthReply(const redisReply *reply) {
 	/*
 		Calling getReplicationInfo() whereas we are not connected (i.e. mContext is null) would cause a crash.
 		This isn't to happen since reply->type is to be equal to REDIS_REPLY_ERROR when the waiting AUTH request cannot
-		be sent because the connection to Redis contextbase has failed. But somehow, this has happened in production
+		be sent because the connection to Redis database has failed. But somehow, this has happened in production
 		and we couldn't be able to find the exact scenario to reproduce the bug.
 	 */
 	if (!isConnected()) {
@@ -739,7 +739,7 @@ void RegistrarDbRedisAsync::handleBind(redisReply *reply, RedisRegisterContext *
 
 void RegistrarDbRedisAsync::doBind(const MsgSip &msg, const BindingParameters &parameters, const std::shared_ptr<ContactUpdateListener> &listener) {
 	// - Fetch the record from redis
-	// - update the Record from the message and binding parameteres
+	// - update the Record from the message and binding parameters
 	// - push the new record to redis by commiting changes to apply (set or remove).
 	// - notify the onRecordFound().
 
@@ -892,7 +892,7 @@ void RegistrarDbRedisAsync::doFetchInstance(const SipUri &url, const string &uni
 }
 
 /*
- * The following code is to migrate a redis contextbase to the new way
+ * The following code is to migrate a redis database to the new way
  */
 
 void RegistrarDbRedisAsync::handleRecordMigration(redisReply *reply, RedisRegisterContext *context) {

@@ -140,7 +140,7 @@ public:
 private:
 	void addArg(const std::string &arg){
 		mArgs.emplace_back(arg);
-		mCArgs.emplace_back(mArgs.back().c_str()); // The C string pointer are hold within mArgs
+		mCArgs.emplace_back(mArgs.back().c_str()); // The C string pointer is held within mArgs
 		mArgsSize.push_back(arg.size());
 	}
 	std::list<std::string> mArgs;

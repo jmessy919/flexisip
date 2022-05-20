@@ -138,7 +138,7 @@ protected:
 	void checkFetch(const std::shared_ptr<Record> & recordAfterBind){
 		auto* regDb = RegistrarDb::get();
 		std::shared_ptr<TestListener> listener = make_shared<TestListener>();
-		/* Unsure that the Record obtained after fetch operation is the same as the one after the initial bind() */
+		/* Ensure that the Record obtained after fetch operation is the same as the one after the initial bind() */
 		regDb->fetch(recordAfterBind->getAor(), listener);
 		BC_ASSERT_TRUE(waitFor([listener]() { return listener->getRecord() != nullptr; }, 1s));
 		if (listener->getRecord()){

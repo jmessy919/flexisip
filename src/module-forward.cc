@@ -96,20 +96,20 @@ void ForwardModule::onDeclare(GenericStruct *module_config) {
 			"The conditions are matched in the order they appear in the configuration file. The first fulfilled "
 			"condition determines the route that is prepended."
 			"If the request does not match any condition, no route is prepended.\n"
-			"The file may be empty, or no path may be specified, in which case no route is preprended too. "
+			"The file may be empty, or no path may be specified, in which case no route is preprended either. "
 			"Here is a an example of a valid routes configuration file:\n"
 			"<sip:example.org;transport=tls>     request.uri.domain == 'example.org'\n"
 			"<sip:10.0.0.2:5070;transport=tcp>   request.uri.params contains 'user=phone'\n"
 			"\n"
-			"Pay attention that is not just a SIP URI, but a route. As a result, when the URI has parameters, "
-			"brakets must enclose the URI, otherwise the parameters will be parsed as route parameters.",
+			"Beware: that is not just a SIP URI, but a route. As a result, when the URI has parameters, "
+			"brackets must enclose the URI, otherwise the parameters will be parsed as route parameters.",
 			""
 		},
 		{String, "route", "A route header value where to send all requests not already resolved by the Router module "
 			"(ie for which contact information has been found from the registrar database). This is "
 			"the typical way to setup a Flexisip proxy server acting as a front-end for backend SIP server."
-			"Pay attention that is not just a SIP URI, but a route. As a result, when the URI has parameters, "
-			"brakets must enclose the URI, otherwise the parameters will be parsed as route parameters.\n"
+			"Beware: that is not just a SIP URI, but a route. As a result, when the URI has parameters, "
+			"brackets must enclose the URI, otherwise the parameters will be parsed as route parameters.\n"
 			"For example:\n"
 			"route=<sip:192.168.0.10;transport=tcp>", ""},
 		{Boolean, "rewrite-req-uri", "Rewrite request-uri's host and port according to prepended route.", "false"},
