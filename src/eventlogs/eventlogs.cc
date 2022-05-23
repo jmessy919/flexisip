@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2015  Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -13,7 +13,7 @@
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <iomanip>
@@ -25,6 +25,7 @@
 
 #include "db/db-transaction.hh"
 #include "flexisip/configmanager.hh"
+#include "utils/thread/auto-thread-pool.hh"
 
 #include "flexisip/eventlogs.hh"
 
@@ -674,7 +675,7 @@ DataBaseEventLogWriter::DataBaseEventLogWriter(const std::string& backendString,
     : mMaxQueueSize{maxQueueSize} {
 	try {
 		mConnectionPool = make_unique<soci::connection_pool>(nbThreadsMax);
-		mThreadPool = make_unique<ThreadPool>(nbThreadsMax, maxQueueSize);
+		mThreadPool = make_unique<AutoThreadPool>(nbThreadsMax, mMaxQueueSize);
 
 		for (unsigned int i = 0; i < nbThreadsMax; i++) {
 			mConnectionPool->at(i).open(backendString, connectionString);
