@@ -25,9 +25,8 @@
 #include <soci/mysql/soci-mysql.h>
 #endif
 
-#include "flexisip/configmanager.hh"
-#include "flexisip/registrardb.hh"
-#include "utils/thread/auto-thread-pool.hh"
+#include <flexisip/configmanager.hh>
+#include <flexisip/registrardb.hh>
 
 #include "bellesip-signaling-exception.hh"
 #include "list-subscription/body-list-subscription.hh"
@@ -167,7 +166,7 @@ PresenceServer::PresenceServer(const std::shared_ptr<sofiasip::SuRoot>& root) : 
 	int maxThreads = config->get<ConfigInt>("rls-database-max-thread")->read();
 	int maxQueueSize = config->get<ConfigInt>("rls-database-max-thread-queue-size")->read();
 
-	mThreadPool = make_unique<AutoThreadPool>(maxThreads, maxQueueSize);
+	mThreadPool = new ThreadPool(maxThreads, maxQueueSize);
 #if ENABLE_SOCI
 	const string& connectionString = config->get<ConfigString>("rls-database-connection")->read();
 	mConnPool = new soci::connection_pool(maxThreads);
@@ -211,6 +210,7 @@ PresenceServer::~PresenceServer() {
 	belle_sip_object_dump_active_objects();
 	belle_sip_object_flush_active_objects();
 
+	if (mThreadPool) delete mThreadPool; // will automatically shut it down, clearing threads
 #if ENABLE_SOCI
 	if (mConnPool) delete mConnPool;
 #endif
@@ -743,7 +743,7 @@ void PresenceServer::processSubscribeRequestEvent(const belle_sip_request_event_
 
 					listSubscription = make_shared<ExternalListSubscription>(
 					    expires, server_transaction, mProvider, mMaxPresenceInfoNotifiedAtATime, listAvailableLambda,
-					    mRequest, mConnPool, mThreadPool.get());
+					    mRequest, mConnPool, mThreadPool);
 #else
 					goto error;
 #endif

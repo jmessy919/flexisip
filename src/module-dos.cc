@@ -16,16 +16,14 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "utils/threadpool.hh"
+#include <flexisip/agent.hh>
+#include <flexisip/logmanager.hh>
+#include <flexisip/module.hh>
 #include <set>
-#include <unordered_map>
-
 #include <sofia-sip/msg_addr.h>
 #include <sofia-sip/tport.h>
-
-#include "flexisip/agent.hh"
-#include "flexisip/logmanager.hh"
-#include "flexisip/module.hh"
-#include "utils/thread/basic-thread-pool.hh"
+#include <unordered_map>
 
 using namespace std;
 using namespace flexisip;
@@ -58,7 +56,6 @@ private:
 	set<BinaryIp> mWhiteList;
 	unordered_map<string, DosContext> mDosContexts;
 	unordered_map<string, DosContext>::iterator mDOSHashtableIterator;
-	unique_ptr<ThreadPool> mThreadPool;
 	string mFlexisipChain;
 
 	int runIptables(const string& arguments, bool ipv6 = false, bool dumpErrors = true) {
@@ -282,7 +279,7 @@ private:
 		string ip = ctx->ip;
 		string port = ctx->port;
 
-		mThreadPool->run([&, protocol, ip, port] {
+		ThreadPool::getGlobalThreadPool()->run([&, protocol, ip, port] {
 			char iptables_cmd[512];
 			bool is_ipv6 = strchr(ip.c_str(), ':') != nullptr;
 			snprintf(iptables_cmd, sizeof(iptables_cmd), "%s -D %s -p %s -s %s -m multiport --sports %s -j REJECT",
@@ -361,7 +358,7 @@ private:
 					LOGW("Packet count rate (%f) >= limit (%i), blocking ip/port %s/%s on protocol udp for %i minutes",
 					     dosContext.packet_count_rate, mPacketRateLimit, ip, port, mBanTime);
 					if (!isIpWhiteListed(ip)) {
-						mThreadPool->run([&, ip, port] { banIP(ip, port, "udp"); });
+						ThreadPool::getGlobalThreadPool()->run([&, ip, port] { banIP(ip, port, "udp"); });
 						createBanContextAndPostInFuture(ip, port, "udp");
 						ev->terminateProcessing(); // the event is discarded
 					} else {
@@ -385,7 +382,7 @@ private:
 					LOGW("Packet count rate (%lu) >= limit (%i), blocking ip/port %s/%s on protocol tcp for %i minutes",
 					     packet_count_rate, mPacketRateLimit, ip, port, mBanTime);
 					if (!isIpWhiteListed(ip)) {
-						mThreadPool->run([&, ip, port] { banIP(ip, port, "tcp"); });
+						ThreadPool::getGlobalThreadPool()->run([&, ip, port] { banIP(ip, port, "tcp"); });
 						createBanContextAndPostInFuture(ip, port, "tcp");
 						ev->terminateProcessing(); // the event is discarded
 					} else {
@@ -407,7 +404,6 @@ public:
 	DoSProtection(Agent* ag) : Module(ag) {
 		mIptablesVersionChecked = false;
 		mIptablesSupportsWait = false;
-		mThreadPool = make_unique<BasicThreadPool>(1, 1000);
 	}
 
 	~DoSProtection() = default;
