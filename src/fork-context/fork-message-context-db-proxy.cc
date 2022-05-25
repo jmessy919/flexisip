@@ -16,8 +16,6 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "utils/thread/auto-thread-pool.hh"
-
 #include "flexisip/fork-context/fork-message-context-db-proxy.hh"
 
 using namespace std;
@@ -98,7 +96,7 @@ ForkMessageContextDbProxy::~ForkMessageContextDbProxy() {
 	if (!mForkUuidInDb.empty() && mIsFinished) {
 		// Destructor is called because the ForkContext is finished, removing info from database
 		LOGD("ForkMessageContextDbProxy[%p] was present in DB, cleaning UUID[%s]", this, mForkUuidInDb.c_str());
-		AutoThreadPool::getGlobalThreadPool()->run(
+		ThreadPool::getGlobalThreadPool()->run(
 		    [uuid = mForkUuidInDb]() { ForkMessageContextSociRepository::getInstance()->deleteByUuid(uuid); });
 	}
 }
@@ -143,7 +141,7 @@ void ForkMessageContextDbProxy::onForkContextFinished(const shared_ptr<ForkConte
 
 void ForkMessageContextDbProxy::runSavingThread() {
 	const auto& dbFork = mForkMessage->getDbObject();
-	AutoThreadPool::getGlobalThreadPool()->run(
+	ThreadPool::getGlobalThreadPool()->run(
 	    [thiz = shared_from_this(), dbFork, dbForkVersion = mCurrentVersion.load()]() {
 		    lock_guard<mutex> lock(thiz->mDbAccessMutex);
 		    if (dbForkVersion == thiz->mCurrentVersion && thiz->mLastSavedVersion < dbForkVersion &&
@@ -185,7 +183,7 @@ ForkMessageContextDbProxy::onNewRegister(const SipUri& dest, const string& uid, 
 
 	// If the ForkMessage is only in database create a thread to access database and then recursively call this method.
 	if (getState() == State::IN_DATABASE) {
-		AutoThreadPool::getGlobalThreadPool()->run([thiz = shared_from_this(), dest, uid, dispatchFunc]() {
+		ThreadPool::getGlobalThreadPool()->run([thiz = shared_from_this(), dest, uid, dispatchFunc]() {
 			lock_guard<mutex> lock(thiz->mDbAccessMutex);
 			if (thiz->getState() == State::IN_DATABASE && !thiz->mDbFork) {
 				try {
