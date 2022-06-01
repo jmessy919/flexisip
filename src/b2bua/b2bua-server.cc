@@ -100,6 +100,12 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core>& core
 
 			// create legB and add it to the conference
 			auto legB = mCore->inviteAddressWithParams(callee, outgoingCallParams);
+			if (!legB) {
+				// E.g. TLS is not supported
+				SLOGE << "Could not establish bridge call. Please check your config.";
+				call->decline(linphone::Reason::NotImplemented);
+				return;
+			}
 			conference->addParticipant(legB);
 
 			// add legA to the conference, but do not answer now
