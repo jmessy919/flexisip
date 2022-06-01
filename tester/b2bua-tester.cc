@@ -115,6 +115,10 @@ public:
 	std::shared_ptr<linphone::Call> call(const ExternalClient& external);
 
 	void endCurrentCall(const ExternalClient& other);
+
+	auto getCore() const {
+		return client.getCore();
+	}
 };
 
 class ExternalClient {
@@ -139,6 +143,10 @@ public:
 
 	auto endCurrentCall(const InternalClient& other) {
 		return client.endCurrentCall(other.client);
+	}
+
+	auto getCore() const {
+		return client.getCore();
 	}
 };
 
@@ -204,6 +212,35 @@ static void external_provider_bridge__one_provider_one_line() {
 	BC_ASSERT_TRUE(com_to_bridge->getCallLog()->getCallId() != outgoing_log->getCallId());
 	BC_ASSERT_TRUE(outgoing_log->getRemoteAddress()->asString() == line1);
 	other_intercom.endCurrentCall(other_phone);
+}
+
+static void external_provider_bridge__488_not_acceptable_here() {
+	using namespace flexisip::b2bua;
+	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
+	const auto providers = {bridge::ProviderDesc{"provider1",
+	                                             "sip:phone.*",
+	                                             "sip:127.0.0.1:6666;transport=tcp",
+	                                             false,
+	                                             1,
+	                                             {bridge::AccountDesc{
+	                                                 "sip:line1@sip.provider1.com",
+	                                                 "",
+	                                                 "",
+	                                             }}}};
+	server->configureExternalProviderBridge(std::move(providers));
+
+	auto intercom = InternalClient("sip:intercom@sip.company1.com", server);
+	auto phone = ExternalClient("sip:phone@sip.provider1.com;user=phone", server);
+	auto phoneCore = phone.getCore();
+	// Disable every audio codec to force a 488 when negotiating
+	for (auto payload_type : phoneCore->getAudioPayloadTypes()) {
+		payload_type->enable(false);
+	}
+	// Disable AVPF to trigger segfault in the bridge
+	intercom.getCore()->setAvpfMode(linphone::AVPFMode::Enabled);
+	phoneCore->setAvpfMode(linphone::AVPFMode::Disabled);
+
+	BC_ASSERT_PTR_NOT_NULL(intercom.call(phone));
 }
 
 // Assert that when a call ends, the appropriate account is updated
@@ -743,6 +780,7 @@ static test_t tests[] = {
     TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__load_balancing),
     TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__cli),
     TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__parse_register_authenticate),
+    TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__488_not_acceptable_here),
     TEST_NO_TAG("Basic", basic),
     TEST_NO_TAG("Forward Media Encryption", forward),
     TEST_NO_TAG("SDES to ZRTP call", sdes2zrtp),
