@@ -12,6 +12,8 @@ job-archlinux-latest-makefile-gcc:
       - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Unix Makefiles
+    # As of 2022-04-14 the jsoncpp provided by the Arch repo does not include a cmake definition and can't be discovered
+    CMAKE_OPTIONS: &cmake_options -DINTERNAL_JSONCPP=ON
     CC: gcc
     CXX: g++
   extends: .scheduled-job-linux
@@ -27,6 +29,7 @@ job-archlinux-latest-makefile-clang:
       - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Unix Makefiles
+    CMAKE_OPTIONS: *cmake_options
     CC: clang
     CXX: clang++
   extends: .scheduled-job-linux
@@ -45,6 +48,7 @@ job-archlinux-latest-ninja-gcc:
       - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
+    CMAKE_OPTIONS: *cmake_options
     CC: gcc
     CXX: g++
   extends: .job-linux
@@ -60,6 +64,7 @@ job-archlinux-latest-ninja-clang:
       - $DEPLOY_UBUNTU
   variables:
     CMAKE_GENERATOR: Ninja
+    CMAKE_OPTIONS: *cmake_options
     CC: clang
     CXX: clang++
   extends: .scheduled-job-linux
