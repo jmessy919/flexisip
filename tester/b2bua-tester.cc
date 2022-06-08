@@ -238,7 +238,6 @@ static void external_provider_bridge__488_not_acceptable_here() {
 	}
 	// Disable AVPF to trigger segfault in the bridge
 	intercom.getCore()->setAvpfMode(linphone::AVPFMode::Enabled);
-	phoneCore->setAvpfMode(linphone::AVPFMode::Disabled);
 
 	BC_ASSERT_PTR_NOT_NULL(intercom.call(phone));
 }
