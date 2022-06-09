@@ -1,25 +1,28 @@
+.archlinux-image: &archlinux-image
+  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
+
 #################################################
 # Makefile
 #################################################
 
-job-archlinux-latest-makefile-gcc:
+job-archlinux-makefile-gcc:
   extends: .job-makefile-gcc
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
+  <<: *archlinux-image
 
 
-job-archlinux-latest-makefile-clang:
+job-archlinux-makefile-clang:
   extends: .job-makefile-clang
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
+  <<: *archlinux-image
 
 #################################################
 # Ninja
 #################################################
 
-job-archlinux-latest-ninja-gcc:
+job-archlinux-ninja-gcc:
   extends: .job-ninja-gcc
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
+  <<: *archlinux-image
 
 
-job-archlinux-latest-ninja-clang:
+job-archlinux-ninja-clang:
   extends: .job-ninja-clang
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
+  <<: *archlinux-image
