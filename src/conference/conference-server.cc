@@ -123,7 +123,9 @@ void ConferenceServer::_init () {
 	mCore->setUseFiles(true); //No sound card shall be used in calls.
 	enableSelectedCodecs(mCore->getAudioPayloadTypes(), { "opus", "speex"});
 	enableSelectedCodecs(mCore->getVideoPayloadTypes(), { "VP8"});
-	
+
+	mCore->setVideoDisplayFilter("MSExtDisplay");
+
 	// Enable ICE (with host candidates only) so that the relay service of the proxies is bypassed.
 	shared_ptr<linphone::NatPolicy> natPolicy = mCore->createNatPolicy();
 	natPolicy->enableIce(true);
