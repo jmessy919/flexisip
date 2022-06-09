@@ -1,5 +1,5 @@
 .job-macosx:
-  stage: build
+  stage: build 🏗
   tags: [ "macosx-xcode12" ]
   script:
     - ccache -s

@@ -47,14 +47,14 @@ include:
   - '.gitlab-ci-files/job-linux-debian10.yml'
   - '.gitlab-ci-files/job-linux-debian11.yml'
   - '.gitlab-ci-files/job-linux-ubuntu-rolling.yml'
-  - '.gitlab-ci-files/job-linux-ubuntu-18.04.yml'
+  - '.gitlab-ci-files/job-linux-ubuntu-18-04.yml'
   - '.gitlab-ci-files/job-macosx.yml'
 
 
 
 stages:
- - build
- - test
- - package
- - image
- - deploy
+  - build 🏗
+  - test 🧪
+  - package 📦
+  - image
+  - deploy 🚀

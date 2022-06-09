@@ -1,79 +1,49 @@
+.debian9-image-variable: &debian9-image-variable
+  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian9:$DEBIAN_9_IMAGE_VERSION
+  variables:
+    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON
+
 #################################################
 # Makefile
 #################################################
 
 job-debian9-makefile-gcc:
-  extends: .job-linux-nightly
-
-  tags: [ "docker" ]
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian9:$DEBIAN_9_IMAGE_VERSION
-  variables:
-    CMAKE_GENERATOR: Unix Makefiles
-    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON
-    CC: gcc
-    CXX: g++
+  extends: .job-makefile-gcc
+  <<: *debian9-image-variable
 
 
 job-debian9-makefile-clang:
-  extends: .job-linux-nightly
-
-  tags: [ "docker" ]
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian9:$DEBIAN_9_IMAGE_VERSION
-  variables:
-    CMAKE_GENERATOR: Unix Makefiles
-    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON
-    CC: clang
-    CXX: clang++
+  extends: .job-makefile-clang
+  <<: *debian9-image-variable
 
 #################################################
 # Ninja
 #################################################
 
 job-debian9-ninja-gcc:
-  extends: .job-linux-nightly
-
-  tags: [ "docker" ]
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian9:$DEBIAN_9_IMAGE_VERSION
-  variables:
-    CMAKE_GENERATOR: Ninja
-    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON
-    CC: gcc
-    CXX: g++
+  extends: .job-ninja-gcc
+  <<: *debian9-image-variable
 
 
 job-debian9-ninja-clang:
   extends:
-    - .job-linux
-    - .rules-dev  # ⚠ See `rules.yml`
-
-  tags: [ "docker" ]
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian9:$DEBIAN_9_IMAGE_VERSION
-  variables:
-    CMAKE_GENERATOR: Ninja
-    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON
-    CC: clang
-    CXX: clang++
-
+    - .job-ninja-clang
+  <<: *debian9-image-variable
 
 #################################################
 # DEB
 #################################################
 
 job-debian9-deb:
-
   tags: [ "docker" ]
-  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian9:$DEBIAN_9_IMAGE_VERSION
   extends: .job-linux-deb
-  variables:
-    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON
+  <<: *debian9-image-variable
 
 
 job-debian9-deb-deploy:
   extends: .job-debian-deb-deploy
-
   variables:
     RELEASE: stretch
     FREIGHT_PATH: $DEBIAN_FREIGHT_CONF_PATH
   dependencies:
     - job-debian9-deb
-

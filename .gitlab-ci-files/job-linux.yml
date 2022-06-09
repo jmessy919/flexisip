@@ -14,6 +14,7 @@
       esac
       echo "CMAKE_BUILD_PARALLEL_LEVEL='$CMAKE_BUILD_PARALLEL_LEVEL'"
 
+
 .linux-ccache:
   cache:
     key: $CI_JOB_NAME
@@ -27,13 +28,13 @@
     - ccache -s
     # CVE-2022-24765, from git 2.35.2 onward
     - "sudo chown -R $(whoami): ."
-
   after_script:
     - export CCACHE_DIR=${PWD}/ccache
     - ccache -s
 
+
 .job-linux:
-  stage: build
+  stage: build 🏗
   extends: .linux-ccache
   script:
     - export CC=$CC
@@ -49,7 +50,8 @@
 #################################################
 
 .job-linux-rpm:
-  stage: package
+  tags: [ "docker" ]
+  stage: package 📦
   variables:
     CMAKE_GENERATOR: 'Ninja'
   script:
@@ -63,12 +65,18 @@
     when: always
     expire_in: 1 week
 
+.job-centos-rpm-deploy:
+  extends: .rules-deploy  # ⚠ See `rules.yml`
+  stage: deploy 🚀
+  tags: [ "deploy" ]
+  script: ./.gitlab-ci-files/deploy.sh centos
+
 #################################################
 # DEB
 #################################################
 
 .job-linux-deb:
-  stage: package
+  stage: package 📦
   variables:
     CMAKE_GENERATOR: 'Ninja'
   script:
@@ -86,8 +94,7 @@
 
 .job-debian-deb-deploy:
   extends: .rules-deploy  # ⚠ See `rules.yml`
-
-  stage: deploy
+  stage: deploy 🚀
   tags: [ "deploy" ]
   script: ./.gitlab-ci-files/deploy.sh debian
 
@@ -97,24 +104,22 @@
 
 .job-flexisip-image-deploy:
   extends: .rules-deploy  # ⚠ See `rules.yml`
-
   stage: image
   tags: [ "linux-deploy" ]
-
   before_script:
     - git submodule foreach --recursive git fetch --tags --force
-
   script:
     - mkdir -p docker/DEBS && mv build/*.{deb,ddeb} docker/DEBS
     - cd docker
     - make flexisip-deb-build
     - make flexisip-deb-push
 
+
 # Enable this to use tests-flexisip-mr
 #docker-build-flexisip-src:
 #  extends: .rules-dev  # ⚠ See `rules.yml`
 #
-#  stage: build
+#  stage: build 🏗
 #  tags: [ "linux-nuc-build" ]
 #  variables:
 #    DOCKER_BUILD_OPTIONS: "--no-cache --force-rm -t flexisip-from-src:$CI_COMMIT_REF_SLUG-$CI_COMMIT_SHA -f docker/flex-from-src --build-arg=njobs=12 --build-arg=build_type=RelWithDebInfo"
@@ -139,7 +144,6 @@
 
 .job-makefile-gcc:
   extends: .job-linux-nightly
-
   tags: [ "docker" ]
   variables:
     CMAKE_GENERATOR: Unix Makefiles
@@ -149,7 +153,6 @@
 
 .job-makefile-clang:
   extends: .job-linux-nightly
-
   tags: [ "docker" ]
   variables:
     CMAKE_GENERATOR: Unix Makefiles
@@ -164,7 +167,6 @@
   extends:
     - .job-linux
     - .rules-dev  # ⚠ See `rules.yml`
-
   tags: [ "docker" ]
   variables:
     CMAKE_GENERATOR: Ninja
@@ -176,7 +178,6 @@
   extends:
     - .job-linux
     - .rules-dev  # ⚠ See `rules.yml`
-
   tags: [ "docker" ]
   variables:
     CMAKE_GENERATOR: Ninja
@@ -187,8 +188,21 @@
 # Tests
 #################################################
 
+.unit-test:
+  extends: .rules-dev  # ⚠ See `rules.yml`
+  stage: test 🧪
+  tags: [ "docker-test" ]
+  script:
+    - export LD_LIBRARY_PATH=/usr/local/lib
+    - export LSAN_OPTIONS="suppressions=./sanitizer_ignore.txt"
+    - ./OUTPUT/bin/flexisip_tester --verbose --resource-dir ./OUTPUT/share/flexisip-tester --xml || exit $?
+  artifacts:
+    reports:
+      junit:
+        - BCUnitAutomated-Results.xml
+
 # tests-flexisip-mr:
-#   stage: test
+#   stage: test 🧪
 #   tags: [ "linux-nuc"]
 #   allow_failure: true
 #   except:

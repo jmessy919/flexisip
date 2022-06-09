@@ -1,0 +1,50 @@
+.ubuntu-18-04-image-variable: &ubuntu-18-04-image-variable
+  image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian9:$DEBIAN_9_IMAGE_VERSION
+  variables:
+    CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON
+
+#################################################
+# Makefile
+#################################################
+
+job-ubuntu-18-04-makefile-gcc:
+  extends: .job-makefile-gcc
+  <<: *ubuntu-18-04-image-variable
+
+
+job-ubuntu-18-04-makefile-clang:
+  extends: .job-makefile-clang
+  <<: *ubuntu-18-04-image-variable
+
+#################################################
+# Ninja
+#################################################
+
+job-ubuntu-18-04-ninja-gcc:
+  extends: .job-makefile-gcc
+  <<: *ubuntu-18-04-image-variable
+
+
+job-ubuntu-18-04-ninja-clang:
+  extends: .job-makefile-clang
+  <<: *ubuntu-18-04-image-variable
+
+#################################################
+# DEB
+#################################################
+
+job-ubuntu-18-04-deb:
+  extends:
+    - .job-linux-deb
+    - .rules-deploy  # ⚠ See `rules.yml`
+  tags: [ "docker" ]
+  <<: *ubuntu-18-04-image-variable
+
+
+job-ubuntu-18-04-deb-deploy:
+  variables:
+    RELEASE: bionic
+    FREIGHT_PATH: $UBUNTU_FREIGHT_CONF_PATH
+  extends: .job-debian-deb-deploy
+  dependencies:
+    - job-ubuntu-18-04-deb
