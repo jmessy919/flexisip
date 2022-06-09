@@ -86,7 +86,6 @@
 
 .job-debian-deb-deploy:
   extends: .rules-deploy  # ⚠ See `rules.yml`
-
   stage: deploy
   tags: [ "deploy" ]
   script: ./.gitlab-ci-files/deploy.sh debian
@@ -97,13 +96,10 @@
 
 .job-flexisip-image-deploy:
   extends: .rules-deploy  # ⚠ See `rules.yml`
-
   stage: image
   tags: [ "linux-deploy" ]
-
   before_script:
     - git submodule foreach --recursive git fetch --tags --force
-
   script:
     - mkdir -p docker/DEBS && mv build/*.{deb,ddeb} docker/DEBS
     - cd docker
@@ -139,7 +135,6 @@
 
 .job-makefile-gcc:
   extends: .job-linux-nightly
-
   tags: [ "docker" ]
   variables:
     CMAKE_GENERATOR: Unix Makefiles
@@ -149,7 +144,6 @@
 
 .job-makefile-clang:
   extends: .job-linux-nightly
-
   tags: [ "docker" ]
   variables:
     CMAKE_GENERATOR: Unix Makefiles
@@ -164,7 +158,6 @@
   extends:
     - .job-linux
     - .rules-dev  # ⚠ See `rules.yml`
-
   tags: [ "docker" ]
   variables:
     CMAKE_GENERATOR: Ninja
@@ -176,7 +169,6 @@
   extends:
     - .job-linux
     - .rules-dev  # ⚠ See `rules.yml`
-
   tags: [ "docker" ]
   variables:
     CMAKE_GENERATOR: Ninja
