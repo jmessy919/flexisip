@@ -67,13 +67,13 @@ inline std::ostream &operator<< (std::ostream &os, const PluginInfo &info) {
 		FLEXISIP_PLUGIN_EXPORT const ModuleInfoBase *__flexisipGetPluginModuleInfo() { \
 			return &MODULE_INFO; \
 		} \
-		FLEXISIP_PLUGIN_EXPORT Module *__flexisipCreatePlugin(Agent *agent, SharedLibrary *sharedLibrary) { \
+		FLEXISIP_PLUGIN_EXPORT Module *__flexisipCreatePlugin(Agent* agent, SharedLibrary *sharedLibrary) { \
 			using ModuleType = typename decltype(MODULE_INFO)::ModuleType; \
 			class UserPlugin : public ModuleType, public Plugin { \
 			public: \
-				UserPlugin(Agent *agent, SharedLibrary &sharedLibrary) : ModuleType(agent), Plugin(sharedLibrary) {} \
+				UserPlugin(const std::weak_ptr<Agent>& agent, SharedLibrary &sharedLibrary) : ModuleType(agent), Plugin(sharedLibrary) {} \
 			}; \
-			Module *module = new UserPlugin(agent, *sharedLibrary); \
+			Module *module = new UserPlugin(agent->shared_from_this(), *sharedLibrary); \
 			module->setInfo(&MODULE_INFO); \
 			return module; \
 		}\

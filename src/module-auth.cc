@@ -31,8 +31,6 @@ using namespace flexisip;
 //  Authentication class
 // ====================================================================================================================
 
-Authentication::Authentication(Agent *ag) : ModuleAuthenticationBase(ag) {}
-
 Authentication::~Authentication() {
 	if (mRequiredSubjectCheckSet){
 		regfree(&mRequiredSubject);

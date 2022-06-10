@@ -24,7 +24,7 @@ using namespace std;
 
 namespace flexisip {
 
-shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(Agent* agent,
+shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(const std::weak_ptr<AgentInternalInterface>& agent,
                                                                       const shared_ptr<RequestSipEvent>& event,
                                                                       const shared_ptr<ForkContextConfig>& cfg,
                                                                       const weak_ptr<ForkContextListener>& listener,
@@ -41,7 +41,7 @@ shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(Agent* age
 	return shared;
 }
 
-shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(Agent* agent,
+shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(const std::weak_ptr<AgentInternalInterface>& agent,
                                                                       const shared_ptr<ForkContextConfig>& cfg,
                                                                       const weak_ptr<ForkContextListener>& listener,
                                                                       const weak_ptr<StatPair>& messageCounter,
@@ -57,12 +57,12 @@ shared_ptr<ForkMessageContextDbProxy> ForkMessageContextDbProxy::make(Agent* age
 	return shared;
 }
 
-ForkMessageContextDbProxy::ForkMessageContextDbProxy(Agent* agent,
+ForkMessageContextDbProxy::ForkMessageContextDbProxy(const weak_ptr<AgentInternalInterface>& agent,
                                                      const shared_ptr<ForkContextConfig>& cfg,
                                                      const weak_ptr<ForkContextListener>& listener,
                                                      const weak_ptr<StatPair>& messageCounter,
                                                      const weak_ptr<StatPair>& proxyCounter)
-    : mForkMessage{}, mState{State::IN_MEMORY}, mProxyLateTimer{agent->getRoot()},
+    : mForkMessage{}, mState{State::IN_MEMORY}, mProxyLateTimer{agent.lock()->getRoot()},
       mOriginListener{listener}, mCounter{proxyCounter},
       mSavedAgent(agent), mSavedConfig{cfg}, mSavedCounter{messageCounter} {
 
@@ -74,7 +74,7 @@ ForkMessageContextDbProxy::ForkMessageContextDbProxy(Agent* agent,
 	}
 }
 
-ForkMessageContextDbProxy::ForkMessageContextDbProxy(Agent* agent,
+ForkMessageContextDbProxy::ForkMessageContextDbProxy(const weak_ptr<AgentInternalInterface>& agent,
                                                      const shared_ptr<ForkContextConfig>& cfg,
                                                      const weak_ptr<ForkContextListener>& listener,
                                                      const weak_ptr<StatPair>& messageCounter,
@@ -149,7 +149,7 @@ void ForkMessageContextDbProxy::runSavingThread() {
 		    if (dbForkVersion == thiz->mCurrentVersion && thiz->mLastSavedVersion < dbForkVersion &&
 		        thiz->saveToDb(dbFork)) {
 			    thiz->mLastSavedVersion = dbForkVersion;
-			    thiz->mSavedAgent->getRoot()->addToMainLoop(
+			    thiz->mSavedAgent.lock()->getRoot()->addToMainLoop(
 			        [weak = weak_ptr<ForkMessageContextDbProxy>{thiz->shared_from_this()}]() {
 				        if (auto shared = weak.lock()) {
 					        shared->clearMemoryIfPossible();
@@ -195,7 +195,7 @@ ForkMessageContextDbProxy::onNewRegister(const SipUri& dest, const string& uid, 
 				}
 			}
 
-			thiz->mSavedAgent->getRoot()->addToMainLoop(
+			thiz->mSavedAgent.lock()->getRoot()->addToMainLoop(
 			    [weak = weak_ptr<ForkMessageContextDbProxy>{thiz->shared_from_this()}, dest, uid, dispatchFunc]() {
 				    if (auto shared = weak.lock()) {
 					    shared->onNewRegister(dest, uid, dispatchFunc);

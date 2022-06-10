@@ -32,17 +32,11 @@ namespace flexisip {
 
 class B2bua : public Module, ModuleToolbox {
 public:
-	B2bua(Agent* agent) : Module(agent) {
-		su_home_init(&mHome);
-	}
-	~B2bua() {
-		su_home_deinit(&mHome);
-	}
+	using Module::Module;
 
 private:
 	static ModuleInfo<B2bua> sInfo;
 	unique_ptr<SipUri> mDestRoute;
-	su_home_t mHome;
 	bool isValidNextConfig(const ConfigValue& cv) override;
 	void onDeclare(GenericStruct* moduleConfig) override;
 	void onLoad(const GenericStruct* moduleConfig) override;
@@ -69,16 +63,16 @@ void B2bua::onDeclare(GenericStruct* moduleConfig) {
 }
 
 bool B2bua::isValidNextConfig(const ConfigValue& cv) {
-	GenericStruct* module_config = dynamic_cast<GenericStruct*>(cv.getParent());
+	auto* module_config = dynamic_cast<GenericStruct*>(cv.getParent());
 	if (!module_config->get<ConfigBoolean>("enabled")->readNext()) return true;
 	if (cv.getName() == "b2bua-server") {
-		url_t* uri = url_make(&mHome, cv.getName().c_str());
+		auto* uri = url_make(mHome.home(), cv.getName().c_str());
 		if (!uri) {
 			SLOGE << getModuleName() << ": wrong destination uri for back to back user agent server [" << cv.getName()
 			      << "]";
 			return false;
 		} else {
-			su_free(&mHome, uri);
+			mHome.free(uri);
 		}
 	}
 	return true;
@@ -87,7 +81,7 @@ bool B2bua::isValidNextConfig(const ConfigValue& cv) {
 void B2bua::onLoad(const GenericStruct* moduleConfig) {
 	string destRouteStr = moduleConfig->get<ConfigString>("b2bua-server")->read();
 	try {
-		mDestRoute.reset(new SipUri(destRouteStr));
+		mDestRoute = make_unique<SipUri>(destRouteStr);
 	} catch (const invalid_argument& e) {
 		LOGF("Invalid SIP URI (%s) in 'b2bua-server' parameter of 'B2bua' module: %s", destRouteStr.c_str(), e.what());
 	}
@@ -103,9 +97,9 @@ void B2bua::onRequest(shared_ptr<RequestSipEvent>& ev) {
 		// Do we have the "flexisip-b2bua" custom header? If no, we must intercept the call.
 		sip_unknown_t* header = ModuleToolbox::getCustomHeaderByName(sip, "flexisip-b2bua");
 
-		if (header == NULL) {
-			cleanAndPrependRoute(this->getAgent(), ev->getMsgSip()->getMsg(), ev->getSip(),
-			                     sip_route_create(&mHome, mDestRoute->get(), nullptr));
+		if (header == nullptr) {
+			cleanAndPrependRoute(getAgent().get(), ev->getMsgSip()->getMsg(), ev->getSip(),
+			                     sip_route_create(mHome.home(), mDestRoute->get(), nullptr));
 			SLOGD << "B2bua onRequest, clean and prepend done to route " << mDestRoute->str();
 		} else { // Do not intercept the call
 			// TODO: Remove the custom header flexisip-b2bua

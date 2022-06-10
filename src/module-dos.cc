@@ -50,15 +50,15 @@ class DoSProtection : public Module, ModuleToolbox {
 
 private:
 	static ModuleInfo<DoSProtection> sInfo;
-	int mTimePeriod;
-	int mPacketRateLimit;
-	int mBanTime;
-	bool mIptablesVersionChecked;
-	bool mIptablesSupportsWait;
-	set<BinaryIp> mWhiteList;
-	unordered_map<string, DosContext> mDosContexts;
-	unordered_map<string, DosContext>::iterator mDOSHashtableIterator;
-	unique_ptr<ThreadPool> mThreadPool;
+	int mTimePeriod{0};
+	int mPacketRateLimit{0};
+	int mBanTime{0};
+	bool mIptablesVersionChecked{false};
+	bool mIptablesSupportsWait{false};
+	set<BinaryIp> mWhiteList{};
+	unordered_map<string, DosContext> mDosContexts{};
+	unordered_map<string, DosContext>::iterator mDOSHashtableIterator{};
+	unique_ptr<ThreadPool> mThreadPool{make_unique<BasicThreadPool>(1, 1000)};
 	string mFlexisipChain;
 
 	int runIptables(const string& arguments, bool ipv6 = false, bool dumpErrors = true) {
@@ -128,7 +128,7 @@ private:
 			BinaryIp::emplace(mWhiteList, white_ip);
 		}
 
-		tport_t* primaries = tport_primaries(nta_agent_tports(mAgent->getSofiaAgent()));
+		tport_t* primaries = tport_primaries(nta_agent_tports(mAgent.lock()->getSofiaAgent()));
 		if (primaries == NULL) LOGF("No sip transport defined.");
 		for (tport_t* tport = primaries; tport != NULL; tport = tport_next(tport)) {
 			tport_set_params(tport, TPTAG_DOS(mTimePeriod), TAG_END());
@@ -306,7 +306,7 @@ private:
 		ctx->port = port;
 		ctx->protocol = protocol;
 		ctx->lambda = [&](BanContext* context) { unbanIP(context); };
-		ctx->timer = su_timer_create(mAgent->getRoot()->getTask(), 0);
+		ctx->timer = su_timer_create(mAgent.lock()->getRoot()->getTask(), 0);
 		su_timer_set_interval(ctx->timer, invokeLambdaFromSofiaTimerCallback, ctx, mBanTime * 60 * 1000);
 	}
 
@@ -404,13 +404,7 @@ private:
 	};
 
 public:
-	DoSProtection(Agent* ag) : Module(ag) {
-		mIptablesVersionChecked = false;
-		mIptablesSupportsWait = false;
-		mThreadPool = make_unique<BasicThreadPool>(1, 1000);
-	}
-
-	~DoSProtection() = default;
+	using Module::Module;
 };
 
 ModuleInfo<DoSProtection>

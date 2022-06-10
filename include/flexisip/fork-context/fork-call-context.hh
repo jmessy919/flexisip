@@ -32,12 +32,13 @@ namespace flexisip {
 
 class ForkCallContext : public ForkContextBase {
 public:
-	static std::shared_ptr<ForkCallContext> make(Agent* agent,
-	                                             const std::shared_ptr<RequestSipEvent>& event,
-	                                             const std::shared_ptr<ForkContextConfig>& cfg,
-	                                             const std::weak_ptr<ForkContextListener>& listener,
-	                                             const std::weak_ptr<StatPair>& counter);
-	~ForkCallContext();
+	template <typename... Args>
+	static auto make(Args&&... args) {
+		// new because make_shared require a public constructor.
+		return std::shared_ptr<ForkCallContext>{new ForkCallContext{std::forward<Args>(args)...}};
+	}
+
+	~ForkCallContext() override;
 
 	void sendResponse(int status, char const* phrase, bool addToTag = false);
 
@@ -62,7 +63,7 @@ protected:
 	};
 
 private:
-	ForkCallContext(Agent* agent,
+	ForkCallContext(const std::weak_ptr<AgentInternalInterface>& agent,
 	                const std::shared_ptr<RequestSipEvent>& event,
 	                const std::shared_ptr<ForkContextConfig>& cfg,
 	                const std::weak_ptr<ForkContextListener>& listener,

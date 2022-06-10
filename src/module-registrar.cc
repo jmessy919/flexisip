@@ -70,8 +70,8 @@ static void _onContactUpdated(ModuleRegistrar *module, tport_t *new_tport, const
 
 OnRequestBindListener::OnRequestBindListener(ModuleRegistrar *module, std::shared_ptr<RequestSipEvent> ev, const sip_from_t *sipuri,
 						sip_contact_t *contact, sip_path_t *path)
-	: mModule(module), mEv(ev), mSipFrom(nullptr), mContact(nullptr), mPath(nullptr) {
-	ev->suspendProcessing();
+	: mModule(module), mEv(move(ev)), mSipFrom(nullptr), mContact(nullptr), mPath(nullptr) {
+	mEv->suspendProcessing();
 	su_home_init(&mHome);
 	if (contact)
 		mContact = sip_contact_copy(&mHome, contact);
@@ -289,10 +289,9 @@ static void staticRoutesRereadTimerfunc(su_root_magic_t *magic, su_timer_t *t, v
 	r->readStaticRecords();
 }
 
-ModuleRegistrar::ModuleRegistrar(Agent *ag) : Module(ag), mStaticRecordsTimer(nullptr) {
+ModuleRegistrar::ModuleRegistrar(std::weak_ptr<AgentInternalInterface> ag) : Module{std::move(ag)} {
 	sRegistrarInstanceForSigAction = this;
 	memset(&mSigaction, 0, sizeof(mSigaction));
-	mStaticRecordsVersion = 0;
 }
 
 void ModuleRegistrar::onDeclare(GenericStruct *mc) {
@@ -422,7 +421,7 @@ void ModuleRegistrar::onLoad(const GenericStruct *mc) {
 
 	if (!mStaticRecordsFile.empty()) {
 		readStaticRecords(); // read static records from configuration file
-		mStaticRecordsTimer = mAgent->createTimer(mStaticRecordsTimeout * 1000, &staticRoutesRereadTimerfunc, this);
+		mStaticRecordsTimer = mAgent.lock()->createTimer(mStaticRecordsTimeout * 1000, &staticRoutesRereadTimerfunc, this);
 	}
 	mAllowDomainRegistrations = GenericManager::get()
 									->getRoot()
@@ -478,7 +477,7 @@ void ModuleRegistrar::updateLocalRegExpire() {
 }
 
 bool ModuleRegistrar::isManagedDomain(const url_t *url) {
-	return ModuleToolbox::isManagedDomain(getAgent(), mDomains, url);
+	return ModuleToolbox::isManagedDomain(getAgent().get(), mDomains, url);
 }
 
 void ModuleRegistrar::removeInternalParams(sip_contact_t *ct){
@@ -652,7 +651,7 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent> &ev) {
 			SLOGD << "Identical path already existing: " << getAgent()->getPreferredRoute();
 		}
 	} else {
-		addPathHeader(getAgent(), ev, ev->getIncomingTport().get());
+		addPathHeader(getAgent().get(), ev, ev->getIncomingTport().get());
 	}
 
 	/* Initialize a connection ID, so that registration can be matched with the tport, 

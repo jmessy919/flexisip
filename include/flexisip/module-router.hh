@@ -42,9 +42,7 @@ class ModuleRouter : public Module,
                      public ForkContextListener,
                      public std::enable_shared_from_this<ModuleRouter> {
 public:
-	ModuleRouter(Agent* ag) : Module(ag){};
-
-	~ModuleRouter(){};
+	using Module::Module;
 
 	virtual void onDeclare(GenericStruct* mc) override;
 
@@ -84,7 +82,7 @@ public:
 	}
 
 	bool isManagedDomain(const url_t* url) {
-		return ModuleToolbox::isManagedDomain(getAgent(), mDomains, url);
+		return ModuleToolbox::isManagedDomain(getAgent().get(), mDomains, url);
 	}
 
 	const std::shared_ptr<SipBooleanExpression>& getFallbackRouteFilter() const {

@@ -468,7 +468,7 @@ MediaRelayServer::MediaRelayServer(MediaRelay *module) : mModule(module) {
 	}
 }
 
-Agent *MediaRelayServer::getAgent() {
+shared_ptr<AgentInternalInterface> MediaRelayServer::getAgent() {
 	return mModule->getAgent();
 }
 

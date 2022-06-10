@@ -26,11 +26,7 @@ using namespace flexisip;
 
 class NatHelper : public Module, protected ModuleToolbox {
 public:
-	NatHelper(Agent *ag) : Module(ag) {
-	}
-
-	~NatHelper() {
-	}
+	using Module::Module;
 
 	virtual void onRequest(shared_ptr<RequestSipEvent> &ev) {
 		shared_ptr<MsgSip> ms = ev->getMsgSip();
@@ -46,7 +42,7 @@ public:
 				// fix potential record-route from a natted proxy added before us
 				if (mFixRecordRoutes)
 					fixRecordRouteInRequest(ms);
-				addRecordRouteIncoming(getAgent(), ev);
+				addRecordRouteIncoming(getAgent().get(), ev);
 			}
 		}
 		// fix potential Path header inserted before us by a flexisip natted proxy

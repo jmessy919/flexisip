@@ -26,8 +26,8 @@ using namespace flexisip;
 
 class LoadBalancer : public Module, public ModuleToolbox {
 public:
-	LoadBalancer(Agent *ag);
-	virtual ~LoadBalancer();
+	using Module::Module;
+
 	virtual void onDeclare(GenericStruct *module_config);
 	virtual void onLoad(const GenericStruct *modconf);
 	virtual void onRequest(shared_ptr<RequestSipEvent> &ev);
@@ -39,12 +39,6 @@ private:
 
 	static ModuleInfo<LoadBalancer> sInfo;
 };
-
-LoadBalancer::LoadBalancer(Agent *ag) : Module(ag) {
-}
-
-LoadBalancer::~LoadBalancer() {
-}
 
 void LoadBalancer::onDeclare(GenericStruct *module_config) {
 	/*we need to be disabled by default*/
@@ -83,7 +77,7 @@ void LoadBalancer::onRequest(shared_ptr<RequestSipEvent> &ev) {
 		call_hash = sip->sip_call_id->i_hash;
 		index = call_hash % mRoutesCount;
 		route = mRoutes[index].c_str();
-		cleanAndPrependRoute(getAgent(), ms->getMsg(), sip, sip_route_make(ms->getHome(), route));
+		cleanAndPrependRoute(getAgent().get(), ms->getMsg(), sip, sip_route_make(ms->getHome(), route));
 	} else {
 		LOGW("request has no call id");
 	}

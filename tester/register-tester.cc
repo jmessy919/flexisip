@@ -17,18 +17,23 @@
 */
 
 #include <chrono>
-#include <signal.h>
+#include <csignal>
+
+#include <sys/wait.h>
 
 #include <flexisip/agent.hh>
 #include <flexisip/module-router.hh>
 
 #include "tester.hh"
 #include "utils/bellesip-utils.hh"
+#include "utils/redis-server.hh"
 
 using namespace std;
 using namespace std::chrono_literals;
 using namespace std::chrono;
-using namespace flexisip;
+
+namespace flexisip {
+namespace tester {
 
 static std::shared_ptr<sofiasip::SuRoot> root{};
 static shared_ptr<Agent> agent{};
@@ -106,7 +111,7 @@ static void beforeEach() {
 	fetchingDone = 0;
 	expectedFetchingDone = 0;
 	root = make_shared<sofiasip::SuRoot>();
-	agent = make_shared<Agent>(root);
+	agent = Agent::make(root);
 }
 
 static void afterEach() {
@@ -404,24 +409,18 @@ static void duplicatePushTokenRegisterInternalDbTest() {
 }
 
 static void duplicatePushTokenRegisterRedisTest() {
-	auto pid = fork();
-	if (pid == 0) {
-		const string redisServerPath{REDIS_SERVER_EXEC};
-		execl(redisServerPath.c_str(), redisServerPath.substr(redisServerPath.find_last_of("/") + 1).c_str(), nullptr);
-		exit(1);
-	}
-
-	// Redis need a bit of time to start
-	sleep(1);
+	RedisServer redis{};
+	auto redisPort = redis.start();
 
 	// Agent initialization
 	auto cfg = GenericManager::get();
 	cfg->load(string(TESTER_DATA_DIR).append("/config/flexisip_register_redis.conf"));
-	agent->loadConfig(cfg);
+	cfg->getRoot()->get<GenericStruct>("module::Registrar")->get<ConfigValue>("redis-server-port")->set(to_string(redisPort));
+	agent->loadConfig(cfg, false);
 
 	startTest();
 
-	kill(pid, 15);
+	redis.terminate();
 }
 
 static test_t tests[] = {
@@ -430,5 +429,8 @@ static test_t tests[] = {
     TEST_NO_TAG("Duplicate push token at register handling, with Redis db", duplicatePushTokenRegisterRedisTest),
 };
 
-test_suite_t register_suite = {"Register", nullptr, nullptr, beforeEach, afterEach, sizeof(tests) / sizeof(tests[0]),
+test_suite_t registerSuite = {"Register", nullptr, nullptr, beforeEach, afterEach, sizeof(tests) / sizeof(tests[0]),
                                tests};
+
+} // namespace flexisip::tester
+} // namespace flexisip

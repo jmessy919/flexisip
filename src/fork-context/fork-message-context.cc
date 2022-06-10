@@ -33,7 +33,7 @@ using namespace std;
 using namespace std::chrono;
 using namespace flexisip;
 
-shared_ptr<ForkMessageContext> ForkMessageContext::make(Agent* agent,
+shared_ptr<ForkMessageContext> ForkMessageContext::make(const std::weak_ptr<AgentInternalInterface>& agent,
                                                         const std::shared_ptr<RequestSipEvent>& event,
                                                         const std::shared_ptr<ForkContextConfig>& cfg,
                                                         const std::weak_ptr<ForkContextListener>& listener,
@@ -43,14 +43,14 @@ shared_ptr<ForkMessageContext> ForkMessageContext::make(Agent* agent,
 	return shared;
 }
 
-shared_ptr<ForkMessageContext> ForkMessageContext::make(Agent* agent,
+shared_ptr<ForkMessageContext> ForkMessageContext::make(const std::weak_ptr<AgentInternalInterface>& agent,
                                                         const std::shared_ptr<ForkContextConfig>& cfg,
                                                         const std::weak_ptr<ForkContextListener>& listener,
                                                         const std::weak_ptr<StatPair>& counter,
                                                         ForkMessageContextDb& forkFromDb) {
 	auto msgSipFromDB = make_shared<MsgSip>(0, forkFromDb.request);
 	auto requestSipEventFromDb =
-	    RequestSipEvent::makeRestored(agent->shared_from_this(), msgSipFromDB, agent->findModule("Router"));
+	    RequestSipEvent::makeRestored(agent.lock(), msgSipFromDB, agent.lock()->findModule("Router"));
 
 	// new because make_shared require a public constructor.
 	shared_ptr<ForkMessageContext> shared{
@@ -83,20 +83,21 @@ shared_ptr<ForkMessageContext> ForkMessageContext::make(Agent* agent,
 	return shared;
 }
 
-ForkMessageContext::ForkMessageContext(Agent* agent,
+ForkMessageContext::ForkMessageContext(const std::weak_ptr<AgentInternalInterface>& agent,
                                        const std::shared_ptr<RequestSipEvent>& event,
                                        const std::shared_ptr<ForkContextConfig>& cfg,
                                        const std::weak_ptr<ForkContextListener>& listener,
                                        const std::weak_ptr<StatPair>& counter,
                                        bool isRestored)
     : ForkContextBase(agent, event, cfg, listener, counter, isRestored) {
+
 	LOGD("New ForkMessageContext %p", this);
 	if (!isRestored) {
 		// Start the acceptance timer immediately.
 		if (mCfg->mForkLate && mCfg->mDeliveryTimeout > 30) {
 			mExpirationDate = system_clock::to_time_t(system_clock::now() + seconds(mCfg->mDeliveryTimeout));
 
-			mAcceptanceTimer = make_unique<sofiasip::Timer>(mAgent->getRoot(), mCfg->mUrgentTimeout * 1000);
+			mAcceptanceTimer = make_unique<sofiasip::Timer>(mAgent.lock()->getRoot(), mCfg->mUrgentTimeout * 1000);
 			mAcceptanceTimer->set([this]() { onAcceptanceTimer(); });
 		}
 		mDeliveredCount = 0;
@@ -181,7 +182,7 @@ void ForkMessageContext::acceptMessage() {
 	/*in fork late mode, never answer a service unavailable*/
 	shared_ptr<MsgSip> msgsip(mIncoming->createResponse(SIP_202_ACCEPTED));
 	shared_ptr<ResponseSipEvent> ev(
-	    new ResponseSipEvent(dynamic_pointer_cast<OutgoingAgent>(mAgent->shared_from_this()), msgsip));
+	    new ResponseSipEvent(dynamic_pointer_cast<OutgoingAgent>(mAgent.lock()), msgsip));
 	forwardResponse(ev);
 	if (mIsMessage)
 		logReceivedFromUserEvent(mEvent, ev); /*in the sender's log will appear the 202 accepted from Flexisip server*/
@@ -279,7 +280,7 @@ ForkMessageContextDb ForkMessageContext::getDbObject() {
 }
 
 void ForkMessageContext::restoreBranch(const BranchInfoDb& dbBranch) {
-	mWaitingBranches.push_back(BranchInfo::make(shared_from_this(), dbBranch, mAgent->shared_from_this()));
+	mWaitingBranches.push_back(BranchInfo::make(shared_from_this(), dbBranch, mAgent.lock()));
 }
 
 #ifdef ENABLE_UNIT_TESTS

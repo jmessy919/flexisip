@@ -48,7 +48,7 @@ Monitor::Init::Init() {
 
 void Monitor::exec(int socket) {
 	// Create a temporary agent to load all modules
-	auto a = make_shared<Agent>(nullptr);
+	auto a = Agent::make(nullptr);
 	GenericManager::get()->loadStrict();
 
 	GenericStruct *monitorParams = GenericManager::get()->getRoot()->get<GenericStruct>("monitor");

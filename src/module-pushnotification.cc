@@ -104,9 +104,6 @@ ModuleInfo<PushNotification> PushNotification::sInfo(
     {"Router"},
     ModuleInfoBase::ModuleOid::PushNotification);
 
-PushNotification::PushNotification(Agent* ag) : Module(ag) {
-}
-
 void PushNotification::onDeclare(GenericStruct* module_config) {
 	module_config->get<ConfigBoolean>("enabled")->setDefault("false");
 	ConfigItemDescriptor items[] = {

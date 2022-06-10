@@ -28,7 +28,7 @@ using namespace std::chrono;
 Server::Server(const std::string& configFile) {
 	// Agent initialisation
 	mRoot = make_shared<sofiasip::SuRoot>();
-	mAgent = make_shared<Agent>(mRoot);
+	mAgent = Agent::make(mRoot);
 
 	if (!configFile.empty()) {
 		GenericManager* cfg = GenericManager::get();

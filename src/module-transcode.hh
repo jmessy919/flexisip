@@ -67,13 +67,14 @@ private:
 
 class Transcoder : public Module, protected ModuleToolbox {
 public:
-	Transcoder(Agent *ag);
-	~Transcoder();
-	virtual void onLoad(const GenericStruct *module_config);
-	virtual void onRequest(std::shared_ptr<RequestSipEvent> &ev);
-	virtual void onResponse(std::shared_ptr<ResponseSipEvent> &ev);
-	virtual void onIdle();
-	virtual void onDeclare(GenericStruct *mc);
+	explicit Transcoder(std::weak_ptr<AgentInternalInterface> ag);
+	~Transcoder() override;
+
+	void onLoad(const GenericStruct *module_config) override;
+	void onRequest(std::shared_ptr<RequestSipEvent> &ev) override;
+	void onResponse(std::shared_ptr<ResponseSipEvent> &ev) override;
+	void onIdle() override;
+	void onDeclare(GenericStruct *mc) override;
 #ifdef ENABLE_TRANSCODER
 private:
 	TickerManager mTickerManager;
@@ -89,9 +90,9 @@ private:
 	bool hasSupportedCodec(const std::list<PayloadType *> &ioffer);
 	void normalizePayloads(std::list<PayloadType *> &l);
 	std::list<PayloadType *> orderList(const std::list<std::string> &config, const std::list<PayloadType *> &l);
-	std::list<PayloadType *> mSupportedAudioPayloads;
+	std::list<PayloadType *> mSupportedAudioPayloads{};
 	CallStore mCalls;
-	su_timer_t *mTimer;
+	su_timer_t *mTimer{nullptr};
 	std::list<std::string> mRcUserAgents;
 	MSFactory *mFactory;
 	CallContextParams mCallParams;

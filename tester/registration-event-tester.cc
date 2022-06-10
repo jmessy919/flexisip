@@ -40,7 +40,7 @@ static void basic() {
 	// Agent initialisation
 
 	auto root = make_shared<sofiasip::SuRoot>();
-	shared_ptr<Agent> a = make_shared<Agent>(root);
+	auto a = Agent::make(root);
 	Agent *agent = a->getAgent();
 
 	GenericManager *cfg = GenericManager::get();

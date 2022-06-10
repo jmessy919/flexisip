@@ -197,12 +197,12 @@ private:
 
 	redisAsyncContext* mContext{nullptr};
 	redisAsyncContext* mSubscribeContext{nullptr};
-	RecordSerializer* mSerializer;
+	RecordSerializer* mSerializer{nullptr};
 	RedisParameters mParams{};
 	RedisParameters mLastActiveParams{};
 	std::shared_ptr<sofiasip::SuRoot> mRoot{};
 	std::vector<RedisHost> mSlaves{};
-	decltype(mSlaves)::const_iterator mCurSlave = mSlaves.cend();
+	decltype(mSlaves)::const_iterator mCurSlave{mSlaves.cend()};
 	std::unique_ptr<sofiasip::Timer> mReplicationTimer{nullptr};
 	std::unique_ptr<sofiasip::Timer> mReconnectTimer{nullptr};
 	std::chrono::system_clock::time_point mLastReconnectRotation;

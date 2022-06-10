@@ -30,7 +30,7 @@ static shared_ptr<Agent> agent{};
 static void beforeEach() {
 	// Agent initialization (needed only because ExtendedContact::init relies on RegistrarDb::getMessageExpires)
 	root = make_shared<sofiasip::SuRoot>();
-	agent = make_shared<Agent>(root);
+	agent = Agent::make(root);
 }
 
 static void afterEach() {

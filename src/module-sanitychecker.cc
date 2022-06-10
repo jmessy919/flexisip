@@ -24,11 +24,7 @@ using namespace flexisip;
 
 class ModuleSanityChecker : public Module, protected ModuleToolbox {
 public:
-	ModuleSanityChecker(Agent *ag) : Module(ag) {
-	}
-
-	~ModuleSanityChecker() {
-	}
+	using Module::Module;
 
 	virtual void onRequest(shared_ptr<RequestSipEvent> &ev) {
 		sip_t *sip = ev->getMsgSip()->getSip();

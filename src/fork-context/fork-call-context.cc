@@ -32,17 +32,7 @@ template <typename T> static bool contains(const list<T>& l, T value) {
 	return find(l.cbegin(), l.cend(), value) != l.cend();
 }
 
-shared_ptr<ForkCallContext> ForkCallContext::make(Agent* agent,
-                                                  const shared_ptr<RequestSipEvent>& event,
-                                                  const shared_ptr<ForkContextConfig>& cfg,
-                                                  const weak_ptr<ForkContextListener>& listener,
-                                                  const weak_ptr<StatPair>& counter) {
-	// new because make_shared require a public constructor.
-	const shared_ptr<ForkCallContext> shared{new ForkCallContext(agent, event, cfg, listener, counter)};
-	return shared;
-}
-
-ForkCallContext::ForkCallContext(Agent* agent,
+ForkCallContext::ForkCallContext(const weak_ptr<AgentInternalInterface>& agent,
                                  const shared_ptr<RequestSipEvent>& event,
                                  const shared_ptr<ForkContextConfig>& cfg,
                                  const weak_ptr<ForkContextListener>& listener,
@@ -139,7 +129,7 @@ void ForkCallContext::onResponse(const shared_ptr<BranchInfo>& br, const shared_
 			shared_ptr<BranchInfo> best = findBestBranch(getUrgentCodes(), mCfg->mForkLate);
 			if (best) logResponse(forwardResponse(best));
 		} else if (isUrgent(code, getUrgentCodes()) && mShortTimer == nullptr) {
-			mShortTimer = make_unique<sofiasip::Timer>(mAgent->getRoot());
+			mShortTimer = make_unique<sofiasip::Timer>(mAgent.lock()->getRoot());
 			mShortTimer->set([this]() { onShortTimer(); }, mCfg->mUrgentTimeout * 1000);
 		} else if (code >= 600) {
 			/*6xx response are normally treated as global failures */
@@ -177,17 +167,18 @@ void ForkCallContext::sendResponse(int code, char const* phrase, bool addToTag) 
 	auto msgsip = mIncoming->createResponse(code, phrase);
 	if (!msgsip) return;
 
-	auto ev = make_shared<ResponseSipEvent>(dynamic_pointer_cast<OutgoingAgent>(mAgent->shared_from_this()), msgsip);
+	auto agent = mAgent.lock();
+	auto ev = make_shared<ResponseSipEvent>(dynamic_pointer_cast<OutgoingAgent>(agent), msgsip);
 
 	// add a to tag, no set by sofia here.
 	if (addToTag) {
-		auto totag = nta_agent_newtag(msgsip->getHome(), "%s", mAgent->getSofiaAgent());
+		auto totag = nta_agent_newtag(msgsip->getHome(), "%s", agent->getSofiaAgent());
 		sip_to_tag(msgsip->getHome(), msgsip->getSip()->sip_to, totag);
 	}
 
 	mPushTimer.reset();
 	if (mCfg->mPushResponseTimeout > 0) {
-		mPushTimer = make_unique<sofiasip::Timer>(mAgent->getRoot());
+		mPushTimer = make_unique<sofiasip::Timer>(agent->getRoot());
 		mPushTimer->set([this]() { onPushTimer(); }, mCfg->mPushResponseTimeout * 1000);
 	}
 	forwardResponse(ev);

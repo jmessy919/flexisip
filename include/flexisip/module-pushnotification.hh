@@ -105,8 +105,8 @@ protected:
 
 class PushNotification : public Module, public ModuleToolbox {
 public:
-	PushNotification(Agent* ag);
-	~PushNotification() override = default;
+	using Module::Module;
+
 	void onDeclare(GenericStruct* module_config) override;
 	void onRequest(std::shared_ptr<RequestSipEvent>& ev) override;
 	void onResponse(std::shared_ptr<ResponseSipEvent>& ev) override;
