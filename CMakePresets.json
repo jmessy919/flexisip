@@ -1,0 +1,33 @@
+{
+  "version": 4,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 10
+  },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default Config",
+      "description": "Config for day-by-day development",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build"
+    },
+    {
+      "name": "centos-package",
+      "inherits": "default",
+      "displayName": "CentOS package",
+      "description": "Config to make a package for CentOS",
+      "binaryDir": "${sourceParentDir}/flexisip-build-centos-package",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_INSTALL_PREFIX": "/opt/belledonne-communications",
+        "SYSCONF_INSTALL_DIR": "/etc",
+        "FLEXISIP_SYSTEMD_INSTALL_DIR": "/lib/systemd/system",
+        "INTERNAL_LIBHIREDIS": "ON",
+        "INTERNAL_LIBSRTP2": "ON",
+        "CPACK_GENERATOR": "RPM"
+      }
+    }
+  ]
+}
+
