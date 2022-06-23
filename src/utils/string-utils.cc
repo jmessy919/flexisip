@@ -98,3 +98,24 @@ std::string StringUtils::transform(const std::string &str, const std::map<char, 
 	}
 	return res;
 }
+
+bool StringUtils::string2MediaEncryption(const std::string configString, linphone::MediaEncryption& encryptionMode) noexcept {
+	if (configString == std::string{"zrtp"}) {
+		encryptionMode = linphone::MediaEncryption::ZRTP;
+		return true;
+	}
+	if (configString == std::string{"sdes"}) {
+		encryptionMode = linphone::MediaEncryption::SRTP;
+		return true;
+	}
+	if (configString == std::string{"dtls-srtp"}) {
+		encryptionMode = linphone::MediaEncryption::DTLS;
+		return true;
+	}
+	if (configString == std::string{"none"}) {
+		encryptionMode = linphone::MediaEncryption::None;
+		return true;
+	}
+	encryptionMode = linphone::MediaEncryption::None;
+	return false;
+}

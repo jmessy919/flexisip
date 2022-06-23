@@ -25,6 +25,8 @@
 #include <string>
 #include <vector>
 
+#include <linphone++/linphone.hh>
+
 class StringUtils {
 public:
 	/**
@@ -145,5 +147,14 @@ public:
 	static bool endsWith(const std::string &str, const std::string &suffix) noexcept {
 		return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
 	}
+
+	/**
+	 * convert a configuration string to a linphone::MediaEncryption
+	 *
+	 * @param[in]	configString	the configuration string, one of: zrtp, sdes, dtls-srtp, none
+	 * @param[out]	encryptionMode	the converted value, None if the input string was invalid
+	 * @return		true if the given string is valid, false otherwise
+	 **/
+	static bool string2MediaEncryption(const std::string configString, linphone::MediaEncryption& encryptionMode) noexcept;
 
 };
