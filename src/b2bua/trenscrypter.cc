@@ -14,6 +14,9 @@
  You should have received a copy of the GNU Affero General Public License
  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
+
+#include "utils/string-utils.hh"
+
 #include "trenscrypter.hh"
 
 namespace flexisip {
@@ -22,33 +25,7 @@ namespace trenscrypter {
 
 // unamed namespace for local functions
 namespace {
-/**
- * convert a configuration string to a linphone::MediaEncryption
- *
- * @param[in]	configString	the configuration string, one of: zrtp, sdes, dtls-srtp, none
- * @param[out]	encryptionMode	the converted value, None if the input string was invalid
- * @return		true if the given string is valid, false otherwise
- **/
-bool string2MediaEncryption(const std::string configString, linphone::MediaEncryption& encryptionMode) {
-	if (configString == std::string{"zrtp"}) {
-		encryptionMode = linphone::MediaEncryption::ZRTP;
-		return true;
-	}
-	if (configString == std::string{"sdes"}) {
-		encryptionMode = linphone::MediaEncryption::SRTP;
-		return true;
-	}
-	if (configString == std::string{"dtls-srtp"}) {
-		encryptionMode = linphone::MediaEncryption::DTLS;
-		return true;
-	}
-	if (configString == std::string{"none"}) {
-		encryptionMode = linphone::MediaEncryption::None;
-		return true;
-	}
-	encryptionMode = linphone::MediaEncryption::None;
-	return false;
-}
+
 
 /**
  * convert a linphone::MediaEncryption to string
@@ -226,7 +203,7 @@ void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexi
 	// parse from the list begining, we shall have couple : encryption_mode regex
 	while (outgoingEncryptionList.size() >= 2) {
 		linphone::MediaEncryption outgoingEncryption = linphone::MediaEncryption::None;
-		if (string2MediaEncryption(outgoingEncryptionList.front(), outgoingEncryption)) {
+		if (StringUtils::string2MediaEncryption(outgoingEncryptionList.front(), outgoingEncryption)) {
 			outgoingEncryptionList.pop_front();
 			try {
 				mOutgoingEncryption.emplace_back(outgoingEncryption, outgoingEncryptionList.front());

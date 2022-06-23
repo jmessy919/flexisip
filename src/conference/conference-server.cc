@@ -27,6 +27,7 @@
 #include "conference-address-generator.hh"
 #include "registration-events/client.hh"
 #include "utils/uri-utils.hh"
+#include "utils/string-utils.hh"
 
 #include "conference-server.hh"
 
@@ -94,8 +95,6 @@ void ConferenceServer::_init () {
 		
 	}
 
-// TODO: delete - set preferred layout to ActiveSpeaker
-	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::ActiveSpeaker));
 	configLinphone->setInt("misc", "max_calls", 1000);
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
 	configLinphone->setInt("sound", "conference_rate", 48000);
@@ -123,6 +122,11 @@ void ConferenceServer::_init () {
 	mCore->setUseFiles(true); //No sound card shall be used in calls.
 	enableSelectedCodecs(mCore->getAudioPayloadTypes(), { "opus", "speex"});
 	enableSelectedCodecs(mCore->getVideoPayloadTypes(), { "VP8"});
+
+	string encryption = config->get<ConfigString>("encryption")->read();
+	linphone::MediaEncryption encryptionMode = linphone::MediaEncryption::None;
+	StringUtils::string2MediaEncryption(encryption, encryptionMode);
+	mCore->setMediaEncryption(encryptionMode);
 
 	mCore->setVideoDisplayFilter("MSExtDisplay");
 
@@ -539,6 +543,10 @@ ConferenceServer::Init::Init() {
 	     "Valid values are: audio, video and text. For example:\n"
 	     "supported-media-types=audio video text",
 	     ""},
+	    {String, "encryption",
+	     "The preferred encryption the conference server will offer in the outgoing transactions.\n"
+	     "Valid values are: none, sdes, zrtp and dtls.\n",
+	     "none"},
 	    {Boolean, "enable-one-to-one-chat-room", "Whether one-to-one chat room creation is allowed or not.", "true"},
 	    config_item_end};
 
