@@ -15,13 +15,10 @@ variables:
   # Docker image version
   ARCHLINUX_IMAGE_VERSION: 20220414_remove_ffmpeg
   CENTOS_7_IMAGE_VERSION: 20220112_add_libasan
-  CENTOS_8_IMAGE_VERSION: 20220621_add_llvm
   ROCKY_8_IMAGE_VERSION: 20220621_add_llvm
-  DEBIAN_9_IMAGE_VERSION: 20210624_packaging
   DEBIAN_10_IMAGE_VERSION: 20220613_remove_entrypoint
   DEBIAN_11_IMAGE_VERSION: 20220613_remove_entrypoint
   UBUNTU_18_04_IMAGE_VERSION: 20210624_packaging
-  UBUNTU_ROLLING_IMAGE_VERSION: 20210624_packaging
 
 #https://docs.gitlab.com/ee/ci/yaml/index.html#workflow
 workflow:
@@ -43,9 +40,7 @@ include:
   - '.gitlab-ci-files/job-linux.yml'
   - '.gitlab-ci-files/job-linux-archlinux.yml'
   - '.gitlab-ci-files/job-linux-centos7.yml'
-  - '.gitlab-ci-files/job-linux-centos8.yml'
   - '.gitlab-ci-files/job-linux-rocky8.yml'
-  - '.gitlab-ci-files/job-linux-debian9.yml'
   - '.gitlab-ci-files/job-linux-debian10.yml'
   - '.gitlab-ci-files/job-linux-debian11.yml'
   - '.gitlab-ci-files/job-linux-ubuntu-18-04.yml'
