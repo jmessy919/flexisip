@@ -1342,11 +1342,11 @@ RecordSerializer *RecordSerializer::create(const string &name) {
 RecordSerializer *RecordSerializer::sInstance = nullptr;
 
 RecordSerializer *RecordSerializer::get() {
-	if (!sInstance) {
-		string name = "protobuf";
+	if (sInstance == nullptr) {
+		constexpr auto name = "protobuf";
 		sInstance = create(name);
-		if (!sInstance) {
-			LOGF("Unsupported record serializer: '%s'", name.c_str());
+		if (sInstance == nullptr) {
+			LOGW("Unsupported record serializer: '%s'", name);
 		}
 	}
 	return sInstance;

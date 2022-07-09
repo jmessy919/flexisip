@@ -45,7 +45,7 @@ public:
 	 * Used to create a ForkMessageContextDbProxy object for a ForkMessage that already exist in database at server
 	 * restart.
 	 */
-	static std::shared_ptr<ForkMessageContextDbProxy> make(Agent* agent,
+	static std::shared_ptr<ForkMessageContextDbProxy> make(const std::weak_ptr<AgentInternalInterface>& agent,
 	                                                       const std::shared_ptr<ForkContextConfig>& cfg,
 	                                                       const std::weak_ptr<ForkContextListener>& listener,
 	                                                       const std::weak_ptr<StatPair>& messageCounter,
@@ -55,7 +55,7 @@ public:
 	/**
 	 * Used to create a ForkMessageContextDbProxy and its inner ForkMessageContext when needed at runtime.
 	 */
-	static std::shared_ptr<ForkMessageContextDbProxy> make(Agent* agent,
+	static std::shared_ptr<ForkMessageContextDbProxy> make(const std::weak_ptr<AgentInternalInterface>& agent,
 	                                                       const std::shared_ptr<RequestSipEvent>& event,
 	                                                       const std::shared_ptr<ForkContextConfig>& cfg,
 	                                                       const std::weak_ptr<ForkContextListener>& listener,
@@ -147,13 +147,13 @@ protected:
 	};
 
 private:
-	ForkMessageContextDbProxy(Agent* agent,
+	ForkMessageContextDbProxy(const std::weak_ptr<AgentInternalInterface>& agent,
 	                          const std::shared_ptr<ForkContextConfig>& cfg,
 	                          const std::weak_ptr<ForkContextListener>& listener,
 	                          const std::weak_ptr<StatPair>& messageCounter,
 	                          const std::weak_ptr<StatPair>& proxyCounter);
 
-	ForkMessageContextDbProxy(Agent* agent,
+	ForkMessageContextDbProxy(const std::weak_ptr<AgentInternalInterface>& agent,
 	                          const std::shared_ptr<ForkContextConfig>& cfg,
 	                          const std::weak_ptr<ForkContextListener>& listener,
 	                          const std::weak_ptr<StatPair>& messageCounter,
@@ -207,7 +207,7 @@ private:
 	std::string mForkUuidInDb{};
 	bool mIsFinished = false;
 
-	Agent* mSavedAgent;
+	std::weak_ptr<AgentInternalInterface> mSavedAgent{};
 	std::shared_ptr<ForkContextConfig> mSavedConfig;
 	std::weak_ptr<StatPair> mSavedCounter;
 	std::vector<std::string> mSavedKeys{};

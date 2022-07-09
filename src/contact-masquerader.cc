@@ -16,6 +16,8 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "flexisip/logmanager.hh"
+
 #include "contact-masquerader.hh"
 
 using namespace std;
@@ -59,7 +61,7 @@ void ContactMasquerader::masquerade(su_home_t *home, sip_contact_t *c, const cha
 	}
 
 	/*masquerade the contact, so that later requests (INVITEs) come to us */
-	const url_t *defaultUri = mAgent->getDefaultUri();
+	const url_t *defaultUri = mAgent.lock()->getDefaultUri();
 	ct_url->url_host = defaultUri->url_host;
 	ct_url->url_port = defaultUri->url_port;
 	ct_url->url_scheme = defaultUri->url_scheme;

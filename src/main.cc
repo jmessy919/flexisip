@@ -476,7 +476,7 @@ static void dump_config(const std::shared_ptr<sofiasip::SuRoot>& root,
 		pluginsDirEntry->set(DEFAULT_PLUGINS_DIR);
 	}
 
-	auto a = make_shared<Agent>(root);
+	auto a = Agent::make(root);
 	if (!dumpDefault) a->loadConfig(GenericManager::get());
 
 	auto* rootStruct = GenericManager::get()->getRoot();
@@ -523,7 +523,7 @@ static void dump_config(const std::shared_ptr<sofiasip::SuRoot>& root,
 
 static void list_sections(bool moduleOnly = false) {
 	const string modulePrefix{"module::"};
-	auto a = make_shared<Agent>(root);
+	auto a = Agent::make(root);
 	for (const auto& child : GenericManager::get()->getRoot()->getChildren()) {
 		if (!moduleOnly || child->getName().compare(0, modulePrefix.size(), modulePrefix) == 0) {
 			cout << child->getName() << endl;
@@ -706,7 +706,7 @@ int main(int argc, char* argv[]) {
 
 	// list all mibs and exit
 	if (dumpMibs) {
-		a = make_shared<Agent>(root);
+		a = Agent::make(root);
 		cout << MibDumper(GenericManager::get()->getRoot());
 		return EXIT_SUCCESS;
 	}
@@ -725,7 +725,7 @@ int main(int argc, char* argv[]) {
 
 	// list the overridable values and exit
 	if (listOverrides.getValue().length() != 0) {
-		a = make_shared<Agent>(root);
+		a = Agent::make(root);
 		list<string> allCompletions;
 		allCompletions.push_back("nosnmp");
 
@@ -924,7 +924,7 @@ int main(int argc, char* argv[]) {
 	 * We create an Agent in all cases, because it will declare config items that are necessary for presence server to
 	 * run.
 	 */
-	a = make_shared<Agent>(root);
+	a = Agent::make(root);
 	setOpenSSLThreadSafe();
 	a->loadConfig(cfg);
 

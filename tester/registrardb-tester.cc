@@ -114,7 +114,7 @@ static test_t tests[] = {TEST_NO_TAG("Subsequent UNSUBSCRIBE/SUBSCRIBE with inte
                          TEST_NO_TAG("Subsequent UNSUBSCRIBE/SUBSCRIBE with Redis backend",
                                      run<SubsequentUnsubscribeSubscribeWithRedisTest>)};
 
-test_suite_t registarDbSuite = {
+test_suite_t registrarDbSuite = {
     "RegistrarDB",                    // Suite name
     nullptr,                          // Before suite
     nullptr,                          // After suite

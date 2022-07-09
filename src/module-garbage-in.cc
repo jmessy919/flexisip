@@ -24,8 +24,7 @@ using namespace flexisip;
 
 class ModuleGarbageIn : public Module, protected ModuleToolbox {
 public:
-	ModuleGarbageIn(Agent *ag) : Module(ag) {}
-	~ModuleGarbageIn() {}
+	using Module::Module;
 
 	virtual void onRequest(shared_ptr<RequestSipEvent> &ev) {
 		const sip_t *sip = ev->getMsgSip()->getSip();

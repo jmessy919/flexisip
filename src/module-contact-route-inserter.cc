@@ -25,10 +25,9 @@ using namespace flexisip;
 
 class ContactRouteInserter : public Module {
 public:
-	ContactRouteInserter(Agent *ag) : Module(ag), mContactMasquerader() {
-	}
+	using Module::Module;
 
-	void onDeclare(GenericStruct *module_config) {
+	void onDeclare(GenericStruct *module_config) final {
 		ConfigItemDescriptor items[] = {
 			{Boolean, "masquerade-contacts-on-registers", "Masquerade register contacts with proxy address.", "true"},
 			{Boolean, "masquerade-contacts-for-invites", "Masquerade invite-related messages with proxy address.",
@@ -38,15 +37,15 @@ public:
 		module_config->addChildrenValues(items);
 	}
 
-	void onLoad(const GenericStruct *mc) {
+	void onLoad(const GenericStruct *mc) final {
 		mCtRtParamName = string("CtRt") + getAgent()->getUniqueId();
 		mMasqueradeInvites = mc->get<ConfigBoolean>("masquerade-contacts-for-invites")->read();
 		mMasqueradeRegisters = mc->get<ConfigBoolean>("masquerade-contacts-on-registers")->read();
 		mInsertDomain = mc->get<ConfigBoolean>("insert-domain")->read();
-		mContactMasquerader = unique_ptr<ContactMasquerader>(new ContactMasquerader(mAgent, mCtRtParamName));
+		mContactMasquerader = make_unique<ContactMasquerader>(mAgent, mCtRtParamName);
 	}
 
-	void onRequest(shared_ptr<RequestSipEvent> &ev) {
+	void onRequest(shared_ptr<RequestSipEvent> &ev) final {
 		const shared_ptr<MsgSip> &ms = ev->getMsgSip();
 		sip_t *sip = ms->getSip();
 		const sip_method_t rq_method = sip->sip_request->rq_method;
@@ -75,7 +74,7 @@ public:
 		}
 	}
 
-	virtual void onResponse(shared_ptr<ResponseSipEvent> &ev) {
+	void onResponse(shared_ptr<ResponseSipEvent> &ev) final {
 		const shared_ptr<MsgSip> &ms = ev->getMsgSip();
 		sip_t *sip = ms->getSip();
 		if (mMasqueradeInvites &&
@@ -84,10 +83,11 @@ public:
 		}
 	}
 
-	unique_ptr<ContactMasquerader> mContactMasquerader;
-	string mCtRtParamName;
-	bool mMasqueradeRegisters, mMasqueradeInvites;
-	bool mInsertDomain;
+	unique_ptr<ContactMasquerader> mContactMasquerader{};
+	string mCtRtParamName{};
+	bool mMasqueradeRegisters{false};
+	bool mMasqueradeInvites{false};
+	bool mInsertDomain{false};
 	static ModuleInfo<ContactRouteInserter> sInfo;
 };
 

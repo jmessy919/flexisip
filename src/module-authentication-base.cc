@@ -31,7 +31,7 @@ using namespace std;
 
 namespace flexisip {
 
-ModuleAuthenticationBase::ModuleAuthenticationBase(Agent *agent) : Module(agent) {
+ModuleAuthenticationBase::ModuleAuthenticationBase(weak_ptr<AgentInternalInterface> agent) : Module{move(agent)} {
 	mProxyChallenger.ach_status = 407; /*SIP_407_PROXY_AUTH_REQUIRED*/
 	mProxyChallenger.ach_phrase = sip_407_Proxy_auth_required;
 	mProxyChallenger.ach_header = sip_proxy_authenticate_class;

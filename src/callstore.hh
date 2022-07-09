@@ -26,8 +26,8 @@ namespace flexisip {
 class CallContextBase {
   public:
 	CallContextBase(sip_t *sip);
-	bool match(Agent *ag, sip_t *sip, bool match_call_id_only = false, bool match_established = false);
-	void establishDialogWith200Ok(Agent *ag, sip_t *sip);
+	bool match(AgentInternalInterface* ag, sip_t *sip, bool match_call_id_only = false, bool match_established = false);
+	void establishDialogWith200Ok(AgentInternalInterface* ag, sip_t *sip);
 	bool isDialogEstablished() const;
 	bool isNewInvite(sip_t *sip);
 	void storeNewInvite(msg_t *orig);
@@ -69,10 +69,10 @@ class CallStore {
 	CallStore();
 	~CallStore();
 	void store(const std::shared_ptr<CallContextBase> &ctx);
-	std::shared_ptr<CallContextBase> find(Agent *ag, sip_t *sip, bool match_call_id_only = false);
-	std::shared_ptr<CallContextBase> findEstablishedDialog(Agent *ag, sip_t *sip);
-	void findAndRemoveExcept(Agent *ag, sip_t *sip, const std::shared_ptr<CallContextBase> &ctx,
-							 bool match_call_id_only = false);
+	std::shared_ptr<CallContextBase> find(AgentInternalInterface* ag, sip_t *sip, bool match_call_id_only = false);
+	std::shared_ptr<CallContextBase> findEstablishedDialog(AgentInternalInterface* ag, sip_t *sip);
+	void findAndRemoveExcept(AgentInternalInterface* ag, sip_t *sip, const std::shared_ptr<CallContextBase> &ctx,
+							 bool stateful = false);
 	void remove(const std::shared_ptr<CallContextBase> &ctx);
 	void removeAndDeleteInactives(time_t inactivityPeriod);
 	void setCallStatCounters(StatCounter64 *invCount, StatCounter64 *invFinishedCount) {

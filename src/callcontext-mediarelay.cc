@@ -47,7 +47,7 @@ void RelayedCall::enableTelephoneEventDrooping(bool value){
 }
 
 void RelayedCall::setupSpecificRelayTransport(RelayTransport *rt, const char *destHost){
-	Agent *agent = mServer->getAgent();
+	auto agent = mServer->getAgent();
 	auto relayIps = agent->getPreferredIp(destHost);
 	bool isIpv6 = strchr(relayIps.first.c_str(), ':') != nullptr;
 	if (isIpv6){
@@ -67,7 +67,7 @@ void RelayedCall::initChannels ( const std::shared_ptr< SdpModifier >& m, const 
 	sdp_connection_t *global_c = m->mSession->sdp_connection;
 	int i = 0;
 	bool hasMultipleTargets = false;
-	Agent *agent = mServer->getAgent();
+	auto agent = mServer->getAgent();
 	
 	int maxEarlyRelays = mServer->mModule->mMaxRelayedEarlyMedia;
 	if (maxEarlyRelays != 0){
@@ -298,7 +298,7 @@ static bool isTls(url_t *url){
 }
 #endif
 
-static bool isLastProxy(Agent *ag, sip_t *sip){
+static bool isLastProxy(AgentInternalInterface* ag, sip_t *sip){
 	sip_record_route_t *rr=sip->sip_record_route;
 	if (!rr) {
 		LOGE("No record-route in response handled by media-relay, should never happen");
@@ -324,7 +324,7 @@ void RelayedCall::configureRelayChannel(shared_ptr<RelayChannel> ms, sip_t *sip,
 					bool enabled=false;
 					if (sip->sip_request == NULL){
 						//for responses, we want to activate the feature only if we are the last proxy.
-						enabled= mH264DecimOnlyIfLastProxy ? isLastProxy(mServer->getAgent(),sip) : true;
+						enabled= mH264DecimOnlyIfLastProxy ? isLastProxy(mServer->getAgent().get(),sip) : true;
 					}else enabled=true;
 					if (enabled) {
 						LOGI("Enabling H264 filtering for channel %p",ms.get());

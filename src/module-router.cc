@@ -223,7 +223,7 @@ void ModuleRouter::sendReply(
     shared_ptr<RequestSipEvent>& ev, int code, const char* reason, int warn_code, const char* warning) {
 	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
 	sip_t* sip = ms->getSip();
-	sip_warning_t* warn = NULL;
+	sip_warning_t* warn = nullptr;
 
 	if (sip->sip_request->rq_method == sip_method_invite) {
 		shared_ptr<CallLog> calllog = ev->getEventLog<CallLog>();
@@ -239,7 +239,7 @@ void ModuleRouter::sendReply(
 		}
 	}
 	if (warn_code != 0) {
-		warn = sip_warning_format(ev->getHome(), "%i %s \"%s\"", warn_code, mAgent->getPublicIp().c_str(), warning);
+		warn = sip_warning_format(ev->getHome(), "%i %s \"%s\"", warn_code, mAgent.lock()->getPublicIp().c_str(), warning);
 	}
 	if (warn) {
 		ev->reply(code, reason, SIPTAG_SERVER_STR(getAgent()->getServerString()), SIPTAG_WARNING(warn), TAG_END());
@@ -271,7 +271,7 @@ shared_ptr<BranchInfo> ModuleRouter::dispatch(const shared_ptr<ForkContext> cont
 	url_t* dest = ct->m_url;
 
 	/*sanity check on the contact address: might be '*' or whatever useless information*/
-	if (dest->url_host == NULL || dest->url_host[0] == '\0') {
+	if (dest->url_host == nullptr || dest->url_host[0] == '\0') {
 		LOGW("Request is not routed because of incorrect address of contact");
 		return nullptr;
 	}
@@ -292,15 +292,15 @@ shared_ptr<BranchInfo> ModuleRouter::dispatch(const shared_ptr<ForkContext> cont
 		  // the cleaning of push notif params will be done just before forward
 	} else {
 		// leave the request uri as it is, but append a route for the final destination
-		sip_route_t* final_route = sip_route_create(new_msgsip->getHome(), dest, NULL);
+		sip_route_t* final_route = sip_route_create(new_msgsip->getHome(), dest, nullptr);
 		if (!url_has_param(final_route->r_url, "lr")) {
 			url_param_add(new_msgsip->getHome(), final_route->r_url, "lr");
 		}
 
-		if (routes == NULL) routes = final_route;
+		if (routes == nullptr) routes = final_route;
 		else {
 			sip_route_t* r = routes;
-			while (r->r_next != NULL) {
+			while (r->r_next != nullptr) {
 				r = r->r_next;
 			}
 			r->r_next = final_route;
@@ -320,7 +320,7 @@ shared_ptr<BranchInfo> ModuleRouter::dispatch(const shared_ptr<ForkContext> cont
 		    (sip_header_t*)sip_unknown_format(msg_home(new_msg), "X-Target-Uris: %s", targetUris.c_str()));
 	}
 	new_sip->sip_route = nullptr;
-	cleanAndPrependRoute(getAgent(), new_msg, new_sip, routes);
+	cleanAndPrependRoute(getAgent().get(), new_msg, new_sip, routes);
 
 	SLOGD << "Fork to " << contact_url_string;
 
@@ -331,10 +331,10 @@ void ModuleRouter::onContactRegistered(const std::shared_ptr<OnContactRegistered
                                        const std::string& uid,
                                        const std::shared_ptr<Record>& record) {
 	sofiasip::Home home;
-	sip_contact_t* contact = NULL;
+	sip_contact_t* contact = nullptr;
 	bool forksFound = false;
 
-	if (record == NULL) {
+	if (record == nullptr) {
 		SLOGE << "record was null...";
 		return;
 	}
@@ -389,7 +389,7 @@ void ModuleRouter::onContactRegistered(const std::shared_ptr<OnContactRegistered
 }
 
 struct ForkDestination {
-	ForkDestination() : mSipContact(NULL) {
+	ForkDestination() : mSipContact(nullptr) {
 	}
 	ForkDestination(sip_contact_t* ct, const shared_ptr<ExtendedContact>& exContact, const string& targetUris)
 	    : mSipContact(ct), mExtendedContact(exContact), mTargetUris(targetUris) {
@@ -586,11 +586,11 @@ void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_pt
 		} else {
 			if (context->getConfig()->mForkLate && isManagedDomain(ct->m_url)) {
 				sip_contact_t* temp_ctt =
-				    sip_contact_create(ms->getHome(), (url_string_t*)ec->mSipContact->m_url, NULL);
+				    sip_contact_create(ms->getHome(), (url_string_t*)ec->mSipContact->m_url, nullptr);
 
 				if (mUseGlobalDomain) {
 					temp_ctt->m_url->url_host = "merged";
-					temp_ctt->m_url->url_port = NULL;
+					temp_ctt->m_url->url_port = nullptr;
 				}
 				const string aliasKey(routingKey(temp_ctt->m_url));
 				context->addKey(aliasKey);
@@ -644,7 +644,7 @@ public:
 
 	void onRecordFound(const shared_ptr<Record>& r) override {
 		--pending;
-		if (r != NULL) {
+		if (r != nullptr) {
 			const auto& ctlist = r->getExtendedContacts();
 			for (auto it = ctlist.begin(); it != ctlist.end(); ++it)
 				m_record->pushContact(*it);
@@ -723,7 +723,7 @@ public:
 
 	void onRecordFound(const shared_ptr<Record>& r) override {
 		--mPending;
-		if (r != NULL) {
+		if (r != nullptr) {
 			const auto& ctlist = r->getExtendedContacts();
 			for (auto it = ctlist.begin(); it != ctlist.end(); ++it)
 				mRecord->pushContact(*it);
@@ -846,8 +846,8 @@ vector<string> ModuleRouter::split(const char* data, const char* delim) {
 	const char* p;
 	vector<string> res;
 	char* s = strdup(data);
-	char* saveptr = NULL;
-	for (p = strtok_r(s, delim, &saveptr); p; p = strtok_r(NULL, delim, &saveptr)) {
+	char* saveptr = nullptr;
+	for (p = strtok_r(s, delim, &saveptr); p; p = strtok_r(nullptr, delim, &saveptr)) {
 		res.push_back(p);
 	}
 	free(s);
@@ -876,14 +876,14 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent>& ev) {
 		ForkContext::processCancel(ev);
 		return;
 	}
-	if ((next_hop = ModuleToolbox::getNextHop(getAgent(), sip, &isRoute)) != NULL && isRoute) {
+	if ((next_hop = ModuleToolbox::getNextHop(getAgent().get(), sip, &isRoute)) != nullptr && isRoute) {
 		LOGD("Route header found [%s] but not us, skipping.", url_as_string(ms->getHome(), next_hop));
 		return;
 	}
 
 	/*unless in a specific case, REGISTER don't go into the router logic*/
 	if (sip->sip_request->rq_method == sip_method_register) {
-		if (sip->sip_from->a_url->url_user == NULL ||
+		if (sip->sip_from->a_url->url_user == nullptr ||
 		    !getAgent()->getDRM()->haveToRelayRegToDomain(sip->sip_request->rq_url->url_host)) {
 			return;
 		}
@@ -892,7 +892,7 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent>& ev) {
 
 	if (mResolveRoutes) {
 		sip_route_t* iterator = sip->sip_route;
-		while (iterator != NULL) {
+		while (iterator != nullptr) {
 			sip_route_t* route = iterator;
 			if (getAgent()->isUs(route->r_url)) {
 				SLOGD << "Route header found " << url_as_string(ms->getHome(), route->r_url)
@@ -913,7 +913,7 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent>& ev) {
 			}
 			iterator = iterator->r_next;
 		}
-	} else if (sip->sip_route != NULL && !getAgent()->isUs(sip->sip_route->r_url)) {
+	} else if (sip->sip_route != nullptr && !getAgent()->isUs(sip->sip_route->r_url)) {
 		SLOGD << "Route header found " << url_as_string(ms->getHome(), sip->sip_route->r_url)
 		      << " but not us, skipping";
 		return;
@@ -926,7 +926,7 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent>& ev) {
 	    - they can be for the a remote peer, in which case they will have the correct contact address in the request uri
 	*/
 	/* When we accept * as domain we need to test ip4/ipv6 */
-	if (sip->sip_request->rq_method != sip_method_ack && sip->sip_to != NULL && sip->sip_to->a_tag == NULL) {
+	if (sip->sip_request->rq_method != sip_method_ack && sip->sip_to != nullptr && sip->sip_to->a_tag == nullptr) {
 		try {
 			SipUri sipurl(sip->sip_request->rq_url);
 			if (isManagedDomain(sipurl.get())) {

@@ -30,7 +30,7 @@ public:
 	StatCounter64 *mCountPassFound = nullptr;
 	StatCounter64 *mCountPassNotFound = nullptr;
 
-	Authentication(Agent *ag);
+	using ModuleAuthenticationBase::ModuleAuthenticationBase;
 	~Authentication() override;
 
 	void onDeclare(GenericStruct *mc) override;
@@ -49,12 +49,12 @@ private:
 	const char *findIncomingSubjectInTrusted(const std::shared_ptr<RequestSipEvent> &ev, const char *fromDomain);
 
 	static ModuleInfo<Authentication> sInfo;
-	std::list<std::string> mTrustedClientCertificates;
-	regex_t mRequiredSubject;
-	bool mNewAuthOn407 = false;
-	bool mRequiredSubjectCheckSet = false;
-	bool mRejectWrongClientCertificates = false;
-	bool mTrustDomainCertificates = false;
+	std::list<std::string> mTrustedClientCertificates{};
+	regex_t mRequiredSubject{};
+	bool mNewAuthOn407{false};
+	bool mRequiredSubjectCheckSet{false};
+	bool mRejectWrongClientCertificates{false};
+	bool mTrustDomainCertificates{false};
 };
 
 }

@@ -151,7 +151,7 @@ private:
 	 * Used when restoring BranchInfo from database in fork-late mode.
 	 */
 	template <typename T>
-	BranchInfo(T&& ctx, const BranchInfoDb& dbObject, const std::shared_ptr<Agent>& agent)
+	BranchInfo(T&& ctx, const BranchInfoDb& dbObject, const std::shared_ptr<AgentInternalInterface>& agent)
 	    : mForkCtx{std::forward<T>(ctx)} {
 		mUid = dbObject.contactUid;
 		mClearedCount = dbObject.clearedCount;

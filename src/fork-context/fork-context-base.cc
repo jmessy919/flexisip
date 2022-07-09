@@ -29,7 +29,7 @@ const int ForkContextBase::sUrgentCodes[] = {401, 407, 415, 420, 484, 488, 606, 
 
 const int ForkContextBase::sAllCodesUrgent[] = {-1, 0};
 
-ForkContextBase::ForkContextBase(Agent* agent,
+ForkContextBase::ForkContextBase(const weak_ptr<AgentInternalInterface>& agent,
                                  const shared_ptr<RequestSipEvent>& event,
                                  const shared_ptr<ForkContextConfig>& cfg,
                                  const weak_ptr<ForkContextListener>& listener,
@@ -37,7 +37,8 @@ ForkContextBase::ForkContextBase(Agent* agent,
                                  bool isRestored)
     : mListener(listener), mStatCounter(counter), mCurrentPriority(-1), mAgent(agent),
       mEvent(make_shared<RequestSipEvent>(event)), // Is this deep copy really necessary ?
-      mCfg(cfg), mLateTimer(agent->getRoot()), mFinishTimer(agent->getRoot()), mNextBranchesTimer(agent->getRoot()) {
+      mCfg(cfg), mLateTimer(agent.lock()->getRoot()), mFinishTimer(agent.lock()->getRoot()),
+      mNextBranchesTimer(agent.lock()->getRoot()) {
 	if (auto sharedCounter = mStatCounter.lock()) {
 		sharedCounter->incrStart();
 	} else {
@@ -304,7 +305,7 @@ shared_ptr<BranchInfo> ForkContextBase::addBranch(const std::shared_ptr<RequestS
 
 	if (mCurrentPriority != -1 && mCurrentPriority <= br->mPriority) {
 		mCurrentBranches.push_back(br);
-		mAgent->injectRequestEvent(br->mRequest);
+		mAgent.lock()->injectRequestEvent(br->mRequest);
 	}
 
 	LOGD("ForkContext [%p]: new fork branch [%p]", this, br.get());
@@ -360,8 +361,9 @@ void ForkContextBase::start() {
 	LOGD("Started forking branches with priority [%p]: %f", this, mCurrentPriority);
 
 	/* Start the processing */
+	auto agent = mAgent.lock();
 	for (const auto& br : mCurrentBranches) {
-		mAgent->injectRequestEvent(br->mRequest);
+		agent->injectRequestEvent(br->mRequest);
 		if (mCurrentBranches.empty()) {
 			// Can only occur if an internal error append
 			break;
@@ -463,9 +465,9 @@ shared_ptr<ResponseSipEvent> ForkContextBase::forwardResponse(const shared_ptr<R
 		mLastResponseSent = ev;
 
 		if (ev->isSuspended()) {
-			mAgent->injectResponseEvent(ev);
+			mAgent.lock()->injectResponseEvent(ev);
 		} else {
-			mAgent->sendResponseEvent(ev);
+			mAgent.lock()->sendResponseEvent(ev);
 		}
 
 		if (code >= 200) {
@@ -495,7 +497,7 @@ shared_ptr<ResponseSipEvent> ForkContextBase::forwardCustomResponse(int status, 
 	auto msgsip = mIncoming->createResponse(status, phrase);
 	if (msgsip) {
 		auto ev =
-		    make_shared<ResponseSipEvent>(dynamic_pointer_cast<OutgoingAgent>(mAgent->shared_from_this()), msgsip);
+		    make_shared<ResponseSipEvent>(dynamic_pointer_cast<OutgoingAgent>(mAgent.lock()), msgsip);
 		return forwardResponse(ev);
 	} else { // Should never happen
 		SLOGE << errorLogPrefix()

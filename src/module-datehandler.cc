@@ -26,8 +26,7 @@ using namespace flexisip;
 
 class DateHandler : public Module, protected ModuleToolbox {
 public:
-	DateHandler(Agent *ag) : Module(ag) {}
-	~DateHandler() {}
+	using Module::Module;
 
 	virtual void onRequest(shared_ptr<RequestSipEvent> &ev) {
 		if (mCommand.empty())

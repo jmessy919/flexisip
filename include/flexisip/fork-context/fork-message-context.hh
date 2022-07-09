@@ -31,13 +31,13 @@ namespace flexisip {
 
 class ForkMessageContext : public ForkContextBase {
 public:
-	static std::shared_ptr<ForkMessageContext> make(Agent* agent,
+	static std::shared_ptr<ForkMessageContext> make(const std::weak_ptr<AgentInternalInterface>& agent,
 	                                                const std::shared_ptr<RequestSipEvent>& event,
 	                                                const std::shared_ptr<ForkContextConfig>& cfg,
 	                                                const std::weak_ptr<ForkContextListener>& listener,
 	                                                const std::weak_ptr<StatPair>& counter);
 
-	static std::shared_ptr<ForkMessageContext> make(Agent* agent,
+	static std::shared_ptr<ForkMessageContext> make(const std::weak_ptr<AgentInternalInterface>& agent,
 	                                                const std::shared_ptr<ForkContextConfig>& cfg,
 	                                                const std::weak_ptr<ForkContextListener>& listener,
 	                                                const std::weak_ptr<StatPair>& counter,
@@ -69,7 +69,7 @@ protected:
 	};
 
 private:
-	ForkMessageContext(Agent* agent,
+	ForkMessageContext(const std::weak_ptr<AgentInternalInterface>& agent,
 	                   const std::shared_ptr<RequestSipEvent>& event,
 	                   const std::shared_ptr<ForkContextConfig>& cfg,
 	                   const std::weak_ptr<ForkContextListener>& listener,

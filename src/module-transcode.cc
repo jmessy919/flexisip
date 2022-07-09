@@ -134,7 +134,7 @@ bool Transcoder::hasSupportedCodec(const std::list<PayloadType *> &ioffer) {
 	return false;
 }
 
-Transcoder::Transcoder(Agent *ag) : Module(ag), mSupportedAudioPayloads(), mTimer(0) {
+Transcoder::Transcoder(weak_ptr<AgentInternalInterface> ag) : Module{std::move(ag)} {
 	mFactory = ms_factory_new_with_voip();
 }
 
@@ -182,7 +182,7 @@ list<PayloadType *> Transcoder::orderList(const list<string> &config, const list
 }
 
 void Transcoder::onLoad(const GenericStruct *mc) {
-	mTimer = mAgent->createTimer(20, &sOnTimer, this);
+	mTimer = mAgent.lock()->createTimer(20, &sOnTimer, this);
 	mCallParams.mJbNomSize = mc->get<ConfigInt>("jb-nom-size")->read();
 	mRcUserAgents = mc->get<ConfigStringList>("rc-user-agents")->read();
 	mRemoveBandwidthsLimits = mc->get<ConfigBoolean>("remove-bw-limits")->read();
@@ -326,7 +326,7 @@ int Transcoder::processInvite(TranscodedCall *c, shared_ptr<RequestSipEvent> &ev
 	}
 	if (ret == 0) {
 		// be in the record-route
-		addRecordRouteIncoming(getAgent(), ev);
+		addRecordRouteIncoming(getAgent().get(), ev);
 		c->storeNewInvite(ms->getMsg());
 	} else {
 		ev->reply(415, "Unsupported codecs", TAG_END());
@@ -360,7 +360,7 @@ void Transcoder::onRequest(shared_ptr<RequestSipEvent> &ev) {
 			return;
 		}
 	} else if (sip->sip_request->rq_method == sip_method_ack) {
-		auto c = dynamic_pointer_cast<TranscodedCall>(mCalls.find(getAgent(), sip, true));
+		auto c = dynamic_pointer_cast<TranscodedCall>(mCalls.find(getAgent().get(), sip, true));
 		if (c == NULL) {
 			LOGD("Transcoder: couldn't find call context for ack");
 			return;
@@ -368,7 +368,7 @@ void Transcoder::onRequest(shared_ptr<RequestSipEvent> &ev) {
 			processAck(c.get(), ev);
 		}
 	} else if (sip->sip_request->rq_method == sip_method_info) {
-		auto c = dynamic_pointer_cast<TranscodedCall>(mCalls.find(getAgent(), sip, true));
+		auto c = dynamic_pointer_cast<TranscodedCall>(mCalls.find(getAgent().get(), sip, true));
 		if (c == NULL) {
 			LOGD("Transcoder: couldn't find call context for info");
 			return;
@@ -377,7 +377,7 @@ void Transcoder::onRequest(shared_ptr<RequestSipEvent> &ev) {
 			return;
 		}
 	} else if (sip->sip_request->rq_method == sip_method_bye) {
-		auto c = dynamic_pointer_cast<TranscodedCall>(mCalls.find(getAgent(), sip, true));
+		auto c = dynamic_pointer_cast<TranscodedCall>(mCalls.find(getAgent().get(), sip, true));
 		if (c != NULL) {
 			mCalls.remove(c);
 		}
@@ -464,7 +464,7 @@ void Transcoder::onResponse(shared_ptr<ResponseSipEvent> &ev) {
 	msg_t *msg = ms->getMsg();
 
 	if (sip->sip_cseq && sip->sip_cseq->cs_method == sip_method_invite) {
-		if (mAgent->countUsInVia(sip->sip_via) > 1) {
+		if (mAgent.lock()->countUsInVia(sip->sip_via) > 1) {
 			LOGD("We are more than 1 time in via headers,"
 				 "wait until next time we receive this message for any processing");
 			return;
@@ -487,7 +487,7 @@ void Transcoder::onResponse(shared_ptr<ResponseSipEvent> &ev) {
 		if (sip->sip_status->st_status == 200 || isEarlyMedia(sip)) {
 			// Remove all call contexts maching the sip message
 			// Except the one from this outgoing transaction
-			mCalls.findAndRemoveExcept(getAgent(), sip, c, true);
+			mCalls.findAndRemoveExcept(getAgent().get(), sip, c, true);
 			process200OkforInvite(c.get(), ev);
 		}
 	}

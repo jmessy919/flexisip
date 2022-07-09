@@ -536,7 +536,7 @@ TlsConfigInfo Agent::getTlsConfigInfo(const GenericStruct* global) {
 
 // -----------------------------------------------------------------------------
 
-Agent::Agent(const std::shared_ptr<sofiasip::SuRoot>& root) {
+void Agent::init(const std::shared_ptr<sofiasip::SuRoot>& root) {
 	mHttpEngine = nth_engine_create(root->getCPtr(), NTHTAG_ERROR_MSG(0), TAG_END());
 	GenericStruct* cr = GenericManager::get()->getRoot();
 
@@ -564,7 +564,7 @@ Agent::Agent(const std::shared_ptr<sofiasip::SuRoot>& root) {
 	for (ModuleInfoBase* moduleInfo : moduleInfoChain) {
 		SLOGI << "Creating module instance of "
 		      << "[" << moduleInfo->getModuleName() << "].";
-		mModules.push_back(moduleInfo->create(this));
+		mModules.push_back(moduleInfo->create(shared_from_this()));
 	}
 
 	mServerString = "Flexisip/" FLEXISIP_GIT_VERSION " (sofia-sip-nta/" NTA_VERSION ")";
@@ -1109,7 +1109,7 @@ const string& Agent::getUniqueId() const {
 	return mUniqueId;
 }
 
-su_timer_t* Agent::createTimer(int milliseconds, timerCallback cb, void* data, bool repeating) {
+su_timer_t* Agent::createTimer(int milliseconds, TimerCallback cb, void* data, bool repeating) {
 	su_timer_t* timer = su_timer_create(mRoot->getTask(), milliseconds);
 	if (repeating) su_timer_set_for_ever(timer, (su_timer_f)cb, data);
 	else su_timer_set(timer, (su_timer_f)cb, data);

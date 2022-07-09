@@ -16,155 +16,154 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <flexisip/module.hh>
-#include <flexisip/agent.hh>
-#include <flexisip/transaction.hh>
 #include "flexisip/module-router.hh"
+#include <flexisip/agent.hh>
+#include <flexisip/module.hh>
+#include <flexisip/transaction.hh>
 
-#include "etchosts.hh"
 #include "domain-registrations.hh"
+#include "etchosts.hh"
 #include <sstream>
 
-#include <sofia-sip/su_md5.h>
-#include <sofia-sip/sip_status.h>
-#include <sofia-sip/tport.h>
 #include <flexisip/registrardb.hh>
+#include <sofia-sip/sip_status.h>
+#include <sofia-sip/su_md5.h>
+#include <sofia-sip/tport.h>
 
 using namespace std;
 using namespace flexisip;
 
-static char const *compute_branch(nta_agent_t *sa, msg_t *msg, sip_t const *sip, char const *string_server,
-								  const shared_ptr<OutgoingTransaction> &outTr);
+static char const* compute_branch(nta_agent_t* sa,
+                                  msg_t* msg,
+                                  sip_t const* sip,
+                                  char const* string_server,
+                                  const shared_ptr<OutgoingTransaction>& outTr);
 
 class ForwardModule : public Module, ModuleToolbox {
-  public:
-	ForwardModule(Agent *ag);
-	virtual ~ForwardModule();
-	virtual void onDeclare(GenericStruct *module_config);
-	virtual void onLoad(const GenericStruct *root);
-	virtual void onRequest(shared_ptr<RequestSipEvent> &ev);
-	virtual void onResponse(shared_ptr<ResponseSipEvent> &ev);
-	void sendRequest(shared_ptr<RequestSipEvent> &ev, url_t *dest);
+public:
+	using Module::Module;
 
-  private:
-	std::weak_ptr<ModuleRouter> mRouterModule;
-	url_t *overrideDest(shared_ptr<RequestSipEvent> &ev, url_t *dest);
-	url_t *getDestinationFromRoute(su_home_t *home, sip_t *sip);
-	bool isLooping(shared_ptr<RequestSipEvent> &ev, const char *branch);
-	unsigned int countVia(shared_ptr<RequestSipEvent> &ev);
-	bool isAClusterNode(const url_t *url);
-	su_home_t mHome;
-	sip_route_t *mOutRoute;
-	string mDefaultTransport;
-	std::list<std::string> mParamsToRemove;
-	list<string> mClusterNodes;
-	bool mRewriteReqUri;
-	bool mAddPath;
+	void onDeclare(GenericStruct* module_config) override;
+	void onLoad(const GenericStruct* root) override;
+	void onRequest(shared_ptr<RequestSipEvent>& ev) override;
+	void onResponse(shared_ptr<ResponseSipEvent>& ev) override;
+	void sendRequest(shared_ptr<RequestSipEvent>& ev, url_t* dest);
+
+private:
+	url_t* overrideDest(shared_ptr<RequestSipEvent>& ev, url_t* dest);
+	url_t* getDestinationFromRoute(su_home_t* home, sip_t* sip);
+	bool isLooping(shared_ptr<RequestSipEvent>& ev, const char* branch);
+	unsigned int countVia(shared_ptr<RequestSipEvent>& ev);
+	bool isAClusterNode(const url_t* url);
+
+	std::weak_ptr<ModuleRouter> mRouterModule{};
+	sip_route_t* mOutRoute{nullptr};
+	std::string mDefaultTransport{};
+	std::list<std::string> mParamsToRemove{};
+	std::list<std::string> mClusterNodes{};
+	bool mRewriteReqUri{false};
+	bool mAddPath{false};
+
 	static ModuleInfo<ForwardModule> sInfo;
 };
 
 ModuleInfo<ForwardModule> ForwardModule::sInfo(
-	"Forward",
-	"This module executes the basic routing task of SIP requests and pass them to the transport layer. "
-	"It must always be enabled.",
-	{ "Transcoder", "MediaRelay" },
-	ModuleInfoBase::ModuleOid::Forward
-);
+    "Forward",
+    "This module executes the basic routing task of SIP requests and pass them to the transport layer. "
+    "It must always be enabled.",
+    {"Transcoder", "MediaRelay"},
+    ModuleInfoBase::ModuleOid::Forward);
 
-ForwardModule::ForwardModule(Agent *ag) : Module(ag), mOutRoute(nullptr), mRewriteReqUri(false), mAddPath(false) {
-	su_home_init(&mHome);
-}
-
-ForwardModule::~ForwardModule() {
-	su_home_deinit(&mHome);
-}
-
-void ForwardModule::onDeclare(GenericStruct *module_config) {
+void ForwardModule::onDeclare(GenericStruct* module_config) {
 	ConfigItemDescriptor items[] = {
-		{String, "route", "A route header value where to send all requests not already resolved by the Router module "
-			"(ie for which contact information has been found from the registrar database). This is "
-			"the typical way to setup a Flexisip proxy server acting as a front-end for backend SIP server."
-			"Pay attention that is not just a SIP URI, but a route. As a result, when the URI has parameters, "
-			"brakets must enclose the URI, otherwise the parameters will be parsed as route parameters.\n"
-			"For example:\n"
-			"route=<sip:192.168.0.10;transport=tcp>", ""},
-		{Boolean, "add-path", "Add a path header of this proxy", "true"},
-		{Boolean, "rewrite-req-uri", "Rewrite request-uri's host and port according to above route", "false"},
-		{String, "default-transport", "For SIP URIs, in asbsence of transport parameter, assume the given transport "
-			"is to be used. Possible values are udp, tcp or tls.", "udp"},
-		{StringList, "params-to-remove",
-			 "List of URL and contact params to remove",
-			 "pn-tok pn-type app-id pn-msg-str pn-call-str pn-call-snd pn-msg-snd pn-timeout pn-silent pn-provider pn-prid pn-param"},
-		config_item_end};
+	    {String, "route",
+	     "A route header value where to send all requests not already resolved by the Router module "
+	     "(ie for which contact information has been found from the registrar database). This is "
+	     "the typical way to setup a Flexisip proxy server acting as a front-end for backend SIP server."
+	     "Pay attention that is not just a SIP URI, but a route. As a result, when the URI has parameters, "
+	     "brakets must enclose the URI, otherwise the parameters will be parsed as route parameters.\n"
+	     "For example:\n"
+	     "route=<sip:192.168.0.10;transport=tcp>",
+	     ""},
+	    {Boolean, "add-path", "Add a path header of this proxy", "true"},
+	    {Boolean, "rewrite-req-uri", "Rewrite request-uri's host and port according to above route", "false"},
+	    {String, "default-transport",
+	     "For SIP URIs, in asbsence of transport parameter, assume the given transport "
+	     "is to be used. Possible values are udp, tcp or tls.",
+	     "udp"},
+	    {StringList, "params-to-remove", "List of URL and contact params to remove",
+	     "pn-tok pn-type app-id pn-msg-str pn-call-str pn-call-snd pn-msg-snd pn-timeout pn-silent pn-provider pn-prid "
+	     "pn-param"},
+	    config_item_end};
 	module_config->addChildrenValues(items);
 }
 
-void ForwardModule::onLoad(const GenericStruct *mc) {
+void ForwardModule::onLoad(const GenericStruct* mc) {
 	string route = mc->get<ConfigString>("route")->read();
 	mRewriteReqUri = mc->get<ConfigBoolean>("rewrite-req-uri")->read();
-	if (route.size() > 0) {
-		mOutRoute = sip_route_make(&mHome, route.c_str());
+	if (!route.empty()) {
+		mOutRoute = sip_route_make(mHome.home(), route.c_str());
 		if (mOutRoute == nullptr || mOutRoute->r_url->url_host == nullptr) {
 			LOGF("Bad route parameter '%s' in configuration of Forward module", route.c_str());
 		}
 	}
 	mAddPath = mc->get<ConfigBoolean>("add-path")->read();
 	mParamsToRemove = mc->get<ConfigStringList>("params-to-remove")->read();
-	mDefaultTransport =  mc->get<ConfigString>("default-transport")->read();
+	mDefaultTransport = mc->get<ConfigString>("default-transport")->read();
 	if (mDefaultTransport == "udp") mDefaultTransport.clear();
 	else mDefaultTransport = "transport=" + mDefaultTransport;
 	/* The forward module needs the help of the router module to determine whether
 	 * a gruu request uri is under control of this domain or not. */
 	mRouterModule = dynamic_pointer_cast<ModuleRouter>(getAgent()->findModuleByFunction("Router"));
 	if (!mRouterModule.lock()) LOGA("Could not find 'Router' module.");
-	
-	const GenericStruct *clusterSection = GenericManager::get()->getRoot()->get<GenericStruct>("cluster");
+
+	const GenericStruct* clusterSection = GenericManager::get()->getRoot()->get<GenericStruct>("cluster");
 	bool clusterEnabled = clusterSection->get<ConfigBoolean>("enabled")->read();
 	if (clusterEnabled) {
-		 mClusterNodes = clusterSection->get<ConfigStringList>("nodes")->read();
+		mClusterNodes = clusterSection->get<ConfigStringList>("nodes")->read();
 	}
 }
 
-bool ForwardModule::isAClusterNode(const url_t *url){
-	for(const string& node : mClusterNodes){
+bool ForwardModule::isAClusterNode(const url_t* url) {
+	for (const string& node : mClusterNodes) {
 		if (ModuleToolbox::urlHostMatch(url, node.c_str())) return true;
 	}
 	return false;
 }
 
-url_t *ForwardModule::overrideDest(shared_ptr<RequestSipEvent> &ev, url_t *dest) {
-	const shared_ptr<MsgSip> &ms = ev->getMsgSip();
+url_t* ForwardModule::overrideDest(shared_ptr<RequestSipEvent>& ev, url_t* dest) {
+	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
 
-	if (!urlIsResolved(dest)){
+	if (!urlIsResolved(dest)) {
 		if (mOutRoute) {
-			sip_t *sip = ms->getSip();
-			url_t *req_url = sip->sip_request->rq_url;
-			for (sip_via_t *via = sip->sip_via; via != nullptr; via = via->v_next) {
+			sip_t* sip = ms->getSip();
+			url_t* req_url = sip->sip_request->rq_url;
+			for (sip_via_t* via = sip->sip_via; via != nullptr; via = via->v_next) {
 				if (urlViaMatch(mOutRoute->r_url, sip->sip_via, false)) {
 					SLOGD << "Found forced outgoing route in via, skipping";
 					return dest;
 				}
 			}
-			if(!urlIsResolved(req_url)) {
+			if (!urlIsResolved(req_url)) {
 				dest = mOutRoute->r_url;
-				if(mRewriteReqUri) {
+				if (mRewriteReqUri) {
 					*req_url = *dest;
 				}
 			}
-		}else if (!mDefaultTransport.empty() && dest->url_type == url_sip && !url_has_param(dest, "transport") ){
+		} else if (!mDefaultTransport.empty() && dest->url_type == url_sip && !url_has_param(dest, "transport")) {
 			url_param_add(ev->getHome(), dest, mDefaultTransport.c_str());
 		}
 	}
 	return dest;
 }
 
-url_t *ForwardModule::getDestinationFromRoute(su_home_t *home, sip_t *sip) {
-	sip_route_t *route = sip->sip_route;
+url_t* ForwardModule::getDestinationFromRoute(su_home_t* home, sip_t* sip) {
+	sip_route_t* route = sip->sip_route;
 
 	if (route) {
 		char received[64] = {0};
 		char rport[8] = {0};
-		url_t *ret = url_hdup(home, sip->sip_route->r_url);
+		url_t* ret = url_hdup(home, sip->sip_route->r_url);
 
 		url_param(route->r_url->url_params, "fs-received", received, sizeof(received));
 		url_param(route->r_url->url_params, "fs-rport", rport, sizeof(rport));
@@ -181,65 +180,67 @@ url_t *ForwardModule::getDestinationFromRoute(su_home_t *home, sip_t *sip) {
 	return nullptr;
 }
 
-static bool isUs(Agent *ag, sip_route_t *r) {
+static bool isUs(AgentInternalInterface* ag, sip_route_t* r) {
 	msg_param_t param = msg_params_find(r->r_params, "fs-proxy-id");
 	if (param && strcmp(param, ag->getUniqueId().c_str()) == 0) {
 		return true;
 	}
 	char proxyid[32] = {0};
 	if (url_param(r->r_url->url_params, "fs-proxy-id", proxyid, sizeof(proxyid))) {
-			if (strcmp(proxyid, ag->getUniqueId().c_str()) == 0) {
-					return true;
-			}
+		if (strcmp(proxyid, ag->getUniqueId().c_str()) == 0) {
+			return true;
+		}
 	}
 	return ag->isUs(r->r_url);
 }
 
 class RegistrarListener : public ContactUpdateListener {
 public:
-	RegistrarListener(ForwardModule *module, shared_ptr<RequestSipEvent> ev): ContactUpdateListener(), mModule(module), mEv(ev) {
-
+	RegistrarListener(ForwardModule* module, shared_ptr<RequestSipEvent> ev)
+	    : ContactUpdateListener(), mModule(module), mEv(ev) {
 	}
 	~RegistrarListener(){};
-	void onRecordFound(const shared_ptr<Record> &r) override {
-		const shared_ptr<MsgSip> &ms = mEv->getMsgSip();
+	void onRecordFound(const shared_ptr<Record>& r) override {
+		const shared_ptr<MsgSip>& ms = mEv->getMsgSip();
 
-		if (!r || r->count()==0){
+		if (!r || r->count() == 0) {
 			mEv->reply(404, "Not found", SIPTAG_SERVER_STR(mModule->getAgent()->getServerString()), TAG_END());
 			return;
 		}
-		if (r->count() > 1){
+		if (r->count() > 1) {
 			mEv->reply(485, "Ambiguous", SIPTAG_SERVER_STR(mModule->getAgent()->getServerString()), TAG_END());
 			return;
 		}
 
 		shared_ptr<ExtendedContact> contact = *r->getExtendedContacts().begin();
 		time_t now = getCurrentTime();
-		sip_contact_t *ct = contact->toSofiaContact(ms->getHome(), now);
-		url_t *dest = ct->m_url;
+		sip_contact_t* ct = contact->toSofiaContact(ms->getHome(), now);
+		url_t* dest = ct->m_url;
 		mEv->getSip()->sip_request->rq_url[0] = *url_hdup(msg_home(ms->getHome()), dest);
-		mEv->getSip()->sip_request->rq_url->url_params = url_strip_param_string(su_strdup(ms->getHome(),mEv->getSip()->sip_request->rq_url->url_params) , "gr");
-		mModule->sendRequest(mEv,dest);
+		mEv->getSip()->sip_request->rq_url->url_params =
+		    url_strip_param_string(su_strdup(ms->getHome(), mEv->getSip()->sip_request->rq_url->url_params), "gr");
+		mModule->sendRequest(mEv, dest);
 	}
-	virtual void onError() override{
+	virtual void onError() override {
 		SLOGE << "RegistrarListener error";
 		mEv->reply(500, "Internal Server Error", SIPTAG_SERVER_STR(mModule->getAgent()->getServerString()), TAG_END());
 	};
-	virtual void onInvalid()override{
+	virtual void onInvalid() override {
 		SLOGE << "RegistrarListener invalid";
 		mEv->reply(500, "Internal Server Error", SIPTAG_SERVER_STR(mModule->getAgent()->getServerString()), TAG_END());
 	}
-	void onContactUpdated(const std::shared_ptr<ExtendedContact> &ec) override{};
-	private :
-	ForwardModule *mModule;
+	void onContactUpdated(const std::shared_ptr<ExtendedContact>& ec) override{};
+
+private:
+	ForwardModule* mModule;
 	shared_ptr<RequestSipEvent> mEv;
 };
 
-void ForwardModule::onRequest(shared_ptr<RequestSipEvent> &ev) {
-	const shared_ptr<MsgSip> &ms = ev->getMsgSip();
-	url_t *dest = nullptr;
-	sip_t *sip = ms->getSip();
-	msg_t *msg = ms->getMsg();
+void ForwardModule::onRequest(shared_ptr<RequestSipEvent>& ev) {
+	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
+	url_t* dest = nullptr;
+	sip_t* sip = ms->getSip();
+	msg_t* msg = ms->getMsg();
 
 	// Check max forwards
 	if (sip->sip_max_forwards != nullptr && sip->sip_max_forwards->mf_count <= countVia(ev)) {
@@ -255,12 +256,11 @@ void ForwardModule::onRequest(shared_ptr<RequestSipEvent> &ev) {
 		return;
 	}
 	// Decrease max forward
-	if (sip->sip_max_forwards)
-		--sip->sip_max_forwards->mf_count;
+	if (sip->sip_max_forwards) --sip->sip_max_forwards->mf_count;
 
 	dest = sip->sip_request->rq_url;
 	// removes top route headers if they matches us
-	while (sip->sip_route != nullptr && isUs(getAgent(), sip->sip_route)) {
+	while (sip->sip_route != nullptr && isUs(getAgent().get(), sip->sip_route)) {
 		LOGD("Removing top route %s", url_as_string(ms->getHome(), sip->sip_route->r_url));
 		sip_route_remove(msg, sip);
 	}
@@ -272,26 +272,28 @@ void ForwardModule::onRequest(shared_ptr<RequestSipEvent> &ev) {
 		SipUri destUri(dest);
 
 		auto routerModule = mRouterModule.lock(); // Used to be a basic pointer
-		/*gruu processing in forward module is only done if dialog is established. In other cases, router module is involved instead*/
-		if (destUri.hasParam("gr") && (sip->sip_to != nullptr && sip->sip_to->a_tag != nullptr) && routerModule->isManagedDomain(dest)) {
-			//gruu case, ask registrar db for AOR
+		/*gruu processing in forward module is only done if dialog is established. In other cases, router module is
+		 * involved instead*/
+		if (destUri.hasParam("gr") && (sip->sip_to != nullptr && sip->sip_to->a_tag != nullptr) &&
+		    routerModule->isManagedDomain(dest)) {
+			// gruu case, ask registrar db for AOR
 			ev->suspendProcessing();
-			auto listener = make_shared<RegistrarListener>(this,ev);
+			auto listener = make_shared<RegistrarListener>(this, ev);
 			RegistrarDb::get()->fetch(destUri, listener, false, false /*no recursivity for gruu*/);
 			return;
 		}
 		dest = overrideDest(ev, dest);
 		sendRequest(ev, dest);
-	} catch (const sofiasip::InvalidUrlError &e) {
+	} catch (const sofiasip::InvalidUrlError& e) {
 		SLOGE << e.what();
 		ev->reply(SIP_400_BAD_REQUEST, SIPTAG_SERVER_STR(getAgent()->getServerString()), TAG_END());
 	}
 }
 
-void ForwardModule::sendRequest(shared_ptr<RequestSipEvent> &ev, url_t *dest) {
-	const shared_ptr<MsgSip> &ms = ev->getMsgSip();
-	sip_t *sip = ms->getSip();
-	msg_t *msg = ms->getMsg();
+void ForwardModule::sendRequest(shared_ptr<RequestSipEvent>& ev, url_t* dest) {
+	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
+	sip_t* sip = ms->getSip();
+	msg_t* msg = ms->getMsg();
 	uintptr_t destConnId = 0;
 	bool tport_error = false;
 
@@ -307,7 +309,7 @@ void ForwardModule::sendRequest(shared_ptr<RequestSipEvent> &ev, url_t *dest) {
 		char strConnId[32] = {0};
 		if (url_param(dest->url_params, "fs-conn-id", strConnId, sizeof(strConnId) - 1) > 0) {
 			destConnId = std::strtoull(strConnId, nullptr, 16);
-			//strip out fs-conn-id that shall not go out to the network
+			// strip out fs-conn-id that shall not go out to the network
 			dest->url_params = url_strip_param_string(su_strdup(ms->getHome(), dest->url_params), "fs-conn-id");
 		}
 	}
@@ -321,25 +323,21 @@ void ForwardModule::sendRequest(shared_ptr<RequestSipEvent> &ev, url_t *dest) {
 
 	// tport is the transport which will be used by sofia to send message
 	tp_name_t name = {0, 0, 0, 0, 0, 0};
-	tport_t *tport = nullptr;
+	tport_t* tport = nullptr;
 	if (ev->getOutgoingAgent() != nullptr) {
-		if (isAClusterNode(dest) && (tport = getAgent()->getInternalTport()) != NULL){
+		if (isAClusterNode(dest) && (tport = getAgent()->getInternalTport()) != NULL) {
 			LOGD("Using internal transport to route message to a node of the cluster.");
-		}else if ((tport = getAgent()->getDRM()->lookupTport(dest)) != nullptr){
+		} else if ((tport = getAgent()->getDRM()->lookupTport(dest)) != nullptr) {
 			LOGD("Found outgoing tport from domain registration manager.");
 		} else if (tport_name_by_url(ms->getHome(), &name, reinterpret_cast<url_string_t*>(dest)) == 0) {
 			// tport_by_name can only work for IPs
 			tport = tport_by_name(nta_agent_tports(getSofiaAgent()), &name);
 			if (!tport) {
 				LOGD("Could not find existing tport to send message to %s", url_as_string(ms->getHome(), dest));
-			} else if (tport_get_user_data(tport) != nullptr && destConnId != 0
-						&& (uintptr_t)tport_get_user_data(tport) != destConnId) {
-				SLOGD << "Stopping request ConnId("
-				<< hex
-				<< destConnId
-				<<" ) is different than tport ConnId("
-				<< (uintptr_t)tport_get_user_data(tport)
-				<<")";
+			} else if (tport_get_user_data(tport) != nullptr && destConnId != 0 &&
+			           (uintptr_t)tport_get_user_data(tport) != destConnId) {
+				SLOGD << "Stopping request ConnId(" << hex << destConnId << " ) is different than tport ConnId("
+				      << (uintptr_t)tport_get_user_data(tport) << ")";
 				tport_error = true;
 				tport = nullptr;
 			}
@@ -350,12 +348,12 @@ void ForwardModule::sendRequest(shared_ptr<RequestSipEvent> &ev, url_t *dest) {
 	// to bridge to networks: for example, we'll end with UDP, TCP.
 	const sip_method_t method = ms->getSip()->sip_request->rq_method;
 	if (ev->mRecordRouteAdded && (method == sip_method_invite || method == sip_method_subscribe)) {
-		addRecordRoute(getAgent(), ev, tport);
+		addRecordRoute(getAgent().get(), ev, tport);
 	}
 
 	// Add path
 	if (mAddPath && method == sip_method_register) {
-		addPathHeader(getAgent(), ev, tport, getAgent()->getUniqueId().c_str());
+		addPathHeader(getAgent().get(), ev, tport, getAgent()->getUniqueId().c_str());
 	}
 
 	// Clean push notifs params from contacts
@@ -379,7 +377,7 @@ void ForwardModule::sendRequest(shared_ptr<RequestSipEvent> &ev, url_t *dest) {
 	}
 
 	// Compute branch, output branch=XXXXX
-	char const *branchStr = compute_branch(getSofiaAgent(), msg, sip, mAgent->getUniqueId().c_str(), outTr);
+	char const* branchStr = compute_branch(getSofiaAgent(), msg, sip, mAgent.lock()->getUniqueId().c_str(), outTr);
 
 	if (isLooping(ev, branchStr + 7)) {
 		ev->reply(SIP_482_LOOP_DETECTED, SIPTAG_SERVER_STR(getAgent()->getServerString()), TAG_END());
@@ -390,21 +388,20 @@ void ForwardModule::sendRequest(shared_ptr<RequestSipEvent> &ev, url_t *dest) {
 	if (tport_error) tport = (tport_t*)-1;
 
 	// Finally send message
-	ev->send(ms, (url_string_t *)dest, NTATAG_BRANCH_KEY(branchStr), NTATAG_TPORT(tport), TAG_END());
-
+	ev->send(ms, (url_string_t*)dest, NTATAG_BRANCH_KEY(branchStr), NTATAG_TPORT(tport), TAG_END());
 }
-unsigned int ForwardModule::countVia(shared_ptr<RequestSipEvent> &ev) {
-	const shared_ptr<MsgSip> &ms = ev->getMsgSip();
+unsigned int ForwardModule::countVia(shared_ptr<RequestSipEvent>& ev) {
+	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
 	uint32_t via_count = 0;
-	for (sip_via_t *via = ms->getSip()->sip_via; via != nullptr; via = via->v_next)
+	for (sip_via_t* via = ms->getSip()->sip_via; via != nullptr; via = via->v_next)
 		++via_count;
 	return via_count;
 }
 
 /*function that detects loops, does not work for requests forwarded through transaction*/
-bool ForwardModule::isLooping(shared_ptr<RequestSipEvent> &ev, const char *branch) {
-	const shared_ptr<MsgSip> &ms = ev->getMsgSip();
-	for (sip_via_t *via = ms->getSip()->sip_via; via != nullptr; via = via->v_next) {
+bool ForwardModule::isLooping(shared_ptr<RequestSipEvent>& ev, const char* branch) {
+	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
+	for (sip_via_t* via = ms->getSip()->sip_via; via != nullptr; via = via->v_next) {
 		if (via->v_branch != nullptr && strcmp(via->v_branch, branch) == 0) {
 			LOGD("Loop detected: %s", via->v_branch);
 			return true;
@@ -414,17 +411,20 @@ bool ForwardModule::isLooping(shared_ptr<RequestSipEvent> &ev, const char *branc
 	return false;
 }
 
-void ForwardModule::onResponse(shared_ptr<ResponseSipEvent> &ev) {
-	const shared_ptr<MsgSip> &ms = ev->getMsgSip();
+void ForwardModule::onResponse(shared_ptr<ResponseSipEvent>& ev) {
+	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
 	ev->send(ms);
 }
 
-static char const *compute_branch(nta_agent_t *sa, msg_t *msg, sip_t const *sip, char const *string_server,
-								  const shared_ptr<OutgoingTransaction> &outTr) {
+static char const* compute_branch(nta_agent_t* sa,
+                                  msg_t* msg,
+                                  sip_t const* sip,
+                                  char const* string_server,
+                                  const shared_ptr<OutgoingTransaction>& outTr) {
 	su_md5_t md5[1];
 	uint8_t digest[SU_MD5_DIGEST_SIZE];
 	char branch[(SU_MD5_DIGEST_SIZE * 8 + 4) / 5 + 1] = {0};
-	sip_route_t const *r;
+	sip_route_t const* r;
 
 	if (!outTr) {
 		su_md5_init(md5);

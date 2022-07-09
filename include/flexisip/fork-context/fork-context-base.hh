@@ -43,7 +43,7 @@ private:
 	std::weak_ptr<StatPair> mStatCounter;
 
 protected:
-	ForkContextBase(Agent* agent,
+	ForkContextBase(const std::weak_ptr<AgentInternalInterface>& agent,
 	                const std::shared_ptr<RequestSipEvent>& event,
 	                const std::shared_ptr<ForkContextConfig>& cfg,
 	                const std::weak_ptr<ForkContextListener>& listener,
@@ -99,7 +99,7 @@ protected:
 
 	bool mFinished = false;
 	float mCurrentPriority;
-	Agent* mAgent;
+	std::weak_ptr<AgentInternalInterface> mAgent{};
 	std::shared_ptr<RequestSipEvent> mEvent;
 	std::shared_ptr<ResponseSipEvent> mLastResponseSent;
 	std::shared_ptr<IncomingTransaction> mIncoming;

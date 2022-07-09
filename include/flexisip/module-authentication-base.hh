@@ -38,8 +38,8 @@ namespace flexisip {
  */
 class ModuleAuthenticationBase : public Module {
 public:
-	ModuleAuthenticationBase(Agent *agent);
-	~ModuleAuthenticationBase();
+	explicit ModuleAuthenticationBase(std::weak_ptr<AgentInternalInterface> agent);
+	~ModuleAuthenticationBase() override;
 
 	bool isTrustedPeer(const std::shared_ptr<RequestSipEvent> &ev);
 
@@ -112,7 +112,7 @@ protected:
 	std::list<std::string> mAlgorithms;
 	auth_challenger_t mRegistrarChallenger;
 	auth_challenger_t mProxyChallenger;
-	RealmExtractor* mRealmExtractor{nullptr}; /* initialy, this attribute was declared as std::unique_ptr<RealmExtractor>
+	RealmExtractor* mRealmExtractor{nullptr}; /* initially, this attribute was declared as std::unique_ptr<RealmExtractor>
 		but that broke the compilation on Debian/Ubuntu platforms although the default destructor of
 		ModuleAuthenticationBase was declared in the .cc file */
 	std::shared_ptr<SipBooleanExpression> mNo403Expr;

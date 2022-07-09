@@ -28,6 +28,8 @@
 #define FLEXISIP_INCLUDED
 #endif
 
+#include "flexisip/agent-interface.hh"
+
 #include "common.hh"
 #include "configmanager.hh"
 #include "event.hh"
@@ -62,8 +64,7 @@ class DomainRegistrationManager;
  *
  * Refer to the flexisip.conf.sample installed by "make install" for documentation about what each module does.
  **/
-class Agent : public IncomingAgent,
-              public OutgoingAgent,
+class Agent : public AgentInternalInterface,
               public std::enable_shared_from_this<Agent>,
               public ConfigValueListener {
 	friend class IncomingTransaction;
@@ -115,94 +116,103 @@ class Agent : public IncomingAgent,
 	ConfigValueListener* mBaseConfigListener = nullptr;
 
 private:
+	Agent() noexcept = default;
+	void init(const std::shared_ptr<sofiasip::SuRoot>& root);
+
 	template <typename SipEventT, typename ModuleIter>
 	void doSendEvent(std::shared_ptr<SipEventT> ev, const ModuleIter& begin, const ModuleIter& end);
 
 public:
-	Agent(const std::shared_ptr<sofiasip::SuRoot>& root);
+	template <typename... Args>
+	static auto make(Args... args) {
+		auto agent = std::shared_ptr<Agent>{new Agent{}};
+		agent->init(std::forward<Args>(args)...);
+		return agent;
+	}
+
 	void start(const std::string& transport_override, const std::string& passphrase);
 	void loadConfig(GenericManager* cm, bool strict = true);
 	void unloadConfig();
 	~Agent() override;
+
 	/// Returns a pair of ip addresses: < public-ip, bind-ip> suitable for destination.
-	std::pair<std::string, std::string> getPreferredIp(const std::string& destination) const;
+	std::pair<std::string, std::string> getPreferredIp(const std::string& destination) const override;
 	/// Returns the _default_ bind address for RTP sockets.
-	const std::string& getRtpBindIp(bool ipv6 = false) const {
+	const std::string& getRtpBindIp(bool ipv6 = false) const override {
 		return ipv6 ? mRtpBindIp6 : mRtpBindIp;
 	}
-	const std::string& getPublicIp(bool ipv6 = false) const {
+	const std::string& getPublicIp(bool ipv6 = false) const override {
 		return ipv6 ? mPublicIpV6 : mPublicIpV4;
 	}
-	const std::string& getResolvedPublicIp(bool ipv6 = false) const {
+	const std::string& getResolvedPublicIp(bool ipv6 = false) const override {
 		return ipv6 ? mPublicResolvedIpV6 : mPublicResolvedIpV4;
 	}
 	Agent* getAgent() override {
 		return this;
 	}
 	// Preferred route for inter-proxy communication
-	std::string getPreferredRoute() const;
-	const url_t* getPreferredRouteUrl() const {
+	std::string getPreferredRoute() const override;
+	const url_t* getPreferredRouteUrl() const override {
 		return mPreferredRouteV4;
 	}
-	tport_t* getInternalTport() const {
+	tport_t* getInternalTport() const override {
 		return mInternalTport;
 	}
 	/**
 	 * URI associated to this server specifically.
 	 */
-	const url_t* getNodeUri() const {
+	const url_t* getNodeUri() const override {
 		return mNodeUri;
 	}
 	/**
 	 * URI associated to the cluster. It is computed basing on
 	 * the cluster domain declared in the cluster section in settings.
 	 */
-	const url_t* getClusterUri() const {
+	const url_t* getClusterUri() const override {
 		return mClusterUri;
 	}
 	/**
 	 * Equal to the node or cluster URI depending on whether cluster mode has
 	 * been enabled in settings and a cluster domain has been declared.
 	 */
-	const url_t* getDefaultUri() const {
+	const url_t* getDefaultUri() const override {
 		return mDefaultUri;
 	}
 	/**
 	 * return a network unique identifier for this Agent.
 	 */
-	const std::string& getUniqueId() const;
+	const std::string& getUniqueId() const override;
 	void idle();
-	bool isUs(const url_t* url, bool check_aliases = true) const;
+	bool isUs(const url_t* url, bool check_aliases = true) const override;
 	const std::shared_ptr<sofiasip::SuRoot>& getRoot() const noexcept {
 		return mRoot;
 	}
 	nta_agent_t* getSofiaAgent() const {
 		return mAgent;
 	}
-	int countUsInVia(sip_via_t* via) const;
-	bool isUs(const char* host, const char* port, bool check_aliases) const;
-	sip_via_t* getNextVia(sip_t* response);
-	const char* getServerString() const;
-	typedef void (*timerCallback)(void* unused, su_timer_t* t, void* data);
-	su_timer_t* createTimer(int milliseconds, timerCallback cb, void* data, bool repeating = true);
-	void stopTimer(su_timer_t* t);
-	void injectRequestEvent(std::shared_ptr<RequestSipEvent> ev);
-	void injectResponseEvent(std::shared_ptr<ResponseSipEvent> ev);
-	void sendRequestEvent(std::shared_ptr<RequestSipEvent> ev);
-	void sendResponseEvent(std::shared_ptr<ResponseSipEvent> ev);
-	void incrReplyStat(int status);
+	int countUsInVia(sip_via_t* via) const override;
+	bool isUs(const char* host, const char* port, bool check_aliases) const override;
+	sip_via_t* getNextVia(sip_t* response) override;
+	const char* getServerString() const override;
+	su_timer_t* createTimer(int milliseconds, TimerCallback cb, void* data, bool repeating = true) override;
+	void stopTimer(su_timer_t* t) override;
+	void injectRequestEvent(std::shared_ptr<RequestSipEvent> ev) override;
+	void injectResponseEvent(std::shared_ptr<ResponseSipEvent> ev) override;
+	void sendRequestEvent(std::shared_ptr<RequestSipEvent> ev) override;
+	void sendResponseEvent(std::shared_ptr<ResponseSipEvent> ev) override;
+	void incrReplyStat(int status) override;
 	bool doOnConfigStateChanged(const ConfigValue& conf, ConfigState state) override;
-	void logEvent(const std::shared_ptr<SipEvent>& ev);
-	std::shared_ptr<Module> findModule(const std::string& moduleName) const;
-	std::shared_ptr<Module> findModuleByFunction(const std::string& moduleFunction) const;
-	nth_engine_t* getHttpEngine() {
+	void logEvent(const std::shared_ptr<SipEvent>& ev) override;
+	std::shared_ptr<Module> findModule(const std::string& moduleName) const override;
+	std::shared_ptr<Module> findModuleByFunction(const std::string& moduleFunction) const override;
+	nth_engine_t* getHttpEngine() override {
 		return mHttpEngine;
 	}
-	DomainRegistrationManager* getDRM() {
+	DomainRegistrationManager* getDRM() override {
 		return mDrm;
 	}
-	url_t* urlFromTportName(su_home_t* home, const tp_name_t* name);
-	void applyProxyToProxyTransportSettings(tport_t* tp);
+	url_t* urlFromTportName(su_home_t* home, const tp_name_t* name) override;
+	void applyProxyToProxyTransportSettings(tport_t* tp) override;
 
 	static sofiasip::TlsConfigInfo
 	getTlsConfigInfo(const GenericStruct* global = GenericManager::get()->getRoot()->get<GenericStruct>("global"));

@@ -107,8 +107,8 @@ void flexisip_tester_init(void (*ftester_printf)(int level, const char* fmt, va_
 #if ENABLE_UNIT_TESTS_PUSH_NOTIFICATION
 	bc_tester_add_suite(&push_notification_suite);
 #endif
-	bc_tester_add_suite(&register_suite);
-	bc_tester_add_suite(&flexisip::tester::registarDbSuite);
+	bc_tester_add_suite(&flexisip::tester::registerSuite);
+	bc_tester_add_suite(&flexisip::tester::registrarDbSuite);
 	bc_tester_add_suite(&router_suite);
 	bc_tester_add_suite(&flexisip::tester::threadPoolSuite);
 	bc_tester_add_suite(&tls_connection_suite);

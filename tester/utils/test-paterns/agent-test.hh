@@ -37,6 +37,8 @@ namespace tester {
 class AgentTest : public Test {
 public:
 	AgentTest(bool runAgent = true) noexcept : mRunAgent{runAgent} {
+		mRoot = std::make_shared<sofiasip::SuRoot>();
+		mAgent = Agent::make(mRoot);
 	}
 
 	~AgentTest() {
@@ -95,8 +97,8 @@ protected:
 	virtual void onExec() = 0;
 
 	// Protected attributes
-	std::shared_ptr<sofiasip::SuRoot> mRoot{std::make_shared<sofiasip::SuRoot>()};
-	std::shared_ptr<Agent> mAgent{std::make_shared<Agent>(mRoot)};
+	std::shared_ptr<sofiasip::SuRoot> mRoot{};
+	std::shared_ptr<Agent> mAgent{};
 	bool mRunAgent;
 };
 

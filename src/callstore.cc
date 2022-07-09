@@ -49,7 +49,7 @@ void CallContextBase::updateActivity() {
 	mLastSIPActivity = getCurrentTime();
 }
 
-void CallContextBase::establishDialogWith200Ok(Agent *ag, sip_t *sip) {
+void CallContextBase::establishDialogWith200Ok(AgentInternalInterface* ag, sip_t *sip) {
 	if (sip->sip_status->st_status >= 200 && sip->sip_status->st_status < 300 && mCalleeTag.empty()) {
 		LOGD("Dialog is established");
 		if (sip->sip_to->a_tag)
@@ -61,7 +61,7 @@ bool CallContextBase::isDialogEstablished() const {
 	return mCalleeTag.size() > 0;
 }
 
-bool CallContextBase::match(Agent *ag, sip_t *sip, bool match_call_id_only, bool match_established) {
+bool CallContextBase::match(AgentInternalInterface* ag, sip_t *sip, bool match_call_id_only, bool match_established) {
 	if (sip->sip_call_id == NULL)
 		return false;
 	if (sip->sip_from->a_tag == NULL)
@@ -144,23 +144,24 @@ void CallStore::store(const shared_ptr<CallContextBase> &ctx) {
 	mCalls.push_back(ctx);
 }
 
-shared_ptr<CallContextBase> CallStore::find(Agent *ag, sip_t *sip, bool match_call_id_only) {
-	for (auto it = mCalls.begin(); it != mCalls.end(); ++it) {
-		if ((*it)->match(ag, sip, match_call_id_only))
-			return *it;
+shared_ptr<CallContextBase> CallStore::find(AgentInternalInterface* ag, sip_t *sip, bool match_call_id_only) {
+	for (const auto& call : mCalls) {
+		if (call->match(ag, sip, match_call_id_only))
+			return call;
 	}
-	return shared_ptr<CallContextBase>();
+	return nullptr;
 }
 
-shared_ptr<CallContextBase> CallStore::findEstablishedDialog(Agent *ag, sip_t *sip) {
-	for (auto it = mCalls.begin(); it != mCalls.end(); ++it) {
-		if ((*it)->match(ag, sip, false, true))
-			return *it;
+shared_ptr<CallContextBase> CallStore::findEstablishedDialog(AgentInternalInterface* ag, sip_t *sip) {
+	for (const auto& call : mCalls) {
+		if (call->match(ag, sip, false, true))
+			return call;
 	}
-	return shared_ptr<CallContextBase>();
+	return nullptr;
 }
 
-void CallStore::findAndRemoveExcept(Agent *ag, sip_t *sip, const shared_ptr<CallContextBase> &ctx, bool stateful) {
+void CallStore::findAndRemoveExcept(AgentInternalInterface* ag, sip_t *sip,
+                                    const shared_ptr<CallContextBase>& ctx, bool stateful) {
 	int removed = 0;
 	for (auto it = mCalls.begin(); it != mCalls.end();) {
 		if (*it != ctx && (*it)->match(ag, sip, stateful)) {

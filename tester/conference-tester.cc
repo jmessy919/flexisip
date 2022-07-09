@@ -63,7 +63,7 @@ public:
 
 static void beforeEach() {
 	root = make_shared<sofiasip::SuRoot>();
-	agent = make_shared<Agent>(root);
+	agent = Agent::make(root);
 }
 
 static void afterEach() {
