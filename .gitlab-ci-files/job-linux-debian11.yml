@@ -47,7 +47,7 @@ job-debian11-xwiki-doc-deploy:
   stage: build 🏗
   tags: [ "docker" ]
   extends:
-    - .rules-deploy  # ⚠ See `rules.yml`
+    - .rules-dev  # ⚠ See `rules.yml`
     - .debian11-image
   script:
     - prefix=/opt/belledonne-communications
@@ -57,6 +57,9 @@ job-debian11-xwiki-doc-deploy:
     - mkdir $builddir
     - cmake -S . -B $builddir -G Ninja -DCMAKE_INSTALL_PREFIX=$prefix -DCMAKE_PREFIX_PATH=$prefix $DEFAULT_CMAKE_OPTIONS
     - cmake --build $builddir
+    - echo $XWIKI_HOSTNAME
+    - echo $XWIKI_USERNAME
+    - echo $XWIKI_PASSWORD
     - /usr/bin/python3 ./doc/xw.py --flexisip-binary $builddir/src/flexisip -H $XWIKI_HOSTNAME -u $XWIKI_USERNAME -p $XWIKI_PASSWORD
 
 #################################################
