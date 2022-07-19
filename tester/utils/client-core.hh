@@ -22,12 +22,15 @@
 #include "linphone++/linphone.hh"
 #include "proxy-server.hh"
 
+namespace flexisip {
+namespace tester {
+
 class Server;
 class CoreClient;
 
 /**
  * CoreClient builder.
- * 
+ *
  * Use the `registerTo` method to finish building the client
  */
 class ClientBuilder {
@@ -191,3 +194,6 @@ public:
 
 	std::shared_ptr<linphone::CallLog> getCallLog() const;
 }; // class CoreClient
+
+} // namespace tester
+} // namespace flexisip

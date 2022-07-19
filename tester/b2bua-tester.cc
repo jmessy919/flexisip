@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Belledonne Communications SARL
+ * Copyright (C) 2010-2022 Belledonne Communications SARL
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -40,6 +40,8 @@ using namespace std;
 using namespace linphone;
 using namespace flexisip;
 
+namespace flexisip {
+namespace tester {
 namespace b2buatester {
 // B2bua is configured to set media encryption according to a regex on the callee URI
 // define uri to match each of the possible media encryption
@@ -109,7 +111,8 @@ class InternalClient {
 	std::shared_ptr<linphone::Address> toInternal(std::shared_ptr<linphone::Address>&& external) const;
 
 public:
-	template <typename... _Args> InternalClient(_Args&&... __args) : client(std::forward<_Args>(__args)...) {
+	template <typename... _Args>
+	InternalClient(_Args&&... __args) : client(std::forward<_Args>(__args)...) {
 	}
 
 	std::shared_ptr<linphone::Call> invite(const ExternalClient& external) const;
@@ -130,7 +133,8 @@ class ExternalClient {
 public:
 	ExternalClient(CoreClient&& client) : client(std::move(client)) {
 	}
-	template <typename... _Args> ExternalClient(_Args&&... __args) : client(std::forward<_Args>(__args)...) {
+	template <typename... _Args>
+	ExternalClient(_Args&&... __args) : client(std::forward<_Args>(__args)...) {
 	}
 
 	auto hasReceivedCallFrom(const InternalClient& internal) const {
@@ -698,7 +702,6 @@ static void sdes2sdes256(bool video) {
 		BC_ASSERT_TRUE(sdes256->getCore()->getCurrentCall()->getCurrentParams()->getSrtpSuites().front() ==
 		               linphone::SrtpSuite::AES256CMHMACSHA180);
 		sdes256gcm->endCurrentCall(sdes256);
-
 	}
 }
 
@@ -776,6 +779,10 @@ static test_t tests[] = {
 };
 
 } // namespace b2buatester
+
 test_suite_t b2bua_suite = {"B2bua",           nullptr, nullptr,
                             nullptr,           nullptr, sizeof(b2buatester::tests) / sizeof(b2buatester::tests[0]),
                             b2buatester::tests};
+
+} // namespace tester
+} // namespace flexisip

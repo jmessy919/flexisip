@@ -40,7 +40,7 @@
 
 /*
  * These are the classic C-style logging macros.
-*/
+ */
 #define LOGD bctbx_debug
 #define LOGI bctbx_message
 #define LOGW bctbx_warning
@@ -52,14 +52,13 @@
 
 /*
  * These are the C++ logging macros, that can be used with << operator.
-*/
+ */
 #define SLOG(thelevel) BCTBX_SLOG(FLEXISIP_LOG_DOMAIN, thelevel)
 #define SLOGD SLOG(BCTBX_LOG_DEBUG)
 #define SLOGI SLOG(BCTBX_LOG_MESSAGE)
 #define SLOGW SLOG(BCTBX_LOG_WARNING)
 #define SLOGE SLOG(BCTBX_LOG_ERROR)
 #define SLOGUE BCTBX_SLOG(FLEXISIP_USER_ERRORS_LOG_DOMAIN, BCTBX_LOG_ERROR)
-
 
 namespace sofiasip {
 class MsgSip;
@@ -73,27 +72,27 @@ using MsgSip = sofiasip::MsgSip;
 
 /*
  * The LogManager is the main entry point to configure logs in Flexisip.
-*/
+ */
 class LogManager {
 public:
-	friend class SipLogContext;
-	friend class LogContext;
-	static LogManager& get();
+	// Public types
 	struct Parameters {
-		su_root_t* root = nullptr; /* MUST be set to have reopenFiles() working. */
-		std::string logDirectory;
-		std::string logFilename;
-		size_t fileMaxSize = -1;
-		BctbxLogLevel level = BCTBX_LOG_ERROR;
-		BctbxLogLevel syslogLevel = BCTBX_LOG_ERROR;
-		bool enableSyslog = true;
-		bool enableUserErrors = false;
-		bool enableStdout = false;
+		su_root_t* root{nullptr}; /* MUST be set to have reopenFiles() working. */
+		std::string logDirectory{};
+		std::string logFilename{};
+		size_t fileMaxSize{std::numeric_limits<decltype(fileMaxSize)>::max()};
+		BctbxLogLevel level{BCTBX_LOG_ERROR};
+		BctbxLogLevel syslogLevel{BCTBX_LOG_ERROR};
+		bool enableSyslog{true};
+		bool enableUserErrors{false};
+		bool enableStdout{false};
 	};
 
+	// Public ctor
 	LogManager(const LogManager&) = delete;
 	~LogManager();
 
+	// Public methods
 	BctbxLogLevel logLevelFromName(const std::string& name) const;
 	// Initialize logging system
 	void initialize(const Parameters& params);
@@ -127,25 +126,40 @@ public:
 		mReopenRequired = true;
 	}
 
+	// Public class methods
+	static LogManager& get();
+
 private:
+	// Private ctor
 	LogManager() = default;
 
-	static void logStub(const char* domain, BctbxLogLevel level, const char* msg, va_list args);
+	// Private methods
 	void setCurrentContext(const SipLogContext& ctx);
 	void clearCurrentContext();
 	void checkForReopening();
+	static void stdoutLogHandler(const char* domain, BctbxLogLevel level, const char* msg, va_list args);
+	static void logStub(const char* domain, BctbxLogLevel level, const char* msg, va_list args);
 
-	std::mutex mMutex;
-	std::shared_ptr<SipBooleanExpression> mCurrentFilter;
-	BctbxLogLevel mLevel = BCTBX_LOG_ERROR;        // The normal log level.
-	BctbxLogLevel mContextLevel = BCTBX_LOG_ERROR; // The log level when log context matches the condition.
-	bctbx_log_handler_t* mLogHandler = nullptr;
-	bctbx_log_handler_t* mSysLogHandler = nullptr;
-	std::unique_ptr<sofiasip::Timer> mTimer;
-	bool mInitialized = false;
-	bool mReopenRequired = false;
+	// Private attributes
+	std::mutex mMutex{};
+	mutable std::mutex mRootDomainMutex{};
+	std::shared_ptr<SipBooleanExpression> mCurrentFilter{};
+	std::string mRootDomain{}; // This domain prefixed the domain part of every log message. Useful to distinct the log
+	                           // messages comming from other processus.
+	BctbxLogLevel mLevel{BCTBX_LOG_ERROR};        // The normal log level.
+	BctbxLogLevel mContextLevel{BCTBX_LOG_ERROR}; // The log level when log context matches the condition.
+	bctbx_log_handler_t* mLogHandler{nullptr};
+	bctbx_log_handler_t* mSysLogHandler{nullptr};
+	std::unique_ptr<sofiasip::Timer> mTimer{};
+	bool mInitialized{false};
+	bool mReopenRequired{false};
 
+	// Private class attributes
 	static LogManager* sInstance;
+
+	// Friendship
+	friend class SipLogContext;
+	friend class LogContext;
 };
 
 class LogContext {
@@ -159,7 +173,7 @@ public:
  * For now it just uses the MsgSip being processed by Flexisip.
  * This class should typically be instantiated on stack (not with new).
  * When it goes out of scope, it automatically clears the context with the LogManager.
-*/
+ */
 class SipLogContext : public LogContext {
 	friend class LogManager;
 
@@ -177,7 +191,7 @@ static BctbxLogLevel flexisip_sysLevelMin = BCTBX_LOG_ERROR;
 
 /*
  * We want LOGN to output all the time (in standard output or syslog): this is for startup notice.
-*/
+ */
 template <typename... Args>
 inline void LOGN(const char* format, const Args&... args) {
 	if (!flexisip::LogManager::get().syslogEnabled()) {
@@ -216,7 +230,7 @@ inline void LOGF(const char* format, const Args&... args) {
 /**
  * Remove and secure : warning - format string is not a string literal (potentially insecure)
  * While using a string with no arguments
-*/
+ */
 inline void LOGEN(const char* simpleLog) {
 	LOGEN("%s", simpleLog);
 }

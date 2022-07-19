@@ -16,12 +16,18 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "proxy-server.hh"
+#include <algorithm>
+
 #include "flexisip/registrardb.hh"
 
-using namespace flexisip;
+#include "proxy-server.hh"
+
 using namespace std;
 using namespace std::chrono;
+
+namespace flexisip {
+namespace tester {
+
 /**
  * A class to manage the flexisip proxy server
  */
@@ -54,6 +60,26 @@ Server::Server(const std::string& configFile) {
 	}
 }
 
+Server::Server(const std::map<std::string, std::string>& config) {
+	auto cfg = GenericManager::get();
+	cfg->load("");
+	for (const auto& kv : config) {
+		const auto& key = kv.first;
+		const auto& value = kv.second;
+		auto slashPos = key.find('/');
+		if (slashPos == decay_t<decltype(key)>::npos) {
+			throw invalid_argument{"missing '/' in parameter name [" + key + "]"};
+		}
+		if (slashPos == key.size() - 1) {
+			throw invalid_argument{"invalid parameter name [" + key + "]: forbidden ending '/'"};
+		}
+		auto sectionName = key.substr(0, slashPos);
+		auto parameterName = key.substr(slashPos + 1);
+		cfg->getRoot()->get<GenericStruct>(sectionName)->get<ConfigValue>(parameterName)->set(value);
+	}
+	mAgent->loadConfig(cfg, false);
+}
+
 Server::~Server() {
 	mAgent->unloadConfig();
 	RegistrarDb::resetDB();
@@ -65,3 +91,6 @@ void Server::runFor(std::chrono::milliseconds duration) {
 		mRoot->step(100ms);
 	}
 }
+
+} // namespace tester
+} // namespace flexisip
