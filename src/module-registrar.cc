@@ -474,6 +474,17 @@ class OnRequestBindListener : public RegistrarDbListener {
 		if (r) {
 			addEventLogRecordFound(mEv, mContact);
 			mModule->reply(mEv, 200, "Registration successful", r->getContacts(ms->getHome(), now));
+			
+			/*
+			* Tell SofiaSip to reply to CRLF pings only if
+			* the 'outbound' extension is supported by the client.
+			*/
+			auto sip = mEv->getMsgSip()->getSip();
+			if (sip_has_supported(sip->sip_supported, "outbound")) {
+				auto tport = mEv->getIncomingTport();
+				SLOGD << "Enable Pong2ping on IncomingTport[" << tport << "]";
+				tport_set_params(tport.get(), TPTAG_PONG2PING(1), TAG_END());
+			}
 
 			const sip_expires_t *expires = mEv->getMsgSip()->getSip()->sip_expires;
 			if (mContact && expires && expires->ex_delta > 0) {

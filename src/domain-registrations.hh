@@ -28,13 +28,14 @@
 #include "configmanager.hh"
 
 #include <list>
+#include <chrono>
 
 class DomainRegistrationManager;
 class Agent;
 
 class DomainRegistration {
   public:
-	DomainRegistration(DomainRegistrationManager &mgr, const std::string &localDomain, std::string pwd, const url_t *parent_proxy,
+	DomainRegistration(DomainRegistrationManager &mgr, const std::string &localDomain, const std::string &pwd, const url_t *parent_proxy,
 					   const std::string &clientCertdir, int lineIndex);
 	void start();
 	void stop();
@@ -44,6 +45,7 @@ class DomainRegistration {
 	~DomainRegistration();
 
   private:
+	void sendRequest();
 	void setContact(msg_t *msg);
 	int getExpires(nta_outgoing_t *orq, const sip_t *response);
 	static void sOnConnectionBroken(tp_stack_t *stack, tp_client_t *client, tport_t *tport, msg_t *msg, int error);
@@ -54,12 +56,13 @@ class DomainRegistration {
 	void responseCallback(nta_outgoing_t *orq, const sip_t *resp);
 	void onConnectionBroken(tport_t *tport, msg_t *msg, int error);
 	void cleanCurrentTport();
+	void setCurrentTport(tport_t* tport);
 	DomainRegistrationManager &mManager;
 	StatCounter64 * mRegistrationStatus; //This contains the lastest SIP response code of the REGISTER transaction.
 	su_home_t mHome;
 	nta_leg_t *mLeg;
 	msg_header_t *mSip = NULL;
-	const char *mPwd;
+	std::string mPwd;
 	tport_t *mPrimaryTport; // the tport that has the configuration
 	tport_t *mCurrentTport; // the secondary tport that has the active connection.
 	int mPendId;
@@ -68,6 +71,7 @@ class DomainRegistration {
 	url_t *mProxy;
 	sip_contact_t *mExternalContact;
 	nta_outgoing_t *mOutgoing;
+	std::chrono::seconds mExpires{600};
 };
 
 class DomainRegistrationManager {
@@ -85,6 +89,15 @@ class DomainRegistrationManager {
 	 * This is useful for setting correct Record-Routes for request arriving through these connections.
 	**/
 	const url_t *getPublicUri(const tport_t *tport) const;
+	
+	std::chrono::seconds getReconnectionDelay() const noexcept {
+		return mReconnectionDelay;
+	}
+
+	int getRegistrationCount() const noexcept {
+		return mNbRegistration;
+	}
+
 	~DomainRegistrationManager();
 
   private:
@@ -94,7 +107,9 @@ class DomainRegistrationManager {
 	su_timer_t *mTimer;
 	std::list<std::string> mRegistrationList;
 	GenericStruct *mDomainRegistrationArea; /*this is used to place statistics values*/
-	int mKeepaliveInterval;
+	std::chrono::seconds mKeepaliveInterval{0};
+	std::chrono::seconds mPingPongTimeoutDelay{0};
+	std::chrono::seconds mReconnectionDelay{0};
 	bool mVerifyServerCerts;
 
 	static void unregisterTimeout(su_root_magic_t *magic, su_timer_t *t, void *data) {
