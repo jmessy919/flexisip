@@ -51,7 +51,6 @@ extern test_suite_t extended_contact_suite;
 extern test_suite_t fork_context_suite;
 extern test_suite_t module_pushnitification_suite;
 extern test_suite_t push_notification_suite;
-extern test_suite_t register_suite;
 extern test_suite_t registration_event_suite;
 extern test_suite_t router_suite;
 extern test_suite_t tls_connection_suite;
@@ -77,6 +76,7 @@ extern test_suite_t fork_context_mysql_suite;
 extern test_suite_t moduleDosSuite;
 extern test_suite_t moduleInfoSuite;
 extern test_suite_t registarDbSuite;
+extern test_suite_t registerSuite;
 extern test_suite_t threadPoolSuite;
 extern test_suite_t utilsSuite;
 
