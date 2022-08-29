@@ -1,7 +1,7 @@
-args@{ ... }:
+args@{ pkgs ? import <nixpkgs> { }, ... }:
 
 import ./nix/base.nix ({
-  pkgs = import <nixpkgs> { };
+  inherit pkgs;
   enableUnitTests = true;
   enableB2bua = true;
   additionalInputs = ps: with ps; [
