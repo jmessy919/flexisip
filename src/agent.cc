@@ -506,6 +506,8 @@ void Agent::start(const string& transport_override, const string& passphrase) {
 	LOGD("Agent public resolved hostname/ip: v4:%s v6:%s", mPublicResolvedIpV4.c_str(), mPublicResolvedIpV6.c_str());
 	LOGD("Agent's _default_ RTP bind ip address: v4:%s v6:%s", mRtpBindIp.c_str(), mRtpBindIp6.c_str());
 
+	mSipBooleanExpressionBuilder.setAgent(shared_from_this());
+	
 	startLogWriter();
 
 	loadModules();

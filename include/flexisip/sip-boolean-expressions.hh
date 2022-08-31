@@ -24,17 +24,21 @@
 typedef struct sip_s sip_t;
 
 namespace flexisip {
+	
+class Agent;
 
 using SipBooleanExpression = BooleanExpression<sip_t>;
 
 class SipBooleanExpressionBuilder : public BooleanExpressionBuilder<sip_t> {
 public:
-	static SipBooleanExpressionBuilder &get();
-	std::shared_ptr<SipBooleanExpression> parse(const std::string &expression);
-
-private:
+	
 	SipBooleanExpressionBuilder();
-	static std::shared_ptr<SipBooleanExpressionBuilder> sInstance;
+	/* The boolean expression parser may be passed an optional Agent pointer, needed
+	 * to evaluate some variable such as next_hop_uri that depends on flexisip's configuration.
+	 * When not given, next_hop_uri is not recognized.
+	 */
+	void setAgent(const std::weak_ptr<Agent> &agent);
+	std::shared_ptr<SipBooleanExpression> parse(const std::string &expression);
 };
 
 } //end of namespace

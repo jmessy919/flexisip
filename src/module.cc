@@ -765,7 +765,7 @@ void ModuleToolbox::addPathHeader(
 const url_t *ModuleToolbox::getNextHop(Agent *ag, const sip_t *sip, bool *isRoute){
 	const sip_route_t *route = sip->sip_route;
 	while (route){
-		if (!ag->isUs(route->r_url)){
+		if (!ag || !ag->isUs(route->r_url)){
 			if (isRoute) *isRoute = true;
 			return route->r_url;
 		}

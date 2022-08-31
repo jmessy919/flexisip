@@ -159,6 +159,9 @@ public:
 	using Expr = BooleanExpression<_valuesT>;
 	BooleanExpressionBuilder(const ExpressionRules<_valuesT> &rules);
 	std::shared_ptr<BooleanExpression<_valuesT>> parse(const std::string &expression);
+protected:
+	void addVariableHandler(const std::string &variableName, const std::function< std::string (const _valuesT &)> & variableHandler);
+	void addOperatorHandler(const std::string &operatorName, const std::function< bool (const _valuesT &)> &operatorHandler);
 private:
 	void checkRulesOverlap();
 	size_t findFirstNonWord(const std::string &expr, size_t offset);
@@ -168,7 +171,7 @@ private:
 	std::shared_ptr<Const> buildConstant(const std::string &expr, size_t *newpos);
 	std::shared_ptr<ExpressionElement> buildElement(const std::string &expr, size_t *newpos);
 	std::shared_ptr<Expr> parseExpression(const std::string &expr, size_t *newpos, bool immediateNeighbour = false);
-	const ExpressionRules<_valuesT> mRules;
+	ExpressionRules<_valuesT> mRules;
 	static const std::list<std::string> sBuiltinOperators;
 };
 

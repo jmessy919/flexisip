@@ -25,8 +25,6 @@ using namespace std;
 
 namespace flexisip{
 
-shared_ptr<SipBooleanExpressionBuilder> SipBooleanExpressionBuilder::sInstance;
-
 static inline string stringFromC(const char *s){
 	return s ? string(s) : string();
 }
@@ -80,15 +78,20 @@ static ExpressionRules<sip_t> rules = {
 	}
 };
 
-SipBooleanExpressionBuilder::SipBooleanExpressionBuilder() : BooleanExpressionBuilder<sip_t>(rules){
+SipBooleanExpressionBuilder::SipBooleanExpressionBuilder() : BooleanExpressionBuilder<sip_t>(rules), mAgent(agent){
+	
+	
 }
 
-SipBooleanExpressionBuilder &SipBooleanExpressionBuilder::get(){
-	if (!sInstance) {
-		sInstance = shared_ptr<SipBooleanExpressionBuilder>(new SipBooleanExpressionBuilder());
-	}
-	return *sInstance;
+void SipBooleanExpressionBuilder::setAgent(const std::weak_ptr<Agent> &agent){
+	addVariableHandler("next_hop_uri.domain", [agent](const sip_t &sip)->string{
+		bool unused = false;
+		const url_t * uri = ModuleToolbox::getNextHop(agent.get(), sip, unused);
+		return stringFromC(uri ? uri->url_host : nullptr);
+	});
 }
+
+
 
 shared_ptr<SipBooleanExpression> SipBooleanExpressionBuilder::parse(const string &expression){
 	return BooleanExpressionBuilder<sip_t>::parse(expression);

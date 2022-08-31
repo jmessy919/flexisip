@@ -505,9 +505,17 @@ shared_ptr<BooleanExpression<_valuesT>> BooleanExpressionBuilder<_valuesT>::pars
 	}
 	*newpos += i;
 	return cur_exp;
-};
+}
 
- // rajouter  is_request, is_response
+template< typename _valuesT>
+void BooleanExpressionBuilder<_valuesT>::addVariableHandler(const std::string &variableName, const std::function< std::string (const _valuesT &)> & variableHandler){
+	mRules.variables[variableName] = variableHandler;
+}
+
+template< typename _valuesT>
+void BooleanExpressionBuilder<_valuesT>::addOperatorHandler(const std::string &operatorName, const std::function< bool (const _valuesT &)> &operatorHandler){
+	mRules.operators[operatorName] = operatorHandler;
+}
 
 
 } //end of namespace

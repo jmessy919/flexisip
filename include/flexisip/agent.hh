@@ -206,7 +206,9 @@ public:
 
 	static sofiasip::TlsConfigInfo
 	getTlsConfigInfo(const GenericStruct* global = GenericManager::get()->getRoot()->get<GenericStruct>("global"));
-
+	SipBooleanExpressionBuilder &getSipBooleanExpressionBuilder(){
+		return mSipBooleanExpressionBuilder;
+	}
 private:
 	// Private types
 	class Network {
@@ -244,6 +246,7 @@ private:
 	static void printEventTailSeparator();
 
 	// Private attributes
+	SipBooleanExpressionBuilder mSipBooleanExpressionBuilder;
 	std::string mServerString;
 	std::list<std::shared_ptr<Module>> mModules;
 	std::list<std::string> mAliases;
