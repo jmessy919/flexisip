@@ -44,14 +44,14 @@ job-debian11-ninja-clang:
 #################################################
 
 job-debian11-xwiki-doc-deploy:
-  stage: deploy 🚀
+  stage: build 🏗
   tags: [ "docker" ]
   extends:
     - .rules-deploy  # ⚠ See `rules.yml`
     - .debian11-image
   script:
     - prefix=/opt/belledonne-communications
-    - builddir=wikiBuild
+    - builddir=build
     - sudo mkdir -p $prefix
     - sudo chown bc:bc $prefix
     - mkdir $builddir
