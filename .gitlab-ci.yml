@@ -4,12 +4,9 @@
 
 variables:
   GIT_SUBMODULE_STRATEGY: recursive
-  GIT_SUBMODULE_UPDATE_FLAGS: --jobs 8
-
   CCACHE_SIZE: 2G
-
   # For build and test on Linux
-  DEFAULT_CMAKE_OPTIONS: '-DCMAKE_BUILD_TYPE=RelWithDebInfo'
+  DEFAULT_CMAKE_OPTIONS: '-DCMAKE_BUILD_TYPE=Sanitizer'
   # For build on MacOS
   DEFAULT_MACOS_CMAKE_OPTIONS: ''
   # For packaging, deb and rpm
@@ -34,7 +31,7 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
 before_script:
-  - git submodule foreach --recursive git fetch --tags --force
+  - git submodule foreach --recursive git fetch --tags
 
 #################################################
 # Platforms to test
@@ -43,7 +40,7 @@ before_script:
 include:
   - '.gitlab-ci-files/rules.yml'
   - '.gitlab-ci-files/job-linux.yml'
-#  - '.gitlab-ci-files/job-linux-archlinux.yml'
+  - '.gitlab-ci-files/job-linux-archlinux.yml'
   - '.gitlab-ci-files/job-linux-centos7.yml'
   - '.gitlab-ci-files/job-linux-rocky8.yml'
   - '.gitlab-ci-files/job-linux-debian9.yml'
@@ -54,8 +51,8 @@ include:
   - '.gitlab-ci-files/job-macosx.yml'
 
 stages:
-#  - build 🏗
-#  - test 🧪
-#  - coverage 📑
+  - build 🏗
+  - test 🧪
+  - coverage 📑
   - package 📦
-#  - deploy 🚀
+  - deploy 🚀

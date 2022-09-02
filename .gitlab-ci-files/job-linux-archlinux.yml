@@ -1,4 +1,4 @@
-.archlinux-image-variables:
+.archlinux-image:
   image: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-archlinux:$ARCHLINUX_IMAGE_VERSION
 
 #################################################
@@ -8,14 +8,14 @@
 job-archlinux-makefile-gcc:
   extends:
     - .job-makefile-gcc
-    - .archlinux-image-variables
+    - .archlinux-image
     - .rules-never-run  # ⚠ See `rules.yml`, override .job-makefile-gcc rules
 
 
 job-archlinux-makefile-clang:
   extends:
     - .job-makefile-clang
-    - .archlinux-image-variables
+    - .archlinux-image
     - .rules-never-run  # ⚠ See `rules.yml`, override .job-makefile-clang rules
 
 #################################################
@@ -25,10 +25,10 @@ job-archlinux-makefile-clang:
 job-archlinux-ninja-gcc:
   extends:
     - .job-ninja-gcc
-    - .archlinux-image-variables
+    - .archlinux-image
 
 
 job-archlinux-ninja-clang:
   extends:
     - .job-ninja-clang
-    - .archlinux-image-variables
+    - .archlinux-image
