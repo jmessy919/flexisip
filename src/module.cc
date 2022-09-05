@@ -357,6 +357,7 @@ void ModuleToolbox::cleanAndPrependRoute(Agent *ag, msg_t *msg, sip_t *sip, sip_
 	while (sip->sip_route != NULL && ag->isUs(sip->sip_route->r_url)) {
 		sip_route_remove(msg, sip);
 	}
+
 	if (r)
 		prependNewRoutable(msg, sip, sip->sip_route, r);
 }
