@@ -28,8 +28,6 @@
     - export CCACHE_BASEDIR=${PWD}
     - export CCACHE_DIR=${PWD}/ccache
     - ccache -s
-    # CVE-2022-24765, from git 2.35.2 onward
-    - "sudo chown -R $(whoami): ."
   after_script:
     - export CCACHE_DIR=${PWD}/ccache
     - ccache -s
@@ -54,7 +52,7 @@
   stage: package 📦
   tags: [ "docker" ]
   extends:
-    - .rules-dev  # ⚠ See `rules.yml`
+    - .rules-default  # ⚠ See `rules.yml`
   variables:
     CMAKE_GENERATOR: 'Ninja'
   script:
@@ -83,7 +81,7 @@
   stage: package 📦
   tags: [ "docker" ]
   extends:
-    - .rules-dev  # ⚠ See `rules.yml`
+    - .rules-default  # ⚠ See `rules.yml`
   variables:
     CMAKE_GENERATOR: 'Ninja'
   script:
