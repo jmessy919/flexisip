@@ -1078,7 +1078,7 @@ int Agent::onIncomingMessage(msg_t* msg, const sip_t* sip) {
 	// Assuming sip is derived from msg
 	auto ms = make_shared<MsgSip>(ownership::owned(msg));
 	if (sip->sip_request) {
-		auto ev = make_shared<RequestSipEvent>(shared_from_this(), ms, getIncomingTport(ms->getMsg(), this));
+		auto ev = make_shared<RequestSipEvent>(shared_from_this(), ms, getIncomingTport(ms->getMsg()));
 		sendRequestEvent(ev);
 	} else {
 		auto ev = make_shared<ResponseSipEvent>(shared_from_this(), ms,getIncomingTport(msg));
