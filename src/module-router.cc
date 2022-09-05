@@ -296,7 +296,6 @@ shared_ptr<BranchInfo> ModuleRouter::dispatch(const shared_ptr<ForkContext> cont
 		if (!url_has_param(final_route->r_url, "lr")) {
 			url_param_add(new_msgsip->getHome(), final_route->r_url, "lr");
 		}
-
 		if (routes == NULL) routes = final_route;
 		else {
 			sip_route_t* r = routes;
@@ -319,7 +318,6 @@ shared_ptr<BranchInfo> ModuleRouter::dispatch(const shared_ptr<ForkContext> cont
 		    new_msg, new_sip,
 		    (sip_header_t*)sip_unknown_format(msg_home(new_msg), "X-Target-Uris: %s", targetUris.c_str()));
 	}
-	new_sip->sip_route = nullptr;
 	cleanAndPrependRoute(getAgent(), new_msg, new_sip, routes);
 
 	SLOGD << "Fork to " << contact_url_string;
