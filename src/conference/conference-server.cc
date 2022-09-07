@@ -70,6 +70,10 @@ void ConferenceServer::_init () {
 	
 	/* Read enabled media types (audio, video, text) */
 	auto mediaTypes = config->get<ConfigStringList>("supported-media-types")->read();
+SLOGI << __func__ << " DEBUG DEBUG mdia type size " << mediaTypes.size();
+for (const auto & t : mediaTypes) {
+SLOGI << __func__ << " DEBUG DEBUG mdia type  " << t;
+}
 	if (find(mediaTypes.begin(), mediaTypes.end(), "audio") != mediaTypes.end()) mMediaConfig.audioEnabled = true;
 	if (find(mediaTypes.begin(), mediaTypes.end(), "video") != mediaTypes.end()) mMediaConfig.videoEnabled = true;
 	if (find(mediaTypes.begin(), mediaTypes.end(), "text") != mediaTypes.end()) mMediaConfig.textEnabled = true;
@@ -239,10 +243,12 @@ void ConferenceServer::loadFactoryUris() {
 	}
 	auto focus_it = conferenceFocusUris.begin();
 	for (auto factoryUri :conferenceFactoryUris) {
+		SLOGI << " Trying to match conference factory URI " << factoryUri << " with a conference focus URI";
 		if (focus_it != conferenceFocusUris.end()) {
+			SLOGI << "Matched conference factory URI " << factoryUri << " with a conference focus URI " << (*focus_it);
 			mConfServerUris.push_back({factoryUri,*focus_it++});
 		} else if (mMediaConfig.audioEnabled  || mMediaConfig.videoEnabled) {
-			LOGF("Number of factory uri [%lu] must match number of focus uri [%lu]",conferenceFactoryUri.size(),conferenceFocusUris.size());
+			LOGF("Number of factory uri [%lu] must match number of focus uri [%lu]",conferenceFactoryUris.size(),conferenceFocusUris.size());
 		} else {
 			mConfServerUris.push_back({factoryUri,""});
 		}
@@ -549,7 +555,7 @@ ConferenceServer::Init::Init() {
 	     "List of media supported by the conference server.\n"
 	     "Valid values are: audio, video and text. For example:\n"
 	     "supported-media-types=audio video text",
-	     ""},
+	     "text"},
 	    {String, "encryption",
 	     "The preferred encryption the conference server will offer in the outgoing transactions.\n"
 	     "Valid values are: none, sdes, zrtp and dtls.\n",
@@ -576,7 +582,7 @@ ConferenceServer::Init::Init() {
 }
 
 string ConferenceServer::getStateDir()const{
-	return string(DEFAULT_VAR_LIB_DIR) + string("/flexisip/");
+	return string(DEFAULT_LIB_DIR);
 }
 
 string ConferenceServer::getUuidFilePath()const{
