@@ -28,7 +28,9 @@
 #include "registration-subscription.hh"
 #include "service-server.hh"
 
-#define DEFAULT_VAR_LIB_DIR "/var/opt/belledonne-communications/lib"
+#ifndef DEFAULT_LIB_DIR
+#define DEFAULT_LIB_DIR "/var/opt/belledonne-communications/lib/flexisip"
+#endif // DEFAULT_LIB_DIR
 
 namespace flexisip {
 	class ConferenceServer
