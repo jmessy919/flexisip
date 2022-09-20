@@ -69,6 +69,9 @@ public:
 		// a Path header corresponding to this proxy
 	}
 
+	/* TODO: Fixing contacts in responses is unreliable: we can't know if we are the first hop of the response.
+	 * This feature should be removed from Flexisip.
+	 */
 	virtual void onResponse(shared_ptr<ResponseSipEvent> &ev) {
 		const shared_ptr<MsgSip> &ms = ev->getMsgSip();
 		sip_status_t *st = ms->getSip()->sip_status;
@@ -79,15 +82,23 @@ public:
 			if (st->st_status >= 200 && st->st_status <= 299) {
 				sip_contact_t *ct = ms->getSip()->sip_contact;
 				if (ct) {
-					
-					if (needToBeFixed(ev)) {
-						fixContactInResponse(ms->getHome(), ms->getMsg(), ms->getSip());
-						url_param_add(ms->getHome(), ct->m_url, mContactVerifiedParam.c_str());
-					} else if (ms->getSip()->sip_via && ms->getSip()->sip_via->v_next && !ms->getSip()->sip_via->v_next->v_next) {
+					bool isVerified = url_has_param(ct->m_url, mContactVerifiedParam.c_str());
+					if (ms->getSip()->sip_via && ms->getSip()->sip_via->v_next && !ms->getSip()->sip_via->v_next->v_next
+					&& isVerified) {
 						// Via contains client and first proxy
 						LOGD("Removing verified param from response contact");
 						ct->m_url->url_params = url_strip_param_string(su_strdup(ms->getHome(), ct->m_url->url_params),
-																		 mContactVerifiedParam.c_str());
+															 mContactVerifiedParam.c_str());
+					}else{
+						if (needToBeFixed(ev)) {
+							fixContactInResponse(ms->getHome(), ms->getMsg(), ms->getSip());
+						}
+						/* The "verified" param must be added whenever we fix or not the Contact, in order
+						 * to signal other nodes processing this response that the contact has been 
+						 * processed already. */
+						if (!isVerified){
+							url_param_add(ms->getHome(), ct->m_url, mContactVerifiedParam.c_str());
+						}
 					}
 				}
 			}
