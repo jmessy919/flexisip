@@ -70,10 +70,6 @@ void ConferenceServer::_init () {
 	
 	/* Read enabled media types (audio, video, text) */
 	auto mediaTypes = config->get<ConfigStringList>("supported-media-types")->read();
-SLOGI << __func__ << " DEBUG DEBUG mdia type size " << mediaTypes.size();
-for (const auto & t : mediaTypes) {
-SLOGI << __func__ << " DEBUG DEBUG mdia type  " << t;
-}
 	if (find(mediaTypes.begin(), mediaTypes.end(), "audio") != mediaTypes.end()) mMediaConfig.audioEnabled = true;
 	if (find(mediaTypes.begin(), mediaTypes.end(), "video") != mediaTypes.end()) mMediaConfig.videoEnabled = true;
 	if (find(mediaTypes.begin(), mediaTypes.end(), "text") != mediaTypes.end()) mMediaConfig.textEnabled = true;
@@ -582,7 +578,7 @@ ConferenceServer::Init::Init() {
 }
 
 string ConferenceServer::getStateDir()const{
-	return string(DEFAULT_LIB_DIR);
+	return string(DEFAULT_LIB_DIR) + std::string("/");
 }
 
 string ConferenceServer::getUuidFilePath()const{
