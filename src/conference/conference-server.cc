@@ -120,8 +120,6 @@ void ConferenceServer::_init () {
 	// Make LinphoneCore to slice incoming LIME multipart messages in order
 	// each forwarded message contains only one encrypted message instead
 	// of having the encrypted version for each recipient.
-	mCore->enableLimeX3Dh(true);
-
 	mCore->enableLimeX3Dh(config->get<ConfigBoolean>("enable-lime")->read());
 	mCore->setAudioPort(-1); // use random ports.
 	mCore->setVideoPort(-1); // use random ports.
@@ -557,7 +555,7 @@ ConferenceServer::Init::Init() {
 	     "Valid values are: none, sdes, zrtp and dtls.\n",
 	     "none"},
 	    {Boolean, "enable-one-to-one-chat-room", "Whether one-to-one chat room creation is allowed or not.", "true"},
-
+	    {Boolean, "enable-lime", "Whether lime is enabled or not.", "false"},
 	    config_item_end};
 
 	auto uS = make_unique<GenericStruct>(
