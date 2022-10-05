@@ -100,7 +100,7 @@ void Module::checkConfig() {
 }
 
 void Module::load() {
-	mFilter->loadConfig(mModuleConfig);
+	mFilter->loadConfig(getAgent()->getSipBooleanExpressionBuilder(), mModuleConfig);
 	if (mFilter->isEnabled())
 		onLoad(mModuleConfig);
 }

@@ -35,7 +35,7 @@ sip_route_t *ConditionalRouteMap::buildRoute(const string & route){
 	return sipRoute;
 }
 	
-void ConditionalRouteMap::loadConfig(const std::string &path){
+void ConditionalRouteMap::loadConfig(Agent *ag, const std::string &path){
 	ifstream ifs;
 	ostringstream contentstream;
 	size_t currentPos;
@@ -108,7 +108,7 @@ void ConditionalRouteMap::loadConfig(const std::string &path){
 			/* the wildcard is interpreted as a always true condition */
 			rule.resize(0); /* the void expression is true in SipBooleanExpression */
 		}
-		auto expr = SipBooleanExpressionBuilder::get().parse(rule);
+		auto expr = ag->getSipBooleanExpressionParser().parse(rule);
 		if (!expr){
 			throw invalid_argument(string("Invalid expression: '") + rule + string("'")); 
 		}

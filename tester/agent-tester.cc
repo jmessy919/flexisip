@@ -31,6 +31,20 @@ using namespace std;
 
 namespace flexisip {
 namespace tester {
+	
+	
+static const char* raw_request_2 = "INVITE sip:bob@sip.example.org;user=phone SIP/2.0\r\n"\
+							"Via: SIP/2.0/UDP 192.168.1.8:5062;rport;branch=z9hG4bK1439638806\r\n"\
+							"From: <sip:josette@sip.linphone.org>;tag=465687829\r\n"\
+							"To: <sip:ghislaine@sip.linphone.org>\r\n"\
+							"Call-ID: 1053183492\r\n"\
+							"CSeq: 1 INVITE\r\n"\
+							"Contact: <sip:josette@192.168.1.8:5062>\r\n"\
+							"Route: <sip:localhost:6060>\r\n" \
+							"Route: <sip:localhost:6062>\r\n" \
+							"Max-Forwards: 70\r\n"\
+							"User-Agent: Linphone/12.0\r\n"\
+							"Content-Length: 0\r\n\r\n123456789";
 
 class TransportsAndIsUsTest : public AgentTest {
 private:
@@ -68,6 +82,18 @@ private:
 
 		// No match with aliases
 		BC_ASSERT_FALSE(mAgent->isUs("anotherRandomAlias", "6060", true));
+		
+		
+		/* isUs() can be invoked through SIP boolean expressions (next_hop_uri variable) */
+		shared_ptr<SipBooleanExpression> expr;
+	
+		msg_t *sipRequest = msg_make(sip_default_mclass(), 0, raw_request, strlen(raw_request));
+		expr = mAgent->getSipBooleanExpressionBuilder().parse(
+			"next_hop_uri.domain == 'example.org' && next_hop_uri.uri = 'bob'"
+		);
+		BC_ASSERT_TRUE(expr!=nullptr);
+		BC_ASSERT_TRUE(expr->eval( *(sip_t*) msg_object(sipRequest));
+		msg_unref(msg);
 	}
 };
 

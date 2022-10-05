@@ -21,7 +21,7 @@
 
 #include "flexisip/expressionparser.hh"
 
-typedef struct sip_s sip_t;
+#include "sofia-sip/sip.h"
 
 namespace flexisip {
 	
@@ -39,6 +39,8 @@ public:
 	 */
 	void setAgent(const std::weak_ptr<Agent> &agent);
 	std::shared_ptr<SipBooleanExpression> parse(const std::string &expression);
+private:
+	static const url_t *evalNextHop(const std::weak_ptr<Agent> &agent, const sip_t &sip);
 };
 
 } //end of namespace

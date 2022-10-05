@@ -46,7 +46,7 @@ class ConfigEntryFilter : public EntryFilter {
   public:
 	ConfigEntryFilter() = default;
 	void declareConfig(GenericStruct *module_config) override;
-	void loadConfig(const GenericStruct *module_config) override;
+	void loadConfig(SipBooleanExpressionBuilder &builder, const GenericStruct *module_config) override;
 	bool canEnter(const std::shared_ptr<MsgSip> &ms) override;
 	bool isEnabled() override;
 

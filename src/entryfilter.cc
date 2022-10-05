@@ -48,7 +48,7 @@ void ConfigEntryFilter::declareConfig(GenericStruct *module_config) {
 	mCountEvalFalse = module_config->createStat("count-eval-false", "Number of filter evaluations to false.");
 }
 
-void ConfigEntryFilter::loadConfig(const GenericStruct *mc) {
+void ConfigEntryFilter::loadConfig(SipBooleanExpressionBuilder &builder, const GenericStruct *mc) {
 	string filter = mc->get<ConfigValue>("filter")->get();
 
 	if (filter.empty()) {
@@ -66,7 +66,7 @@ void ConfigEntryFilter::loadConfig(const GenericStruct *mc) {
 	}
 	mEnabled = mc->get<ConfigBoolean>("enabled")->read();
 	try {
-		mBooleanExprFilter = SipBooleanExpressionBuilder::get().parse(filter);
+		mBooleanExprFilter = builder.parse(filter);
 	} catch (exception &e) {
 		LOGF("Could not parse entry filter for module '%s': %s", mc->getName().c_str(), e.what());
 	}

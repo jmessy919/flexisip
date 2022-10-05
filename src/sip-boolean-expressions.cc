@@ -21,6 +21,9 @@
 #include "flexisip/expressionparser-impl.cc"
 #include "sofia-sip/sip.h"
 
+#include "flexisip/agent.hh"
+#include "flexisip/module.hh"
+
 using namespace std;
 
 namespace flexisip{
@@ -78,16 +81,35 @@ static ExpressionRules<sip_t> rules = {
 	}
 };
 
-SipBooleanExpressionBuilder::SipBooleanExpressionBuilder() : BooleanExpressionBuilder<sip_t>(rules), mAgent(agent){
+SipBooleanExpressionBuilder::SipBooleanExpressionBuilder() : BooleanExpressionBuilder<sip_t>(rules){
 	
 	
 }
 
+const url_t *SipBooleanExpressionBuilder::evalNextHop(const std::weak_ptr<Agent> &agent, const sip_t &sip){
+	bool unused = false;
+	shared_ptr<Agent> ag = agent.lock();
+	if (!ag){
+		LOGW("next_hop_uri can't be evaluated as Agent has vanished.");
+		return nullptr;
+	}
+	return ModuleToolbox::getNextHop(ag.get(), &sip, &unused);
+}
+
 void SipBooleanExpressionBuilder::setAgent(const std::weak_ptr<Agent> &agent){
+	if (!agent.lock()) return;
+	// If agent changes, a new variable handler replaces the former one. 
 	addVariableHandler("next_hop_uri.domain", [agent](const sip_t &sip)->string{
-		bool unused = false;
-		const url_t * uri = ModuleToolbox::getNextHop(agent.get(), sip, unused);
+		const url_t *uri = evalNextHop(agent, sip);
 		return stringFromC(uri ? uri->url_host : nullptr);
+	});
+	addVariableHandler("next_hop_uri.user", [agent](const sip_t &sip)->string{
+		const url_t *uri = evalNextHop(agent, sip);
+		return stringFromC(uri ? uri->url_user : nullptr);
+	});
+	addVariableHandler("next_hop_uri.params", [agent](const sip_t &sip)->string{
+		const url_t *uri = evalNextHop(agent, sip);
+		return stringFromC(uri ? uri->url_params : nullptr);
 	});
 }
 

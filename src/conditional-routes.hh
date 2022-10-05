@@ -26,7 +26,7 @@ namespace flexisip{
 
 class ConditionalRouteMap{
 	public:
-		void loadConfig(const std::string &path);
+		void loadConfig(Agent *ag, const std::string &path);
 		const sip_route_t *resolveRoute(const MsgSip &msgsip) const;
 		const sip_route_t *resolveRoute(const std::shared_ptr<MsgSip> &msgsip) const;
 		const sip_route_t *resolveRoute(const sip_t &sip) const;
