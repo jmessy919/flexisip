@@ -238,6 +238,8 @@ void B2buaServer::onCallStateChanged(const std::shared_ptr<linphone::Core>& core
 			}
 			if (update) {
 				SLOGD << "update peer call";
+				// add this custom header so this call will not be intercepted by the b2bua
+				peerCallParams->addCustomHeader("flexisip-b2bua", "ignore");
 				peerCall->update(peerCallParams);
 				call->deferUpdate();
 			} else { // no update on video/audio status, just accept it with requested params
