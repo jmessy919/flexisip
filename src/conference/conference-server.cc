@@ -138,6 +138,7 @@ void ConferenceServer::_init () {
 	// Enable ICE (with host candidates only) so that the relay service of the proxies is bypassed.
 	shared_ptr<linphone::NatPolicy> natPolicy = mCore->createNatPolicy();
 	natPolicy->enableIce(true);
+	configureNatAddresses(natPolicy, config->get<ConfigStringList>("nat-addresses")->read());
 	mCore->setNatPolicy(natPolicy);
 
 	loadFactoryUris();
@@ -195,6 +196,55 @@ void ConferenceServer::_init () {
 	RegistrarDb::get()->addStateListener(shared_from_this());
 	if (RegistrarDb::get()->isWritable()){
 		bindAddresses();
+	}
+}
+
+void ConferenceServer::configureNatAddresses(shared_ptr<linphone::NatPolicy> natPolicy, const list<string> &addresses){
+	int err;
+	bool ipv4_set = false;
+	bool ipv6_set = false;
+	for (const auto &addr : addresses){
+		struct addrinfo *res = nullptr;
+		struct *ai_it = nullptr;
+		struct addrinfo hints;
+		memset(&hints, 0, sizeof(hints)).
+		hints.ai_family = AF_UNSPEC;
+		hints.ai_socktype = SOCK_STREAM;
+
+		err = bctbx_getaddrinfo(addr.c_str(), "5060", &hints, &res);
+		if (err != 0){
+			LOGF("Error while processing nat-addresses value '%s': %s", addr.c_str(), gai_strerror(err));
+			continue;
+		}
+		for (ai_it = res; ai_it != nullptr; ai_it->ai_it->next){
+			char ipaddress[NI_MAXHOST] = {0};
+			int port = 0;
+			if (bctbx_addrinfo_to_ip_address(ai_it, ipaddress, sizeof(ipaddress), &port) == 0){
+				switch(ai_it->ai_family){
+					case AF_INET:
+						if (!ipv4_set){
+							natPolicy->setNatV4Address(ipaddress);
+							ipv4_set = true;
+							LOGI("Nat v4 address set: %s", ipaddress);
+						}else{
+							LOGW("Ignoring nat-address '%s', there can be a single one per IP family.", ipaddress);
+						}
+					break;
+					case AF_INET6:
+						if (!ipv6_set){
+							natPolicy->setNatV6Address(ipaddress);
+							LOGI("Nat v6 address set: %s", ipaddress);
+							ipv6_set = true;
+						}else{
+							LOGW("Ignoring nat-address '%s', there can be a single one per IP family.", ipaddress);
+						}
+					break;
+					default:
+						LOGE("Unknown address family while supporting NAT addresses.");
+					break;
+				}
+			}
+		}
 	}
 }
 
@@ -541,11 +591,6 @@ ConferenceServer::Init::Init() {
 	     "The capability check is currently limited to Linphone client that put a +org.linphone.specs contact parameter"
 	     " in order to indicate whether they support group chat and secured group chat.",
 	     "true"},
-	    // Deprecated paramters:
-	    {String, "conference-factory-uri",
-	     "uri where the client must ask to create a conference. For example:\n"
-	     "conference-factory-uri=sip:conference-factory@sip.linphone.org",
-	     ""},
 	    {StringList, "supported-media-types",
 	     "List of media supported by the conference server.\n"
 	     "Valid values are: audio, video and text. For example:\n"
@@ -553,8 +598,23 @@ ConferenceServer::Init::Init() {
 	     "text"},
 	    {String, "encryption",
 	     "The preferred encryption the conference server will offer in the outgoing transactions.\n"
-	     "Valid values are: none, sdes, zrtp and dtls.\n",
+	     "Valid values are: none, sdes, zrtp and dtls.",
 	     "none"},
+	    {StringList, "nat-addresses",
+	     "Public host name or addresses of the conference server machine. Configuring this property is required when the conference server "
+	     "is deployed behind a firewall, so that the public IP address (v4, v6) can be advertised in SDP, as ICE "
+	     "server-reflexive candidates in order for the conference server to receive RTP media packets from clients. "
+	     "If no hostname is given, the v4 and v6 IP address can be listed separated by whitespaces. It is not possible "
+	     " configure several v4 addresses or several v6 addresses."
+	     "For example:\n"
+	     "nat-addresses=conference.linphone.org
+	     "nat-addresses=5.135.31.160   2001:41d0:303:3aee::1",
+	     ""},
+	    // Deprecated paramters:
+	    {String, "conference-factory-uri",
+	     "uri where the client must ask to create a conference. For example:\n"
+	     "conference-factory-uri=sip:conference-factory@sip.linphone.org",
+	     ""},
 	    {Boolean, "enable-one-to-one-chat-room", "Whether one-to-one chat room creation is allowed or not.", "true"},
 	    config_item_end};
 

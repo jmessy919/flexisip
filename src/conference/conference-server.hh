@@ -113,6 +113,7 @@ namespace flexisip {
 						const std::shared_ptr<linphone::Call> & call, 
 				  linphone::Call::State cstate, const std::string & message) override;
 		void enableSelectedCodecs(const std::list<std::shared_ptr<linphone::PayloadType>>& codecs, const std::list<std::string> &mimeTypes);
+		void configureNatAddresses(shared_ptr<linphone::NatPolicy> policy, const std::list<std::string> &addresses);
 		std::string getUuidFilePath() const;
 		std::string getStateDir()const;
 		const std::string & readUuid();
