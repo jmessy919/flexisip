@@ -129,9 +129,10 @@ void ConferenceServer::_init () {
 	enableSelectedCodecs(mCore->getVideoPayloadTypes(), { "VP8"});
 
 	string encryption = config->get<ConfigString>("encryption")->read();
-	linphone::MediaEncryption encryptionMode = linphone::MediaEncryption::None;
-	StringUtils::string2MediaEncryption(encryption, encryptionMode);
-	mCore->setMediaEncryption(encryptionMode);
+	const auto encryptionMode = StringUtils::string2MediaEncryption(encryption);
+	if (encryptionMode) {
+		mCore->setMediaEncryption(*encryptionMode);
+	}
 
 	mCore->setVideoDisplayFilter("MSExtDisplay");
 

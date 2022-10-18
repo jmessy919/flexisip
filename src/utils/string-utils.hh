@@ -157,19 +157,6 @@ public:
 	 *
 	 * @param[in]	configString	the configuration string, one of: zrtp, sdes, dtls-srtp, none
 	 **/
-	static flexisip::stl_backports::optional<linphone::MediaEncryption> string2MediaEncryption(const std::string& str) {
-		using enc = linphone::MediaEncryption;
+	static flexisip::stl_backports::optional<linphone::MediaEncryption> string2MediaEncryption(const std::string& str);
 
-		if (str == "zrtp") {
-			return enc::ZRTP;
-		} else if (str == "sdes") {
-			return enc::SRTP;
-		} else if (str == "dtls-srtp") {
-			return enc::DTLS;
-		} else if (str == "none") {
-			return enc::None;
-		}
-
-		return {};
-	}
 };

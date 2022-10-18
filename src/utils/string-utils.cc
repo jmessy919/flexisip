@@ -19,6 +19,8 @@
 #include <cstring>
 #include <stdexcept>
 
+#include <flexisip/logmanager.hh>
+
 #include "string-utils.hh"
 
 using namespace std;
@@ -99,23 +101,20 @@ std::string StringUtils::transform(const std::string &str, const std::map<char, 
 	return res;
 }
 
-bool StringUtils::string2MediaEncryption(const std::string configString, linphone::MediaEncryption& encryptionMode) noexcept {
-	if (configString == std::string{"zrtp"}) {
-		encryptionMode = linphone::MediaEncryption::ZRTP;
-		return true;
+flexisip::stl_backports::optional<linphone::MediaEncryption> StringUtils::string2MediaEncryption(const std::string& str) {
+	using enc = linphone::MediaEncryption;
+
+	if (str == "zrtp") {
+		return enc::ZRTP;
+	} else if (str == "sdes") {
+		return enc::SRTP;
+	} else if (str == "dtls-srtp") {
+		return enc::DTLS;
+	} else if (str == "none") {
+		return enc::None;
 	}
-	if (configString == std::string{"sdes"}) {
-		encryptionMode = linphone::MediaEncryption::SRTP;
-		return true;
-	}
-	if (configString == std::string{"dtls-srtp"}) {
-		encryptionMode = linphone::MediaEncryption::DTLS;
-		return true;
-	}
-	if (configString == std::string{"none"}) {
-		encryptionMode = linphone::MediaEncryption::None;
-		return true;
-	}
-	encryptionMode = linphone::MediaEncryption::None;
-	return false;
+
+	SLOGE << "Invalid encryption mode: " << str << " valids modes are : zrtp, sdes, dtls-srtp, none. Ignore this setting";
+
+	return {};
 }
