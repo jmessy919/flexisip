@@ -18,16 +18,17 @@
 
 #pragma once
 
+#include <memory>
+
 #include "flexisip/agent.hh"
-#include "flexisip/fork-context/fork-basic-context.hh"
-#include "flexisip/fork-context/fork-call-context.hh"
-#include "flexisip/fork-context/fork-message-context-db-proxy.hh"
-#include "flexisip/fork-context/fork-message-context-soci-repository.hh"
-#include "flexisip/fork-context/fork-message-context.hh"
+#include "flexisip/fork-context/fork-context.hh"
 #include "flexisip/module.hh"
 #include "flexisip/registrardb.hh"
+#include "router/injector.hh"
 
 namespace flexisip {
+
+class OnContactRegisteredListener;
 
 struct RouterStats {
 	std::unique_ptr<StatPair> mCountForks;
@@ -56,7 +57,13 @@ public:
 
 	virtual void onResponse(std::shared_ptr<ResponseSipEvent>& ev) override;
 
-	virtual void onForkContextFinished(const std::shared_ptr<ForkContext>& ctx) override;
+	void onForkContextFinished(const std::shared_ptr<ForkContext>& ctx) override;
+	std::shared_ptr<BranchInfo> onDispatchNeeded(const std::shared_ptr<ForkContext>& ctx,
+	                                             const std::shared_ptr<ExtendedContact>& newContact) override;
+	void onUselessRegisterNotification(const std::shared_ptr<ForkContext>& ctx,
+	                                   const std::shared_ptr<ExtendedContact>& newContact,
+	                                   const SipUri& dest,
+	                                   const std::string& uid) override;
 
 	void sendReply(std::shared_ptr<RequestSipEvent>& ev,
 	               int code,
@@ -91,6 +98,34 @@ public:
 		return mFallbackRouteFilter;
 	}
 
+	const std::shared_ptr<ForkContextConfig>& getCallForkCfg() const {
+		return mCallForkCfg;
+	}
+	const std::shared_ptr<ForkContextConfig>& getMessageForkCfg() const {
+		return mMessageForkCfg;
+	}
+	const std::shared_ptr<ForkContextConfig>& getOtherForkCfg() const {
+		return mOtherForkCfg;
+	}
+
+	void injectRequestEvent(const std::shared_ptr<RequestSipEvent>& ev,
+	                        const std::shared_ptr<ForkContext>& context,
+	                        const std::string& contactId) {
+		mInjector->injectRequestEvent(ev, context, contactId);
+	};
+
+	void removeInjectContext(const std::shared_ptr<ForkContext>& context, const std::string& contactId) {
+		mInjector->removeContext(context, contactId);
+	}
+
+	static void setMaxPriorityHandled(sofiasip::MsgSipPriority maxPriorityHandled) {
+		sMaxPriorityHandled = maxPriorityHandled;
+	}
+
+	std::shared_ptr<BranchInfo> dispatch(const std::shared_ptr<ForkContext>& context,
+	                                     const std::shared_ptr<ExtendedContact>& contact,
+	                                     const std::string& targetUris = "");
+
 	RouterStats mStats;
 
 protected:
@@ -98,15 +133,12 @@ protected:
 	using ForkMap = std::multimap<std::string, ForkMapElem>;
 	using ForkRefList = std::vector<ForkMapElem>;
 
-	std::shared_ptr<BranchInfo> dispatch(const std::shared_ptr<ForkContext> context,
-	                                     const std::shared_ptr<ExtendedContact>& contact,
-	                                     const std::string& targetUris);
 	std::string routingKey(const url_t* sipUri);
 	std::vector<std::string> split(const char* data, const char* delim);
 	ForkRefList getLateForks(const std::string& key) const noexcept;
 
 	std::list<std::string> mDomains;
-	std::shared_ptr<ForkContextConfig> mForkCfg;
+	std::shared_ptr<ForkContextConfig> mCallForkCfg;
 	std::shared_ptr<ForkContextConfig> mMessageForkCfg;
 	std::shared_ptr<ForkContextConfig> mOtherForkCfg;
 	ForkMap mForks;
@@ -122,8 +154,10 @@ private:
 	void restoreForksFromDatabase();
 
 	static ModuleInfo<ModuleRouter> sInfo;
+	static sofiasip::MsgSipPriority sMaxPriorityHandled;
 	std::shared_ptr<SipBooleanExpression> mFallbackRouteFilter;
 	std::shared_ptr<OnContactRegisteredListener> mOnContactRegisteredListener{nullptr};
+	std::unique_ptr<Injector> mInjector;
 };
 
 class OnContactRegisteredListener : public ContactRegisteredListener,
