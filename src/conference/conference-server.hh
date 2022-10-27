@@ -108,10 +108,6 @@ namespace flexisip {
 			const std::shared_ptr<linphone::ChatRoom> &cr,
 			const std::shared_ptr<const linphone::Address> & participantAddr
 		) override;
-
-		virtual void onCallStateChanged(const std::shared_ptr<linphone::Core> & lc, 
-						const std::shared_ptr<linphone::Call> & call, 
-				  linphone::Call::State cstate, const std::string & message) override;
 		void enableSelectedCodecs(const std::list<std::shared_ptr<linphone::PayloadType>>& codecs, const std::list<std::string> &mimeTypes);
 		void configureNatAddresses(std::shared_ptr<linphone::NatPolicy> policy, const std::list<std::string> &addresses);
 		std::string getUuidFilePath() const;

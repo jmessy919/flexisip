@@ -503,52 +503,6 @@ void ConferenceServer::bindChatRoom(const string& bindingUrl,
 	);
 }
 
-void ConferenceServer::onCallStateChanged(const std::shared_ptr<linphone::Core> & lc, 
-						const std::shared_ptr<linphone::Call> & call, 
-				  linphone::Call::State cstate, const std::string & message){
-
-/*
-	auto to = call->getToAddress();
-	auto remoteParams = call->getRemoteParams();
-	
-	bool iceNegotiationOngoing = false;
-	if (remoteParams->audioEnabled()) {
-		auto audioStats = call->getAudioStats();
-		auto iceState = audioStats->getIceState();
-		iceNegotiationOngoing |= (iceState == linphone::IceState::InProgress);
-	}
-	if (remoteParams->videoEnabled()) {
-		auto videoStats = call->getVideoStats();
-		auto iceState = videoStats->getIceState();
-		iceNegotiationOngoing |= (iceState == linphone::IceState::InProgress);
-	}
-	auto it = mConferences.find(to->getUsername());
-	switch(cstate){
-		case linphone::Call::State::IncomingReceived:
-			if (it != mConferences.end()){
-				const auto params = mCore->createCallParams(call);
-				params->enableAudio(true);
-				params->enableVideo(false);
-				call->acceptWithParams(params);
-			}else{
-				call->decline(linphone::Reason::NotFound);
-			}
-		break;
-		case linphone::Call::State::StreamsRunning:
-			if (it != mConferences.end()){
-				if (!iceNegotiationOngoing){
-					(*it).second->addCall(call);
-				}
-			}else{
-				LOGD("Unable to add participant [%s] to any conference", call->getRemoteAddress()->asString().c_str());
-			}
-		break;
-		default:
-		break;
-	}
-*/
-}
-
 ConferenceServer::Init::Init() {
 	ConfigItemDescriptor items[] = {
 	    {Boolean, "enabled",
