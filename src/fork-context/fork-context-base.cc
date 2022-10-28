@@ -35,9 +35,10 @@ ForkContextBase::ForkContextBase(Agent* agent,
                                  const weak_ptr<ForkContextListener>& listener,
                                  const weak_ptr<StatPair>& counter,
                                  bool isRestored)
-    : mListener(listener), mStatCounter(counter), mCurrentPriority(-1), mAgent(agent),
+    : mCurrentPriority(-1), mAgent(agent),
       mEvent(make_shared<RequestSipEvent>(event)), // Is this deep copy really necessary ?
-      mCfg(cfg), mLateTimer(agent->getRoot()), mFinishTimer(agent->getRoot()), mNextBranchesTimer(agent->getRoot()) {
+      mCfg(cfg), mLateTimer(agent->getRoot()), mFinishTimer(agent->getRoot()), mNextBranchesTimer(agent->getRoot()),
+      mListener(listener), mStatCounter(counter) {
 	if (auto sharedCounter = mStatCounter.lock()) {
 		sharedCounter->incrStart();
 	} else {
@@ -198,8 +199,7 @@ const list<shared_ptr<BranchInfo>>& ForkContextBase::getBranches() const {
 	return mWaitingBranches;
 }
 
-std::pair<bool, std::shared_ptr<BranchInfo>> ForkContextBase::shouldDispatch(const SipUri& dest,
-                                                                             const std::string& uid) {
+ForkContextBase::ShouldDispatchType ForkContextBase::shouldDispatch(const SipUri& dest, const std::string& uid) {
 	shared_ptr<BranchInfo> br, br_by_url;
 
 	/*
@@ -211,7 +211,7 @@ std::pair<bool, std::shared_ptr<BranchInfo>> ForkContextBase::shouldDispatch(con
 	if (!targetGr.empty()) {
 		if (uid.find(targetGr) == string::npos) { // to compare regardless of < >
 			/* This request was targetting a gruu address, but this REGISTER is not coming from our target contact.*/
-			return make_pair(false, nullptr);
+			return make_pair(DispatchStatus::DispatchNotNeeded, nullptr);
 		}
 	}
 
@@ -221,14 +221,14 @@ std::pair<bool, std::shared_ptr<BranchInfo>> ForkContextBase::shouldDispatch(con
 		int code = br->getStatus();
 		if (code == 503 || code == 408) {
 			LOGD("ForkContext %p: shouldDispatch(): instance failed to receive the request previously.", this);
-			return make_pair(true, br);
+			return make_pair(DispatchStatus::DispatchNeeded, br);
 		} else if (code >= 200) {
 			/*
 			 * This instance has already accepted or declined the request.
 			 * We should not send it the request again.
 			 */
 			LOGD("ForkContext %p: shouldDispatch(): instance has already answered the request.", this);
-			return make_pair(false, nullptr);
+			return make_pair(DispatchStatus::DispatchNotNeeded, nullptr);
 		} else {
 			/*
 			 * No response, or a provisional response is received. We can cannot conclude on what to do.
@@ -238,16 +238,16 @@ std::pair<bool, std::shared_ptr<BranchInfo>> ForkContextBase::shouldDispatch(con
 			 */
 			if (br_by_url == nullptr) {
 				LOGD("ForkContext %p: shouldDispatch(): instance reconnected.", this);
-				return make_pair(true, br);
+				return make_pair(DispatchStatus::DispatchNeeded, br);
 			}
 		}
 	}
 	if (br_by_url) {
 		LOGD("ForkContext %p: shouldDispatch(): pending transaction for this destination.", this);
-		return make_pair(false, nullptr);
+		return make_pair(DispatchStatus::PendingTransaction, nullptr);
 	}
 
-	return make_pair(true, nullptr);
+	return make_pair(DispatchStatus::DispatchNeeded, nullptr);
 }
 
 // This is actually called when we want to simulate a ringing event by sending a 180, or for example to signal the
