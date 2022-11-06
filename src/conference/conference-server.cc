@@ -83,17 +83,12 @@ void ConferenceServer::_init () {
 	configLinphone->setBool("misc", "conference_server_enabled", true);
 	configLinphone->setBool("misc", "enable_one_to_one_chat_room", config->get<ConfigBoolean>("enable-one-to-one-chat-room")->read());
 
-	if (mMediaConfig.textEnabled){
-		string dbUri = config->get<ConfigString>("database-connection-string")->read();
-		if (dbUri.empty()) LOGF("ConferenceServer: database-connection-string is not set. It is mandatory for handling text conferences.");
-		configLinphone->setInt("misc", "hide_empty_chat_rooms", 0);
-		configLinphone->setInt("misc", "hide_chat_rooms_from_removed_proxies", 0);
-		configLinphone->setString("storage", "backend", config->get<ConfigString>("database-backend")->read());
-		configLinphone->setString("storage", "uri", dbUri);
-	}else{
-		configLinphone->setString("storage", "uri", "null");
-		
-	}
+	string dbUri = config->get<ConfigString>("database-connection-string")->read();
+	if (dbUri.empty()) LOGF("ConferenceServer: database-connection-string is not set. It is mandatory for handling text conferences.");
+	configLinphone->setInt("misc", "hide_empty_chat_rooms", 0);
+	configLinphone->setInt("misc", "hide_chat_rooms_from_removed_proxies", 0);
+	configLinphone->setString("storage", "backend", config->get<ConfigString>("database-backend")->read());
+	configLinphone->setString("storage", "uri", dbUri);
 
 	configLinphone->setInt("misc", "max_calls", 1000);
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
@@ -150,21 +145,36 @@ void ConferenceServer::_init () {
 		LOGF("Invalid outbound-proxy value '%s'", outboundProxy.c_str());
 	}
 	bool defaultAccountSet = false;
+	auto mRegisterUris = config->get<ConfigBoolean>("register-focus-uris-to-registrar-db")->read();
 	for (const auto &conferenceServerUris : mConfServerUris){
 		auto factoryUri = Factory::get()->createAddress(conferenceServerUris.first);
 		auto accountParams = mCore->createAccountParams();
-		
+
+		shared_ptr<linphone::Address> identityAddress = nullptr;
 		if (!conferenceServerUris.second.empty()){
-			auto focusUri= Factory::get()->createAddress(conferenceServerUris.second);
-			accountParams->setIdentityAddress(focusUri);
+			identityAddress = Factory::get()->createAddress(conferenceServerUris.second);
 		}else{
-			accountParams->setIdentityAddress(factoryUri);
+			if (mMediaConfig.audioEnabled  || mMediaConfig.videoEnabled) {
+				LOGF("A conference server used supporting audio or video conferencing must have a focus uri associated to each factory uri. Missing focus uri for factory address %s'", factoryUri->asString().c_str());
+			}
+			identityAddress = factoryUri;
 		}
+		accountParams->setIdentityAddress(identityAddress);
 		accountParams->setServerAddress(outboundProxyAddress);
 		accountParams->enableRegister(false);
 		accountParams->enableOutboundProxy(true);
 		accountParams->setConferenceFactoryUri(factoryUri->asString());
 		auto account = mCore->createAccount(accountParams);
+		LOGI("Creating account %p: factory uri %s identity address %s server address %s.", account.get(), factoryUri->asString().c_str(), identityAddress->asStringUriOnly().c_str(), outboundProxyAddress->asString().c_str());
+		if (!mRegisterUris) {
+			auto contactAddressStr = identityAddress->asString();
+			if (!uuid.empty()) {
+				contactAddressStr += std::string(";gr=") + uuid;
+			}
+			auto contactAddress = Factory::get()->createAddress(contactAddressStr);
+			LOGI("Setting contact address to %s when configuring account %p because the focus uri will not be bound to the registrar-db.", contactAddress->asStringUriOnly().c_str(), account.get());
+			account->setContactAddress(contactAddress);
+		}
 		mCore->addAccount(account);
 		if (!defaultAccountSet){
 			defaultAccountSet = true;
@@ -194,9 +204,11 @@ void ConferenceServer::_init () {
 		LOGF("Unconsistent uuid");
 	}
 
-	RegistrarDb::get()->addStateListener(shared_from_this());
-	if (RegistrarDb::get()->isWritable()){
-		bindAddresses();
+	if (mRegisterUris) {
+		RegistrarDb::get()->addStateListener(shared_from_this());
+		if (RegistrarDb::get()->isWritable()){
+			bindAddresses();
+		}
 	}
 }
 
@@ -530,6 +542,10 @@ ConferenceServer::Init::Init() {
 	     "They are assumed to be local domains already.\n"
 	     "Ex: local-domains=sip.linphone.org conf.linphone.org linhome.org",
 	     ""},
+	    {Boolean, "register-focus-uris-to-registrar-db",
+	     "Whether the conference server shall bind factory and focus uris to the registrar DB.\n"
+	     "Set it explicitely to false, should the Registrar module be disabled or unused.",
+	     "true"},
 	    {String, "database-backend",
 	     "Choose the type of backend that linphone will use for the connection.\n"
 	     "Depending on your Soci package and the modules you installed, the supported databases are: "
