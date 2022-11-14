@@ -451,7 +451,6 @@ void DomainRegistration::responseCallback(nta_outgoing_t *orq, const sip_t *resp
 			}
 		}
 		tport_t *tport = nta_outgoing_transport(orq);
-		unsigned int keepAliveInterval = mManager.mKeepaliveInterval.count() * 1000;
 
 		cleanCurrentTport();
 		setCurrentTport(tport);
