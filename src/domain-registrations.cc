@@ -300,6 +300,16 @@ DomainRegistration::DomainRegistration(DomainRegistrationManager &mgr, const str
 	mRegistrationStatus = mgr.mDomainRegistrationArea->createStat(domainRegistrationStatName.str(), domainRegistrationStatHelp.str());
 }
 
+tport_t *DomainRegistrationManager::lookupTport(const url_t *destUrl){
+	for (auto it = mRegistrations.begin(); it != mRegistrations.end(); ++it) {
+		const shared_ptr<DomainRegistration> &dr = *it;
+		if (url_cmp(dr->getProxy(), destUrl) == 0){
+			return dr->getTport();
+		}
+	}
+	return nullptr;
+}
+
 bool DomainRegistration::hasTport(const tport_t *tport) const {
 	return tport == mCurrentTport && mCurrentTport != NULL;
 }
@@ -432,8 +442,9 @@ void DomainRegistration::responseCallback(nta_outgoing_t *orq, const sip_t *resp
 										 &return_headers);
 			mSip = return_headers;
 			msg_unref(msg);
+			setCurrentTport(nta_outgoing_transport(orq));
 		}
-	} else {
+	} else { // 200 OK
 		int expire = getExpires(orq, resp);
 		const char *domain = mFrom->url_host;
 		if(expire > 0) {
@@ -451,6 +462,7 @@ void DomainRegistration::responseCallback(nta_outgoing_t *orq, const sip_t *resp
 			}
 		}
 		tport_t *tport = nta_outgoing_transport(orq);
+		mSupportPongs = !!sip_has_supported(resp->sip_supported, "outbound");
 
 		cleanCurrentTport();
 		setCurrentTport(tport);
@@ -564,11 +576,12 @@ void DomainRegistration::setCurrentTport(tport_t* tport) {
 	 * won't be broken if we change the type of mKeepaliveInterval or mPingPongTimeoutDelay.
 	 */
 	auto keepAliveInterval = duration_cast<milliseconds>(mManager.mKeepaliveInterval);
-	auto pingPongTimeoutDelay = duration_cast<milliseconds>(mManager.mPingPongTimeoutDelay);
+	unsigned int pingPongTimeoutDelay =  mSupportPongs ?(duration_cast<milliseconds>(mManager.mPingPongTimeoutDelay)).count() : 0;
 	cleanCurrentTport();
 	mCurrentTport = tport;
+	if (pingPongTimeoutDelay > 0) LOGD("Enabling PING/PONG for broken connection detection.");
 	tport_set_params(tport, TPTAG_SDWN_ERROR(1), TPTAG_KEEPALIVE(keepAliveInterval.count()),
-	                 TPTAG_PINGPONG(pingPongTimeoutDelay.count()), TAG_END());
+	                 TPTAG_PINGPONG(pingPongTimeoutDelay), TAG_END());
 	mPendId = tport_pend(tport, nullptr, &DomainRegistration::sOnConnectionBroken, (tp_client_t*)this);
 }
 

@@ -19,7 +19,9 @@
 #include "module.hh"
 #include "agent.hh"
 #include "transaction.hh"
+
 #include "etchosts.hh"
+#include "domain-registrations.hh"
 #include <sstream>
 
 #include <sofia-sip/su_md5.h>
@@ -212,10 +214,12 @@ void ForwardModule::onRequest(shared_ptr<RequestSipEvent> &ev) throw(FlexisipExc
 
 	// tport is the transport which will be used by sofia to send message
 	tp_name_t name = {0, 0, 0, 0, 0, 0};
-	tport_t *tport = NULL;
-	if (ev->getOutgoingAgent() != NULL) {
-		// tport_by_name can only work for IPs
-		if (tport_name_by_url(ms->getHome(), &name, (url_string_t *)dest) == 0) {
+	tport_t *tport = nullptr;
+	if (ev->getOutgoingAgent() != nullptr) {
+		if ((tport = getAgent()->getDRM()->lookupTport(dest)) != nullptr){
+			LOGD("Found outgoing tport from domain registration manager.");
+		} else if (tport_name_by_url(ms->getHome(), &name, reinterpret_cast<url_string_t*>(dest)) == 0) {
+			// tport_by_name can only work for IPs
 			tport = tport_by_name(nta_agent_tports(getSofiaAgent()), &name);
 			if (!tport) {
 				LOGE("Could not find tport to set proper outgoing Record-Route to %s", dest->url_host);
