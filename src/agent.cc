@@ -9,11 +9,11 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <algorithm>
@@ -31,15 +31,15 @@
 
 #include <bctoolbox/ownership.hh>
 
-#include <flexisip/agent.hh>
-#include <flexisip/flexisip-version.h>
-#include <flexisip/logmanager.hh>
-#include <flexisip/module.hh>
-#include <flexisip/registrardb.hh>
+#include "flexisip/flexisip-version.h"
+#include "flexisip/logmanager.hh"
+#include "flexisip/module.hh"
 
+#include "agent.hh"
 #include "domain-registrations.hh"
 #include "etchosts.hh"
 #include "plugin/plugin-loader.hh"
+#include "registrardb.hh"
 #include "utils/uri-utils.hh"
 
 #define IPADDR_SIZE 64
