@@ -24,6 +24,9 @@
 #include <string>
 #include <unordered_map>
 
+#include <bctoolbox/ownership.hh>
+
+#include <sofia-sip/sip.h>
 #include <sofia-sip/url.h>
 
 #include <flexisip/sofia-wrapper/home.hh>
@@ -33,7 +36,7 @@ namespace sofiasip {
 /**
  * Exception thrown while trying to create a new URL from
  * an invalid string or url_t.
-*/
+ */
 class InvalidUrlError : public std::invalid_argument {
 public:
 	template <typename T, typename U>
@@ -61,7 +64,7 @@ private:
 
 /**
  * Exception thrown when an URL couldn't be modified.
-*/
+ */
 class UrlModificationError : public std::logic_error {
 public:
 	using logic_error::logic_error;
@@ -78,7 +81,7 @@ struct TlsConfigInfo {
 
 /**
  * Wrapper for SofiaSip's URLs.
-*/
+ */
 class Url {
 public:
 	/**
@@ -198,7 +201,7 @@ public:
 	bool compareAll(const Url& other) const;
 
 protected:
-	Home _home;
+	mutable Home _home;
 	url_t* _url = nullptr;
 	mutable std::string _urlAsStr;
 };
@@ -215,7 +218,7 @@ namespace flexisip {
 /**
  * A specialisation of sofiasip::Url which ensures that the URL is a
  * SIP or SIPS URI.
-*/
+ */
 class SipUri : public sofiasip::Url {
 public:
 	class Params {
@@ -282,6 +285,12 @@ public:
 	bool rfc3261Compare(const SipUri& other) const {
 		return rfc3261Compare(other._url);
 	}
+
+	/**
+	 * Returns a sip_contact_t* with the same lifetime as the SipUri.
+	 * (It's allocated in the same sofia home)
+	 */
+	ownership::BorrowedMut<sip_contact_t> asContact() const;
 
 private:
 	static void checkUrl(const sofiasip::Url& url);
