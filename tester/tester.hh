@@ -9,21 +9,14 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
-
-extern "C" {
-#include "bctoolbox/tester.h"
-}
-#include "flexisip/agent.hh"
-#include "flexisip/sofia-wrapper/su-root.hh"
-#include <linphone++/linphone.hh>
 
 #include <chrono>
 #include <fstream>
@@ -37,9 +30,14 @@ extern "C" {
 #include <vector>
 
 #include <bctoolbox/tester.h>
+#include <linphone++/linphone.hh>
+extern "C" {
+#include "bctoolbox/tester.h"
+}
 
-#include <flexisip/sofia-wrapper/su-root.hh>
+#include "flexisip/sofia-wrapper/su-root.hh"
 
+#include "agent.hh"
 #include "flexisip-tester-config.hh"
 
 extern "C" {

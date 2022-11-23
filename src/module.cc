@@ -9,26 +9,26 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <algorithm>
 
-#include <flexisip/agent.hh>
-#include <flexisip/configmanager.hh>
-#include <flexisip/entryfilter.hh>
-#include <flexisip/expressionparser.hh>
-#include <flexisip/logmanager.hh>
-#include <flexisip/module.hh>
-
 #include <sofia-sip/auth_digest.h>
 #include <sofia-sip/nta.h>
 
+#include "flexisip/configmanager.hh"
+#include "flexisip/expressionparser.hh"
+#include "flexisip/logmanager.hh"
+#include "flexisip/module.hh"
+
+#include "agent.hh"
 #include "domain-registrations.hh"
+#include "entryfilter.hh"
 #include "utils/signaling-exception.hh"
 
 using namespace std;
@@ -39,6 +39,7 @@ using namespace flexisip;
 // -----------------------------------------------------------------------------
 
 Module::Module(Agent *ag) : mAgent(ag), mFilter(new ConfigEntryFilter()) {}
+Module::~Module() = default;
 
 bool Module::isEnabled() const {
 	return mFilter->isEnabled();

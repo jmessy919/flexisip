@@ -16,29 +16,26 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <strings.h>
+#pragma once
 
-#include "flexisip/module.hh"
+#include <string>
 
-#include "transport.hh"
-
-using namespace std;
+#include "flexisip/configmanager.hh"
 
 namespace flexisip {
 
-bool Transport::is(const string& host, string port) const {
-	if (host.empty()) {
-		return false;
-	}
-	if (port.empty()) {
-		strcasecmp(mProtocol.c_str(), "tls") == 0 ? port = "5061" : port = "5060";
-	}
-	if (port == mPort) {
-		if (ModuleToolbox::urlHostMatch(host, mHostname) || ModuleToolbox::urlHostMatch(host, mAddrBiding) ||
-		    ModuleToolbox::urlHostMatch(host, mResolvedIpv4) || ModuleToolbox::urlHostMatch(host, mResolvedIpv6))
-			return true;
-	}
-	return false;
-}
+/**
+ * You can implement this interface if you want to change the default ban actions (iptables) of ModuleDoSProtection.
+ */
+class BanExecutor {
+public:
+	virtual ~BanExecutor() = default;
+
+	virtual void checkConfig() = 0;
+	virtual void onLoad(const flexisip::GenericStruct* dosModuleConfig) = 0;
+	virtual void onUnload() = 0;
+	virtual void banIP(const std::string& ip, const std::string& port, const std::string& protocol) = 0;
+	virtual void unbanIP(const std::string& ip, const std::string& port, const std::string& protocol) = 0;
+};
 
 } // namespace flexisip

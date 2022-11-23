@@ -9,12 +9,12 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
- */
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
+*/
 
 #pragma once
 
@@ -23,8 +23,8 @@
 #include <sofia-sip/tport.h>
 
 #include "flexisip/configmanager.hh"
-#include "flexisip/entryfilter.hh"
 #include "flexisip/event.hh"
+#include "flexisip/sofia-wrapper/home.hh"
 
 namespace flexisip {
 
@@ -40,6 +40,7 @@ template<typename T>
 class ModuleInfo;
 
 class SharedLibrary;
+class EntryFilter;
 
 enum class ModuleClass {
 	Experimental,
@@ -62,8 +63,8 @@ class Module : protected ConfigValueListener {
 	friend Module *__flexisipCreatePlugin(Agent *agent, SharedLibrary *sharedLibrary);
 
 public:
-	Module(Agent *agent);
-	virtual ~Module() = default;
+	Module(Agent* agent);
+	virtual ~Module();
 
 	Agent *getAgent() const {return mAgent;}
 	nta_agent_t *getSofiaAgent() const;

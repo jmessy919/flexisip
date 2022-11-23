@@ -18,6 +18,8 @@
 
 #include "flexisip/module-router.hh"
 
+#include "agent.hh"
+
 #include "schedule-injector.hh"
 
 using namespace std;
