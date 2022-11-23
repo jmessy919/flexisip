@@ -9,26 +9,22 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
 
 #include <memory>
 
-#include "flexisip/agent.hh"
 #include "flexisip/fork-context/fork-context.hh"
 #include "flexisip/module.hh"
-#include "flexisip/registrardb.hh"
-#include "router/injector.hh"
+#include "flexisip/registrar/registar-listener.hh"
 
 namespace flexisip {
-
-class OnContactRegisteredListener;
 
 struct RouterStats {
 	std::unique_ptr<StatPair> mCountForks;
@@ -38,24 +34,29 @@ struct RouterStats {
 	std::shared_ptr<StatPair> mCountMessageProxyForks;
 };
 
+class OnContactRegisteredListener;
+class Injector;
+class Agent;
+class Record;
+
 class ModuleRouter : public Module,
                      public ModuleToolbox,
                      public ForkContextListener,
                      public std::enable_shared_from_this<ModuleRouter> {
 public:
-	ModuleRouter(Agent* ag) : Module(ag){};
+	ModuleRouter(Agent* ag);
 
-	~ModuleRouter(){};
+	~ModuleRouter();
 
-	virtual void onDeclare(GenericStruct* mc) override;
+	void onDeclare(GenericStruct* mc) override;
 
-	virtual void onLoad(const GenericStruct* mc) override;
+	void onLoad(const GenericStruct* mc) override;
 
-	virtual void onUnload() override{};
+	void onUnload() override{};
 
-	virtual void onRequest(std::shared_ptr<RequestSipEvent>& ev) override;
+	void onRequest(std::shared_ptr<RequestSipEvent>& ev) override;
 
-	virtual void onResponse(std::shared_ptr<ResponseSipEvent>& ev) override;
+	void onResponse(std::shared_ptr<ResponseSipEvent>& ev) override;
 
 	void onForkContextFinished(const std::shared_ptr<ForkContext>& ctx) override;
 	std::shared_ptr<BranchInfo> onDispatchNeeded(const std::shared_ptr<ForkContext>& ctx,
@@ -91,7 +92,7 @@ public:
 		return mAllowDomainRegistrations;
 	}
 
-	bool isManagedDomain(const url_t* url) {
+	bool isManagedDomain(const url_t* url) const {
 		return ModuleToolbox::isManagedDomain(getAgent(), mDomains, url);
 	}
 
@@ -111,21 +112,12 @@ public:
 
 	void injectRequestEvent(const std::shared_ptr<RequestSipEvent>& ev,
 	                        const std::shared_ptr<ForkContext>& context,
-	                        const std::string& contactId) {
-		mInjector->injectRequestEvent(ev, context, contactId);
-	};
-
-	void removeInjectContext(const std::shared_ptr<ForkContext>& context, const std::string& contactId) {
-		mInjector->removeContext(context, contactId);
-	}
+	                        const std::string& contactId);
+	void removeInjectContext(const std::shared_ptr<ForkContext>& context, const std::string& contactId);
 
 	static void setMaxPriorityHandled(sofiasip::MsgSipPriority maxPriorityHandled) {
 		sMaxPriorityHandled = maxPriorityHandled;
 	}
-
-	std::shared_ptr<BranchInfo> dispatch(const std::shared_ptr<ForkContext>& context,
-	                                     const std::shared_ptr<ExtendedContact>& contact,
-	                                     const std::string& targetUris = "");
 
 	RouterStats mStats;
 
@@ -137,6 +129,10 @@ protected:
 	std::string routingKey(const url_t* sipUri);
 	std::vector<std::string> split(const char* data, const char* delim);
 	ForkRefList getLateForks(const std::string& key) const noexcept;
+
+	std::shared_ptr<BranchInfo> dispatch(const std::shared_ptr<ForkContext>& context,
+	                                     const std::shared_ptr<ExtendedContact>& contact,
+	                                     const std::string& targetUris = "");
 
 	std::list<std::string> mDomains;
 	std::shared_ptr<ForkContextConfig> mCallForkCfg;
@@ -175,10 +171,7 @@ public:
 
 	~OnContactRegisteredListener() = default;
 
-	void onContactRegistered(const std::shared_ptr<Record>& r, const std::string& uid) override {
-		LOGD("Listener invoked for topic = %s, uid = %s", r->getKey().c_str(), uid.c_str());
-		if (r) mModule->onContactRegistered(shared_from_this(), uid, r);
-	}
+	void onContactRegistered(const std::shared_ptr<Record>& r, const std::string& uid) override;
 
 	void onRecordFound(const std::shared_ptr<Record>& r) override {
 	}

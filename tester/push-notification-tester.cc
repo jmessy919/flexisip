@@ -9,11 +9,11 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <chrono>
@@ -33,7 +33,7 @@
 #include "utils/pns-mock.hh"
 #include "utils/test-patterns/registrardb-test.hh"
 
-#include "flexisip/module-pushnotification.hh"
+#include "module-pushnotification.hh"
 
 using namespace flexisip;
 using namespace flexisip::pushnotification;

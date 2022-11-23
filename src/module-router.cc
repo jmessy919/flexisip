@@ -18,12 +18,13 @@
 
 #include <sofia-sip/sip_status.h>
 
-#include "domain-registrations.hh"
-#include "flexisip/fork-context/fork-basic-context.hh"
-#include "flexisip/fork-context/fork-call-context.hh"
-#include "flexisip/fork-context/fork-message-context-db-proxy.hh"
-#include "flexisip/fork-context/fork-message-context.hh"
 #include "flexisip/logmanager.hh"
+
+#include "domain-registrations.hh"
+#include "fork-context/fork-basic-context.hh"
+#include "fork-context/fork-call-context.hh"
+#include "fork-context/fork-message-context-db-proxy.hh"
+#include "fork-context/fork-message-context.hh"
 #include "router/agent-injector.hh"
 #include "router/schedule-injector.hh"
 
@@ -32,6 +33,10 @@
 using namespace std;
 using namespace flexisip;
 using namespace sofiasip;
+
+ModuleRouter::ModuleRouter(Agent* ag) : Module(ag) {
+}
+ModuleRouter::~ModuleRouter() = default;
 
 void ModuleRouter::onDeclare(GenericStruct* mc) {
 	ConfigItemDescriptor configs[] = {
@@ -998,6 +1003,16 @@ void ModuleRouter::onUselessRegisterNotification(const std::shared_ptr<ForkConte
 	mInjector->removeContext(ctx, newContact->contactId());
 }
 
+void ModuleRouter::removeInjectContext(const shared_ptr<ForkContext>& context, const string& contactId) {
+	mInjector->removeContext(context, contactId);
+}
+
+void ModuleRouter::injectRequestEvent(const shared_ptr<RequestSipEvent>& ev,
+                                      const shared_ptr<ForkContext>& context,
+                                      const string& contactId) {
+	mInjector->injectRequestEvent(ev, context, contactId);
+}
+
 ModuleInfo<ModuleRouter> ModuleRouter::sInfo(
     "Router",
     "The Router module routes requests for domains it manages.\n"
@@ -1026,3 +1041,8 @@ ModuleInfo<ModuleRouter> ModuleRouter::sInfo(
     ModuleInfoBase::ModuleOid::Router);
 
 sofiasip::MsgSipPriority ModuleRouter::sMaxPriorityHandled = sofiasip::MsgSipPriority::Normal;
+
+void OnContactRegisteredListener::onContactRegistered(const shared_ptr<Record>& r, const string& uid) {
+	LOGD("Listener invoked for topic = %s, uid = %s", r->getKey().c_str(), uid.c_str());
+	if (r) mModule->onContactRegistered(shared_from_this(), uid, r);
+}
