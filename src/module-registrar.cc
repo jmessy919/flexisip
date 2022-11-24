@@ -177,7 +177,22 @@ void OnResponseBindListener::onContactUpdated(const shared_ptr<ExtendedContact>&
 	_onContactUpdated(this->mModule, this->mCtx->mRequestSipEvent->getIncomingTport().get(), ec);
 }
 
-OnStaticBindListener::OnStaticBindListener(const url_t* from, const sip_contact_t* ct) {
+class OnResponseBindAliasListener : public ContactUpdateListener {
+  public:
+	OnResponseBindAliasListener() = default;
+	void onRecordFound(const std::shared_ptr<Record> &r)override{
+		LOGD("OnResponseBindAliasListener::onRecordFound(): successfully added binding for %s", r->getAor().str().c_str());
+	}
+	void onContactUpdated(const std::shared_ptr<ExtendedContact> &ec) override{
+	}
+	void onError()override{
+	}
+	void onInvalid()override{
+	}
+};
+
+
+OnStaticBindListener::OnStaticBindListener(const url_t *from, const sip_contact_t *ct) {
 	mFrom = url_as_string(mHome.home(), from);
 	mContact = url_as_string(mHome.home(), ct->m_url);
 }
@@ -314,6 +329,11 @@ void ModuleRegistrar::onDeclare(GenericStruct* mc) {
 	     "This mode is for using flexisip as a front-end server to hold client connections but register"
 	     "acceptance is deferred to backend server to which the REGISTER is routed.",
 	     "false"},
+	    {String, "masquerade-contact-with-uri",
+	      "When reg-on-response mode is activated, specifiy a SIP URI template "
+	      "to be used to masquerade contact. This is useful when backend SIP registrar does not support Path header extension. "
+	      "The user part of the URI is ignored as it is replaced during the masquerading process.",
+	      ""},
 	    {Integer, "max-contacts-by-aor", "Maximum number of registered contacts per address of record.",
 	     "12"}, /*used by registrardb*/
 	    {StringList, "unique-id-parameters",
@@ -385,6 +405,7 @@ void ModuleRegistrar::onDeclare(GenericStruct* mc) {
 	     "time for chat message delivery.",
 	     "message-expires"},
 	    config_item_end};
+
 	mc->addChildrenValues(configs);
 
 	mc->get<ConfigString>("redis-record-serializer")
@@ -404,8 +425,22 @@ void ModuleRegistrar::onDeclare(GenericStruct* mc) {
 void ModuleRegistrar::onLoad(const GenericStruct* mc) {
 	mUpdateOnResponse = mc->get<ConfigBoolean>("reg-on-response")->read();
 	mDomains = mc->get<ConfigStringList>("reg-domains")->read();
+	
+	if (mUpdateOnResponse){
+		string masqueradeUri = mc->get<ConfigString>("masquerade-contact-with-uri")->read();
+		if (!masqueradeUri.empty()){
+			try{
+				mContactMasqueradingUri = SipUri(masqueradeUri);
+				if (find(mDomains.begin(), mDomains.end(), mContactMasqueradingUri.getHost()) == mDomains.end()){
+					mDomains.push_back(mContactMasqueradingUri.getHost());
+				}
+			}catch(...){
+				LOGF("Invalid SIP URI specified in masquerade-contact-with-uri parameter of module::Regitrar");
+			}
+		}
+	}
 	for (auto it = mDomains.begin(); it != mDomains.end(); ++it) {
-		LOGD("Found registrar domain: %s", (*it).c_str());
+		LOGD("Found registrar domain: %s %s", (*it).c_str(), (*it) == mContactMasqueradingUri.getHost() ? "(primary domain used for contact masquerading)" : "");
 	}
 	mUniqueIdParams = mc->get<ConfigStringList>("unique-id-parameters")->read();
 	mServiceRoute = mc->get<ConfigString>("service-route")->read();
@@ -514,6 +549,21 @@ void ModuleRegistrar::removeInternalParams(sip_contact_t* ct) {
 			}
 		}
 	}
+}
+
+/* Generate a GRUU address with username set to original username %40 (@) + original domain name. */
+url_t *ModuleRegistrar::masqueradeContactUri(su_home_t *home, const url_t *uri){
+	
+	url_t *ret = url_hdup(home, mContactMasqueradingUri.get());
+	ret->url_user = su_sprintf(home, "%s--%s", uri->url_user, uri->url_host);
+	string grParam;
+	grParam.resize(strlen(uri->url_params));
+	isize_t size = url_param(uri->url_params, "gr", &grParam[0], grParam.size());
+	if (size > 0){
+		grParam.resize(size);
+		url_param_add(home, ret, (string("gr=") + grParam).c_str());
+	}
+	return ret;
 }
 
 string ModuleRegistrar::routingKey(const url_t* sipUri) {
@@ -753,12 +803,15 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent>& ev) {
 		    (gruuAddress = RegistrarDb::get()->synthesizePubGruu(home, *ev->getMsgSip()))) {
 			/* A gruu address can be assigned to this contact. Replace the contact with the GRUU address we are going to
 			 * create for the contact.*/
-			msg_header_remove_all(ev->getMsgSip()->getMsg(), (msg_pub_t*)ev->getSip(),
-			                      (msg_header_t*)ev->getSip()->sip_contact);
-			msg_header_insert(ev->getMsgSip()->getMsg(), (msg_pub_t*)ev->getSip(),
-			                  (msg_header_t*)sip_contact_create(home, (url_string_t*)gruuAddress, NULL));
-		} else {
-			// Legacy code: just cleaner contacts
+			/* if mDomainForContactMasquerading is not empty, masquerade this contact. */
+			if (!mContactMasqueradingUri.empty()) {
+				gruuAddress = masqueradeContactUri(ev->getHome(), gruuAddress);
+				context->mContactIsMasqueraded = true;
+			}
+			msg_header_remove_all(ev->getMsgSip()->getMsg(), (msg_pub_t*)ev->getSip(), (msg_header_t*)ev->getSip()->sip_contact);
+			msg_header_insert(ev->getMsgSip()->getMsg(), (msg_pub_t*)ev->getSip(), (msg_header_t*)sip_contact_create(home, (url_string_t*)gruuAddress, NULL));
+		}else{
+			// Legacy code: just cleaner contacts	
 			removeParamsFromContacts(home, sip->sip_contact, mUniqueIdParams);
 			removeParamsFromContacts(home, sip->sip_contact, mParamsToRemove);
 			SLOGD << "Removed instance and push params: \n" << sip->sip_contact;
@@ -817,14 +870,23 @@ void ModuleRegistrar::onResponse(shared_ptr<ResponseSipEvent>& ev) {
 			parameter.isAliasFunction = [this](const url_t* ct) -> bool { return isManagedDomain(ct); };
 			listener->addStatCounter(mStats.mCountBind->finish);
 
-			/* Before submiting the bind() request to the RegistrarDb, restore the Contact header as it was found in the
-			 * original request received from the client.*/
-			msg_header_remove_all(request->getMsg(), (msg_pub_t*)request->getSip(),
-			                      (msg_header_t*)request->getSip()->sip_contact);
-			msg_header_insert(request->getMsg(), (msg_pub_t*)request->getSip(),
-			                  (msg_header_t*)context->mOriginalContacts);
-
+			
+			if (context->mContactIsMasqueraded){
+				/* Add a binding to RegistrarDb to indicate the masqueraded contact (which is a gruu URI), points to the original contact.*/
+				MsgSip cloned(*request);
+				*cloned.getSip()->sip_from->a_url = *cloned.getSip()->sip_to->a_url = *cloned.getSip()->sip_contact->m_url;
+				msg_header_remove_all(cloned.getMsg(), (msg_pub_t*)cloned.getSip(), (msg_header_t*)cloned.getSip()->sip_contact);
+				msg_header_insert(cloned.getMsg(), (msg_pub_t*)cloned.getSip(), (msg_header_t*)context->mOriginalContacts);
+				RegistrarDb::get()->bind(cloned, parameter, make_shared<OnResponseBindAliasListener>());
+			}
+			
+			/* Before submiting the bind() request to the RegistrarDb, restore the Contact header as it was found in the original request received
+			 * from the client.*/
+			msg_header_remove_all(request->getMsg(), (msg_pub_t*)request->getSip(), (msg_header_t*)request->getSip()->sip_contact);
+			msg_header_insert(request->getMsg(), (msg_pub_t*)request->getSip(), (msg_header_t*)context->mOriginalContacts);
+			/* Add binding to registrar db. */
 			RegistrarDb::get()->bind(*request, parameter, listener);
+			
 		}
 	}
 	if (reSip->sip_status->st_status >= 200) {
