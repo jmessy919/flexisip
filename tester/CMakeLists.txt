@@ -39,6 +39,7 @@ add_executable(flexisip_tester
 	boolean-expressions.cc
 	cli-tester.cc
 	domain-registration-tester.cc
+	dependency-injection-playground.cc
 	extended-contact-tester.cc
 	${CMAKE_CURRENT_BINARY_DIR}/flexisip-tester-config.hh flexisip-tester-config.hh.in
 	fork-call-tester.cc
