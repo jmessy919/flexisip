@@ -162,6 +162,47 @@ private:
 
 } // namespace example
 
+namespace design2 {
+
+
+template <typename T>
+class Shield;
+
+template <typename T>
+class Ref {
+	friend Shield<T>;
+public:
+	~Ref();
+
+private:
+	Shield<T>* mShield;
+};
+
+template <typename T>
+class Shield {
+public:
+	explicit Shield(T&& value) : mValue(value) {
+	}
+	~Shield() {
+		for (ref : mRefs) {
+			ref.mShield = nullptr;
+		}
+	}
+
+private:
+	T mValue;
+	unordered_set<Ref<T>*> mRefs;
+};
+
+Ref::~Ref() {
+	if (!mShield) {
+		return;
+	}
+	mShield.mRefs.erase(this);
+}
+
+}
+
 void dependency_injection() {
 	example::Incrementer incs[2];
 	example::DoubleIncrementer doubleInc{Dependency<example::Incrementer>(incs[0]),
