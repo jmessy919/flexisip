@@ -164,7 +164,6 @@ private:
 
 namespace design2 {
 
-
 template <typename T>
 class Shield;
 
@@ -172,7 +171,24 @@ template <typename T>
 class Ref {
 	friend Shield<T>;
 public:
+	Ref(Shield<T>& shield);
 	~Ref();
+
+	Ref(const Ref<T>& other) : Ref(other.mShield) {
+		SLOGD << "Ref copy ctor called " << this << " shield: " << mShield;
+	}
+	Ref<T>& operator=(const Ref<T>& other) = delete;
+	Ref(Ref<T>&& other);
+	Ref<T>& operator=(Ref<T>&& other) = delete;
+
+	operator bool() const& {
+		return mShield;
+	}
+
+	template <typename F>
+	void ifValid(F f) {
+		if (mShield) f(mShield->mValue);
+	}
 
 private:
 	Shield<T>* mShield;
@@ -180,27 +196,53 @@ private:
 
 template <typename T>
 class Shield {
+	friend Ref<T>;
+
 public:
 	explicit Shield(T&& value) : mValue(value) {
+		SLOGD << "Shield ctor called " << this;
 	}
 	~Shield() {
-		for (ref : mRefs) {
-			ref.mShield = nullptr;
+		SLOGD << "Shield dtor called " << this << " refs: " << mRefs.size();
+		for (auto* ref : mRefs) {
+			SLOGD << "Ref nulled " << ref;
+			ref->mShield = nullptr;
 		}
 	}
 
+	Shield(const Shield<T>& other) = delete;
+	Shield<T>& operator=(const Shield<T>& other) = delete;
+	Shield(Shield<T>&& other) = delete;
+	Shield<T>& operator=(Shield<T>&& other) = delete;
+
 private:
 	T mValue;
-	unordered_set<Ref<T>*> mRefs;
+	unordered_set<Ref<T>*> mRefs{};
 };
 
-Ref::~Ref() {
+template <typename T>
+Ref<T>::Ref(Shield<T>& shield) : mShield(&shield) {
+	mShield->mRefs.insert(this);
+	SLOGD << "Ref ctor called " << this << " shield: " << mShield;
+}
+
+template <typename T>
+Ref<T>::Ref(Ref<T>&& other) : mShield(other.mShield) {
+	other.mShield = nullptr;
+	auto& refs = mShield->mRefs;
+	refs.insert(this);
+	refs.erase(&other);
+	SLOGD << "Ref move ctor called " << this << " shield: " << mShield << " other: " << other;
+}
+
+template <typename T>
+Ref<T>::~Ref() {
+	SLOGD << "Ref dtor called " << this << " shield: " << mShield;
 	if (!mShield) {
 		return;
 	}
-	mShield.mRefs.erase(this);
+	mShield->mRefs.erase(this);
 }
-
 }
 
 void dependency_injection() {
@@ -211,6 +253,16 @@ void dependency_injection() {
 	BC_ASSERT_EQUAL(doubleInc.count(), 2, int, "%i");
 
 	{ Shielded<string> sting{"dayum"}; }
+
+	auto ref = []() {
+		design2::Shield<string> s{"inner"};
+		design2::Ref<string> r{s};
+		BC_ASSERT_TRUE(r);
+		r.ifValid([](auto& str) { SLOGD << "from inside: " << str; });
+		return r;
+	}();
+	BC_ASSERT_FALSE(ref);
+	ref.ifValid([](auto& str) { SLOGD << "never called: " << str; });
 }
 
 auto _ = [] {
