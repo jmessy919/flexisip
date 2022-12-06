@@ -308,7 +308,8 @@ void Record::insertOrUpdateBinding(const shared_ptr<ExtendedContact>& ec,
 		mContacts.clear();
 	}
 
-	/* Clean up existing contacts */
+	auto alreadyMatched = false; // If multiple existing contacts match the new contact (e.g. based on URI) then we
+	                             // update the first one, and delete the others
 	for (auto it = mContacts.begin(); it != mContacts.end();) {
 		auto existing = *it;
 		auto remove = true;
@@ -319,7 +320,7 @@ void Record::insertOrUpdateBinding(const shared_ptr<ExtendedContact>& ec,
 				break;
 			case ContactMatch::EraseAndNotify: {
 				if (listener) listener->onContactUpdated(existing);
-				remove = ec->isExpired();
+				remove = ec->isExpired() || alreadyMatched;
 			}
 			/* fallthrough */
 			case ContactMatch::ForceErase:
@@ -332,6 +333,7 @@ void Record::insertOrUpdateBinding(const shared_ptr<ExtendedContact>& ec,
 					// Carry over call ID
 					// (otherwise the contact would get duplicated instead of updated)
 					ec->mCallId = existing->mCallId;
+					alreadyMatched = true;
 				}
 				it = mContacts.erase(it);
 				break;
@@ -597,11 +599,11 @@ InvalidAorError::InvalidAorError(const url_t *aor): invalid_argument("") {
 	mAor = url_as_string(mHome.home(), aor);
 }
 
-bool Record::updateFromUrlEncodedParams(const char *uid, const char *full_url, const shared_ptr<ContactUpdateListener> &listener) {
-	auto exc = make_shared<ExtendedContact>(uid, full_url);
+bool Record::updateFromUrlEncodedParams(const char* uid, const char* full_url) {
+	auto exc = make_unique<ExtendedContact>(uid, full_url);
 
 	if (exc->mSipContact) {
-		insertOrUpdateBinding(exc, listener);
+		mContacts.emplace_back(move(exc));
 		return true;
 	}
 	return false;

@@ -146,6 +146,8 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 	};
 
 	void testExec() noexcept override {
+		auto& uidFields = Record::sLineFieldNames;
+		if (uidFields.empty()) uidFields = {"+sip.instance"}; // Do not rely on side-effects from other tests...
 		auto previous = Record::sMaxContacts;
 		Record::sMaxContacts = 3;
 		auto* regDb = RegistrarDb::get();
@@ -165,8 +167,37 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 		auto listener = make_shared<TestListener>();
 		regDb->fetch(SipUri(aor), listener);
 		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
-		auto& contacts = listener->mRecord->getExtendedContacts();
-		BC_ASSERT_EQUAL(contacts.size(), 3, int, "%d");
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 3, int, "%d");
+		}
+
+		Record::sMaxContacts = 5;
+		inserter.insert(aor, expire, "sip:added4@example.org");
+		BC_ASSERT_TRUE(this->waitFor([&inserter] { return inserter.finished(); }, 1s));
+		inserter.insert(aor, expire, "sip:added5@example.org");
+		BC_ASSERT_TRUE(this->waitFor([&inserter] { return inserter.finished(); }, 1s));
+
+		listener->mRecord.reset();
+		regDb->fetch(SipUri(aor), listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 5, int, "%d");
+		}
+
+		Record::sMaxContacts = 2;
+		inserter.insert(aor, expire, "sip:triggerupdate@example.org");
+		BC_ASSERT_TRUE(this->waitFor([&inserter] { return inserter.finished(); }, 1s));
+
+		listener->mRecord.reset();
+		regDb->fetch(SipUri(aor), listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 2, int, "%d");
+		}
+
 		Record::sMaxContacts = previous;
 	}
 };
@@ -188,6 +219,8 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 	};
 
 	void testExec() noexcept override {
+		auto previous = Record::sMaxContacts;
+		Record::sMaxContacts = 2;
 		auto* regDb = RegistrarDb::get();
 		sofiasip::Home home{};
 		const auto contactBase = ":update-test@example.org";
@@ -218,9 +251,56 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 		BC_ASSERT_EQUAL(reply->element[0]->type, REDIS_REPLY_STRING, int, "%i");
 		BC_ASSERT_STRING_EQUAL(reply->element[0]->str, "insert");
 		BC_ASSERT_EQUAL(reply->element[1]->type, REDIS_REPLY_STRING, int, "%i");
-		BC_ASSERT_TRUE(std::string(reply->element[1]->str).find("new=param") != std::string::npos);
+		std::string serializedContact = reply->element[1]->str;
+		BC_ASSERT_TRUE(serializedContact.find("new=param") != std::string::npos);
+
+		// Force inject duplicated contacts inside Redis
+		const auto prefix = [&serializedContact] {
+			const auto instanceParam = "callid=";
+			return serializedContact.substr(0, serializedContact.find(instanceParam) + sizeof(instanceParam) - 1);
+		}();
+		const auto suffix = serializedContact.substr(prefix.size() + sizeof("insert") - 1);
+
+		std::ostringstream cmd{};
+		cmd << "HMSET fs" << contactBase;
+		for (const auto& uid : {"duped1", "duped2", "duped3"}) {
+			cmd << " " << uid << " " << prefix << uid << suffix;
+		}
+
+		auto* insert = reinterpret_cast<redisReply*>(redisCommand(ctx, cmd.str().c_str()));
 		freeReplyObject(reply);
+		BC_ASSERT_PTR_NOT_NULL(insert);
+		BC_ASSERT_EQUAL(insert->type, REDIS_REPLY_STATUS, int, "%i");
+		BC_ASSERT_STRING_EQUAL(insert->str, "OK");
+		freeReplyObject(insert);
+
+		listener->mRecord.reset();
+		regDb->fetch(aor, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 4, int, "%d");
+			SLOGD << *listener->mRecord;
+		}
+
+		// They are all the same contact, there can be only one
+		listener->mRecord.reset();
+		params.callId = "trigger-max-aor";
+		regDb->bind(aor, contact, params, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 1, int, "%d");
+		}
+
+		reply = reinterpret_cast<redisReply*>(redisCommand(ctx, "HGETALL fs%s", contactBase));
+		BC_ASSERT_PTR_NOT_NULL(reply);
+		BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
+		BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
+		freeReplyObject(reply);
+
 		redisFree(ctx);
+		Record::sMaxContacts = previous;
 	}
 };
 

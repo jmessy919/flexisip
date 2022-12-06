@@ -816,15 +816,10 @@ void RegistrarDbRedisAsync::parseAndClean(redisReply *reply, RedisRegisterContex
 		element = reply->element[i+1];
 		const char *contact = element->str;
 		LOGD("Parsing contact %s => %s", uid, contact);
-		if (!context->mRecord->updateFromUrlEncodedParams( uid, contact, context->listener)) {
+		if (!context->mRecord->updateFromUrlEncodedParams(uid, contact)) {
 			LOGE("This contact could not be parsed.");
 		}
 	}
-	/* Start recording deleted/added or modified contacts from now on */
-	context->mRecord->clearChangeLists();
-
-	time_t now = getCurrentTime();
-	context->mRecord->clean(now, context->listener);
 }
 
 void RegistrarDbRedisAsync::doClear(const MsgSip &msg, const shared_ptr<ContactUpdateListener> &listener) {
@@ -877,9 +872,7 @@ void RegistrarDbRedisAsync::handleFetch(redisReply *reply, RedisRegisterContext 
 		const char *gruu = context->mUniqueIdToFetch.c_str();
 		if (reply->len > 0) {
 			LOGD("GOT fs:%s [%lu] for gruu %s --> %s", key, context->token, gruu, reply->str);
-			context->mRecord->updateFromUrlEncodedParams(gruu, reply->str, context->listener);
-			time_t now = getCurrentTime();
-			context->mRecord->clean(now, context->listener);
+			context->mRecord->updateFromUrlEncodedParams(gruu, reply->str);
 			if (context->listener) context->listener->onRecordFound(context->mRecord);
 		} else {
 			LOGD("Contact matching gruu %s in record fs:%s not found", gruu, key);

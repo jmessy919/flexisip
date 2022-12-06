@@ -254,7 +254,7 @@ class Record {
 	void update(const ExtendedContactCommon &ecc, const char *sipuri, long int expireAt, float q, uint32_t cseq,
 				time_t updated_time, bool alias, const std::list<std::string> accept, bool usedAsRoute,
 				const std::shared_ptr<ContactUpdateListener> &listener);
-	bool updateFromUrlEncodedParams(const char *uid, const char *full_url, const std::shared_ptr<ContactUpdateListener> &listener);
+	bool updateFromUrlEncodedParams(const char* uid, const char* full_url);
 
 	void print(std::ostream &stream) const;
 	bool isEmpty() const {return mContacts.empty();}
@@ -262,8 +262,9 @@ class Record {
 	int count() {return mContacts.size();}
 	const std::list<std::shared_ptr<ExtendedContact>> &getExtendedContacts() const {return mContacts;}
 	const std::list<std::shared_ptr<ExtendedContact>> &getContactsToRemove() const {return mContactsToRemove;}
-	const std::list<std::shared_ptr<ExtendedContact>> &getContactsToAddOrUpdate() const {return mContactsToAddOrUpdate;}
-	void clearChangeLists() {mContactsToRemove.clear(); mContactsToAddOrUpdate.clear();}
+	const std::list<std::shared_ptr<ExtendedContact>>& getContactsToAddOrUpdate() const {
+		return mContactsToAddOrUpdate;
+	}
 
 	/*
 	 * Synthetise the pub-gruu address from an extended contact belonging to this Record.
