@@ -9,11 +9,11 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <algorithm>
@@ -656,6 +656,8 @@ void Agent::loadConfig(GenericManager* cm, bool strict) {
 		LOGD("%s", alias.c_str());
 	}
 
+	mUseRfc2543RecordRoute = cm->getGlobal()->get<ConfigBoolean>("use-rfc2543-record-route")->read();
+
 	RegistrarDb::initialize(this);
 
 	initializePreferredRoute();
@@ -1201,6 +1203,10 @@ const std::string Agent::sEventSeparator(110, '=');
 
 void Agent::printEventTailSeparator() {
 	LOGD("\n\n%s\n", sEventSeparator.c_str());
+}
+
+bool Agent::shouldUseRfc2543RecordRoute() const {
+	return mUseRfc2543RecordRoute;
 }
 
 } // namespace flexisip
