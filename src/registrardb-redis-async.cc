@@ -51,6 +51,19 @@ const auto FETCH_EXPIRING_CONTACTS_SCRIPT = redis::AsyncScript<uint64_t, uint64_
 
 } // namespace
 
+namespace flexisip {
+
+ostream& operator<<(ostream& out, const RedisArgsPacker& args) {
+	out << "RedisArgsPacker(\"";
+	for (const auto& arg : args.mArgs) {
+		out << arg << " ";
+	}
+	out << "\")";
+	return out;
+}
+
+} // namespace flexisip
+
 /******
  * RegistrarDbRedisAsync class
  */
@@ -707,6 +720,8 @@ void RegistrarDbRedisAsync::serializeAndSendToRedis(RedisRegisterContext *contex
 		}
 		check_redis_command(redisAsyncCommandArgv(mContext, (void (*)(redisAsyncContext*, void*, void*)) nullptr,
 			context, hDelArgs.getArgCount(), hDelArgs.getCArgs(), hDelArgs.getArgSizes()), context);
+
+		SLOGD << hDelArgs;
 	}
 	
 	/* Update or set new ones */
@@ -719,6 +734,8 @@ void RegistrarDbRedisAsync::serializeAndSendToRedis(RedisRegisterContext *contex
 		}
 		check_redis_command(redisAsyncCommandArgv(mContext, (void (*)(redisAsyncContext*, void*, void*))nullptr,
 			context, hSetArgs.getArgCount(), hSetArgs.getCArgs(), hSetArgs.getArgSizes()), context);
+
+		SLOGD << hSetArgs;
 	}
 	
 	LOGD("Binding %s [%i] contact sets, [%i] contacts removed.", key.c_str(), setCount, delCount);

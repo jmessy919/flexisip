@@ -92,6 +92,9 @@ ContactMatch matchContacts(const ExtendedContact& existing, const ExtendedContac
 
 } // namespace
 
+/*
+ExtendedContact at 0x612000063dc0 ( sip:update-test@example.org;new=param path="" user-agent="" alias=no uid=duped2 expire=96 s (Mon Dec 12 16:16:50 2022) )
+*/
 ostream &ExtendedContact::print(ostream &stream, time_t _now, time_t _offset) const {
 	time_t now = _now;
 	time_t offset = _offset;
@@ -104,6 +107,7 @@ ostream &ExtendedContact::print(ostream &stream, time_t _now, time_t _offset) co
 	}
 	int expireAfter = mExpireNotAtMessage - now;
 
+	stream << "ExtendedContact at " << this << " ( ";
 	stream << urlToString(mSipContact->m_url) << " path=\"";
 	for (auto it = mPath.cbegin(); it != mPath.cend(); ++it) {
 		if (it != mPath.cbegin())
@@ -116,6 +120,7 @@ ostream &ExtendedContact::print(ostream &stream, time_t _now, time_t _offset) co
 	if (!mAlias)
 		stream << " uid=" << mUniqueId;
 	stream << " expire=" << expireAfter << " s (" << buffer << ")";
+	stream << " )";
 	return stream;
 }
 
@@ -724,16 +729,38 @@ bool Record::isSame(const Record & other) const{
 	return true;
 }
 
-void Record::print(ostream &stream) const {
-	stream << "Record contains " << mContacts.size() << " contacts";
+/*
+Record at 0x611000084d50 {
+mContacts (1): [
+        ExtendedContact at 0x6120000655d0 ( sip:update-test@example.org path="" user-agent="" alias=no uid= expire=96 s (Mon Dec 12 16:16:50 2022) )
+] mContactsToRemove: (3): [
+        ExtendedContact at 0x612000064cc0 ( sip:update-test@example.org;new=param path="" user-agent="" alias=no uid=duped3 expire=96 s (Mon Dec 12 16:16:50 2022) )
+        ExtendedContact at 0x612000064fc0 ( sip:update-test@example.org;new=param path="" user-agent="" alias=no uid=duped1 expire=96 s (Mon Dec 12 16:16:50 2022) )
+        ExtendedContact at 0x6120000652c0 ( sip:update-test@example.org;new=param path="" user-agent="" alias=no uid=insert expire=96 s (Mon Dec 12 16:16:50 2022) )
+] mContactsToAddOrUpdate: (1): [
+        ExtendedContact at 0x6120000655d0 ( sip:update-test@example.org path="" user-agent="" alias=no uid= expire=96 s (Mon Dec 12 16:16:50 2022) )
+]}
+*/
+void Record::print(ostream& stream) const {
 	time_t now = getCurrentTime();
 	time_t offset = getTimeOffset(now);
-
-	for (auto it = mContacts.begin(); it != mContacts.end(); ++it) {
-		stream << "\n";
-		(*it)->print(stream, now, offset);
+	stream << "Record at " << this << " {\n";
+	stream << "mContacts (" << mContacts.size() << "): [";
+	for (const auto& contact : mContacts) {
+		stream << "\n\t";
+		contact->print(stream, now, offset);
 	}
-	stream << "\n==========================";
+	stream << "\n] mContactsToRemove: (" << mContactsToRemove.size() << "): [";
+	for (const auto& contact : mContactsToRemove) {
+		stream << "\n\t";
+		contact->print(stream, now, offset);
+	}
+	stream << "\n] mContactsToAddOrUpdate: (" << mContactsToAddOrUpdate.size() << "): [";
+	for (const auto& contact : mContactsToAddOrUpdate) {
+		stream << "\n\t";
+		contact->print(stream, now, offset);
+	}
+	stream << "\n]}";
 }
 
 int Record::sMaxContacts = -1;
