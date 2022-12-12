@@ -9,11 +9,11 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
@@ -207,6 +207,8 @@ public:
 	static sofiasip::TlsConfigInfo
 	getTlsConfigInfo(const GenericStruct* global = GenericManager::get()->getRoot()->get<GenericStruct>("global"));
 
+	bool shouldUseRfc2543RecordRoute() const;
+
 private:
 	// Private types
 	class Network {
@@ -272,6 +274,7 @@ private:
 #if ENABLE_MDNS
 	std::vector<belle_sip_mdns_register_t*> mMdnsRegisterList;
 #endif
+	bool mUseRfc2543RecordRoute = false;
 
 	static constexpr const char* sInternalTransportIdent = "internal-transport";
 	static const std::string sEventSeparator;
