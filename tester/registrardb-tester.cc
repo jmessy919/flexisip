@@ -202,6 +202,41 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 	}
 };
 
+class RedisSyncReply {
+public:
+	RedisSyncReply(redisReply* rep) : mReply(rep) {
+		BC_ASSERT_PTR_NOT_NULL(rep);
+	}
+	~RedisSyncReply() {
+		freeReplyObject(mReply);
+	}
+
+	redisReply* operator->() & {
+		return mReply;
+	}
+
+private:
+	redisReply* mReply;
+};
+
+class RedisSyncContext {
+public:
+	RedisSyncContext(redisContext* ctx) : mCtx(ctx) {
+		BC_ASSERT_TRUE(mCtx && !mCtx->err);
+	}
+	~RedisSyncContext() {
+		redisFree(mCtx);
+	}
+
+	template <typename... Args>
+	RedisSyncReply command(Args&&... args) {
+		return reinterpret_cast<redisReply*>(redisCommand(mCtx, std::forward<Args>(args)...));
+	}
+
+private:
+	redisContext* mCtx;
+};
+
 class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImplementation::Redis> {
 	class TestListener : public ContactUpdateListener {
 	public:
@@ -242,10 +277,8 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 		regDb->bind(aor, newContact, params, listener);
 		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
 
-		auto* ctx = redisConnect("127.0.0.1", this->dbImpl.mPort);
-		BC_ASSERT_TRUE(ctx && !ctx->err);
-		auto* reply = reinterpret_cast<redisReply*>(redisCommand(ctx, "HGETALL fs%s", contactBase));
-		BC_ASSERT_PTR_NOT_NULL(reply);
+		RedisSyncContext ctx = redisConnect("127.0.0.1", this->dbImpl.mPort);
+		auto reply = ctx.command("HGETALL fs%s", contactBase);
 		BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
 		BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
 		BC_ASSERT_EQUAL(reply->element[0]->type, REDIS_REPLY_STRING, int, "%i");
@@ -267,12 +300,9 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 			cmd << " " << uid << " " << prefix << uid << suffix;
 		}
 
-		auto* insert = reinterpret_cast<redisReply*>(redisCommand(ctx, cmd.str().c_str()));
-		freeReplyObject(reply);
-		BC_ASSERT_PTR_NOT_NULL(insert);
+		auto insert = ctx.command(cmd.str().c_str());
 		BC_ASSERT_EQUAL(insert->type, REDIS_REPLY_STATUS, int, "%i");
 		BC_ASSERT_STRING_EQUAL(insert->str, "OK");
-		freeReplyObject(insert);
 
 		listener->mRecord.reset();
 		regDb->fetch(aor, listener);
@@ -293,13 +323,12 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 			BC_ASSERT_EQUAL(contacts.size(), 1, int, "%d");
 		}
 
-		reply = reinterpret_cast<redisReply*>(redisCommand(ctx, "HGETALL fs%s", contactBase));
-		BC_ASSERT_PTR_NOT_NULL(reply);
-		BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
-		BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
-		freeReplyObject(reply);
+		{
+			auto reply = ctx.command("HGETALL fs%s", contactBase);
+			BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
+			BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
+		}
 
-		redisFree(ctx);
 		Record::sMaxContacts = previous;
 	}
 };
