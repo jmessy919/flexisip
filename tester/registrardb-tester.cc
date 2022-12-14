@@ -16,8 +16,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "compat/hiredis/hiredis.h"
-
 #include "flexisip/configmanager.hh"
 #include "flexisip/module-pushnotification.hh"
 #include "flexisip/registrardb.hh"
@@ -25,6 +23,8 @@
 #include "pushnotification/firebase/firebase-client.hh"
 
 #include "tester.hh"
+#include "utils/override-static.hh"
+#include "utils/redis-sync-access.hh"
 #include "utils/test-patterns/registrardb-test.hh"
 
 using namespace std;
@@ -146,8 +146,9 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 	};
 
 	void testExec() noexcept override {
-		auto previous = Record::sMaxContacts;
-		Record::sMaxContacts = 3;
+		auto& uidFields = Record::sLineFieldNames;
+		if (uidFields.empty()) uidFields = {"+sip.instance"}; // Do not rely on side-effects from other tests...
+		auto maxContacts = overrideStaticVariable(Record::sMaxContacts, 3);
 		auto* regDb = RegistrarDb::get();
 		ContactInserter inserter(*regDb, *this->mAgent);
 		const auto aor = "sip:morethan3@example.org";
@@ -165,9 +166,36 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 		auto listener = make_shared<TestListener>();
 		regDb->fetch(SipUri(aor), listener);
 		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
-		auto& contacts = listener->mRecord->getExtendedContacts();
-		BC_ASSERT_EQUAL(contacts.size(), 3, int, "%d");
-		Record::sMaxContacts = previous;
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 3, int, "%d");
+		}
+
+		maxContacts = 5;
+		inserter.insert(aor, expire, "sip:added4@example.org");
+		BC_ASSERT_TRUE(this->waitFor([&inserter] { return inserter.finished(); }, 1s));
+		inserter.insert(aor, expire, "sip:added5@example.org");
+		BC_ASSERT_TRUE(this->waitFor([&inserter] { return inserter.finished(); }, 1s));
+
+		listener->mRecord.reset();
+		regDb->fetch(SipUri(aor), listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 5, int, "%d");
+		}
+
+		maxContacts = 2;
+		inserter.insert(aor, expire, "sip:triggerupdate@example.org");
+		BC_ASSERT_TRUE(this->waitFor([&inserter] { return inserter.finished(); }, 1s));
+
+		listener->mRecord.reset();
+		regDb->fetch(SipUri(aor), listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 2, int, "%d");
+		}
 	}
 };
 
@@ -188,6 +216,7 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 	};
 
 	void testExec() noexcept override {
+		auto _ = overrideStaticVariable(Record::sMaxContacts, 2);
 		auto* regDb = RegistrarDb::get();
 		sofiasip::Home home{};
 		const auto contactBase = ":update-test@example.org";
@@ -209,18 +238,57 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 		regDb->bind(aor, newContact, params, listener);
 		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
 
-		auto* ctx = redisConnect("127.0.0.1", this->dbImpl.mPort);
-		BC_ASSERT_TRUE(ctx && !ctx->err);
-		auto* reply = reinterpret_cast<redisReply*>(redisCommand(ctx, "HGETALL fs%s", contactBase));
-		BC_ASSERT_PTR_NOT_NULL(reply);
+		RedisSyncContext ctx = redisConnect("127.0.0.1", this->dbImpl.mPort);
+		auto reply = ctx.command("HGETALL fs%s", contactBase);
 		BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
 		BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
 		BC_ASSERT_EQUAL(reply->element[0]->type, REDIS_REPLY_STRING, int, "%i");
 		BC_ASSERT_STRING_EQUAL(reply->element[0]->str, "insert");
 		BC_ASSERT_EQUAL(reply->element[1]->type, REDIS_REPLY_STRING, int, "%i");
-		BC_ASSERT_TRUE(std::string(reply->element[1]->str).find("new=param") != std::string::npos);
-		freeReplyObject(reply);
-		redisFree(ctx);
+		std::string serializedContact = reply->element[1]->str;
+		BC_ASSERT_TRUE(serializedContact.find("new=param") != std::string::npos);
+
+		// Force inject duplicated contacts inside Redis
+		const auto prefix = [&serializedContact] {
+			const auto instanceParam = "callid=";
+			return serializedContact.substr(0, serializedContact.find(instanceParam) + sizeof(instanceParam) - 1);
+		}();
+		const auto suffix = serializedContact.substr(prefix.size() + sizeof("insert") - 1);
+
+		std::ostringstream cmd{};
+		cmd << "HMSET fs" << contactBase;
+		for (const auto& uid : {"duped1", "duped2", "duped3"}) {
+			cmd << " " << uid << " " << prefix << uid << suffix;
+		}
+
+		auto insert = ctx.command(cmd.str().c_str());
+		BC_ASSERT_EQUAL(insert->type, REDIS_REPLY_STATUS, int, "%i");
+		BC_ASSERT_STRING_EQUAL(insert->str, "OK");
+
+		listener->mRecord.reset();
+		regDb->fetch(aor, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 4, int, "%d");
+			SLOGD << *listener->mRecord;
+		}
+
+		// They are all the same contact, there can be only one
+		listener->mRecord.reset();
+		params.callId = "trigger-max-aor";
+		regDb->bind(aor, contact, params, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 1, int, "%d");
+		}
+
+		{
+			auto reply = ctx.command("HGETALL fs%s", contactBase);
+			BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
+			BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
+		}
 	}
 };
 
@@ -358,6 +426,89 @@ protected:
 	}
 };
 
+class ExpiredContactsArePurgedFromRedis : public RegistrarDbTest<DbImplementation::Redis> {
+	class TestListener : public ContactUpdateListener {
+	public:
+		std::shared_ptr<Record> mRecord{nullptr};
+
+		virtual void onRecordFound(const std::shared_ptr<Record>& r) override {
+			mRecord = r;
+		}
+		virtual void onError() override {
+		}
+		virtual void onInvalid() override {
+		}
+		virtual void onContactUpdated(const std::shared_ptr<ExtendedContact>& ec) override {
+		}
+	};
+
+	void testExec() noexcept override {
+		auto* regDb = RegistrarDb::get();
+		sofiasip::Home home{};
+		const auto contactBase = ":expiration-test@example.org";
+		const auto contactStr = "sip"s + contactBase;
+		const auto contactKey = "expiration-test";
+		auto contact =
+		    sip_contact_create(home.home(), reinterpret_cast<const url_string_t*>(contactStr.c_str()), nullptr);
+		const SipUri aor(contactStr);
+		BindingParameters params{};
+		params.globalExpire = 239;
+		params.callId = contactKey;
+		const auto listener = make_shared<TestListener>();
+		regDb->bind(aor, contact, params, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+
+		RedisSyncContext redis = redisConnect("127.0.0.1", this->dbImpl.mPort);
+		auto reply = redis.command("HGETALL fs%s", contactBase);
+		BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
+		BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
+		BC_ASSERT_EQUAL(reply->element[0]->type, REDIS_REPLY_STRING, int, "%i");
+		BC_ASSERT_STRING_EQUAL(reply->element[0]->str, contactKey);
+		BC_ASSERT_EQUAL(reply->element[1]->type, REDIS_REPLY_STRING, int, "%i");
+		char* serializedContact = reply->element[1]->str;
+		SLOGD << "serializedContact: " << serializedContact;
+
+		// Mangle contact update timestamp inside Redis
+		const auto param = "updatedAt=";
+		char* index = std::strstr(serializedContact, param) + sizeof(param);
+		BC_ASSERT_PTR_NOT_NULL(index);
+		*index = '0'; // Rewinding at least 31 years back, that should expire it
+
+		auto insert = redis.command("HMSET fs%s %s %s", contactBase, contactKey, serializedContact);
+		BC_ASSERT_EQUAL(insert->type, REDIS_REPLY_STATUS, int, "%i");
+		BC_ASSERT_STRING_EQUAL(insert->str, "OK");
+
+		listener->mRecord.reset();
+		regDb->fetch(aor, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 1, int, "%d");
+		}
+
+		listener->mRecord.reset();
+		params.callId = "trigger-cleanup";
+		contact = sip_contact_create(home.home(),
+		                             reinterpret_cast<const url_string_t*>("sip:trigger-cleanup@example.org"), nullptr);
+		regDb->bind(aor, contact, params, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 1, int, "%d");
+		}
+
+		{
+			auto reply = redis.command("HGETALL fs%s", contactBase);
+			BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
+			BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
+			BC_ASSERT_EQUAL(reply->element[0]->type, REDIS_REPLY_STRING, int, "%i");
+			BC_ASSERT_STRING_EQUAL(reply->element[0]->str, "trigger-cleanup");
+			BC_ASSERT_EQUAL(reply->element[1]->type, REDIS_REPLY_STRING, int, "%i");
+			BC_ASSERT_PTR_NOT_NULL(std::strstr(reply->element[1]->str, "sip:trigger-cleanup@example.org"));
+		}
+	}
+};
+
 static test_t tests[] = {
     TEST_NO_TAG("Fetch expiring contacts on Redis", run<TestFetchExpiringContacts<DbImplementation::Redis>>),
     TEST_NO_TAG("Fetch expiring contacts in Internal DB", run<TestFetchExpiringContacts<DbImplementation::Internal>>),
@@ -367,6 +518,7 @@ static test_t tests[] = {
                 run<MaxContactsByAorIsHonored<DbImplementation::Redis>>),
     TEST_NO_TAG("Contacts are correctly updated when matched on URI [Redis]",
                 run<ContactsAreCorrectlyUpdatedWhenMatchedOnUri>),
+    TEST_NO_TAG("Expired contacts are purged from Redis", run<ExpiredContactsArePurgedFromRedis>),
     TEST_NO_TAG("Subsequent UNSUBSCRIBE/SUBSCRIBE with internal backend",
                 run<SubsequentUnsubscribeSubscribeTest<DbImplementation::Internal>>),
     TEST_NO_TAG("Subsequent UNSUBSCRIBE/SUBSCRIBE with Redis backend",
