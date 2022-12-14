@@ -25,6 +25,7 @@
 #include "pushnotification/firebase/firebase-client.hh"
 
 #include "tester.hh"
+#include "utils/override-static.hh"
 #include "utils/test-patterns/registrardb-test.hh"
 
 using namespace std;
@@ -148,8 +149,7 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 	void testExec() noexcept override {
 		auto& uidFields = Record::sLineFieldNames;
 		if (uidFields.empty()) uidFields = {"+sip.instance"}; // Do not rely on side-effects from other tests...
-		auto previous = Record::sMaxContacts;
-		Record::sMaxContacts = 3;
+		auto maxContacts = overrideStaticVariable(Record::sMaxContacts, 3);
 		auto* regDb = RegistrarDb::get();
 		ContactInserter inserter(*regDb, *this->mAgent);
 		const auto aor = "sip:morethan3@example.org";
@@ -172,7 +172,7 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 			BC_ASSERT_EQUAL(contacts.size(), 3, int, "%d");
 		}
 
-		Record::sMaxContacts = 5;
+		maxContacts = 5;
 		inserter.insert(aor, expire, "sip:added4@example.org");
 		BC_ASSERT_TRUE(this->waitFor([&inserter] { return inserter.finished(); }, 1s));
 		inserter.insert(aor, expire, "sip:added5@example.org");
@@ -186,7 +186,7 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 			BC_ASSERT_EQUAL(contacts.size(), 5, int, "%d");
 		}
 
-		Record::sMaxContacts = 2;
+		maxContacts = 2;
 		inserter.insert(aor, expire, "sip:triggerupdate@example.org");
 		BC_ASSERT_TRUE(this->waitFor([&inserter] { return inserter.finished(); }, 1s));
 
@@ -197,8 +197,6 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 			auto& contacts = listener->mRecord->getExtendedContacts();
 			BC_ASSERT_EQUAL(contacts.size(), 2, int, "%d");
 		}
-
-		Record::sMaxContacts = previous;
 	}
 };
 
@@ -254,8 +252,7 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 	};
 
 	void testExec() noexcept override {
-		auto previous = Record::sMaxContacts;
-		Record::sMaxContacts = 2;
+		auto _ = overrideStaticVariable(Record::sMaxContacts, 2);
 		auto* regDb = RegistrarDb::get();
 		sofiasip::Home home{};
 		const auto contactBase = ":update-test@example.org";
@@ -328,8 +325,6 @@ class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImp
 			BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
 			BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
 		}
-
-		Record::sMaxContacts = previous;
 	}
 };
 
