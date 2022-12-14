@@ -16,8 +16,6 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "compat/hiredis/hiredis.h"
-
 #include "flexisip/configmanager.hh"
 #include "flexisip/module-pushnotification.hh"
 #include "flexisip/registrardb.hh"
@@ -26,6 +24,7 @@
 
 #include "tester.hh"
 #include "utils/override-static.hh"
+#include "utils/redis-sync-access.hh"
 #include "utils/test-patterns/registrardb-test.hh"
 
 using namespace std;
@@ -198,41 +197,6 @@ class MaxContactsByAorIsHonored : public RegistrarDbTest<TDatabase> {
 			BC_ASSERT_EQUAL(contacts.size(), 2, int, "%d");
 		}
 	}
-};
-
-class RedisSyncReply {
-public:
-	RedisSyncReply(redisReply* rep) : mReply(rep) {
-		BC_ASSERT_PTR_NOT_NULL(rep);
-	}
-	~RedisSyncReply() {
-		freeReplyObject(mReply);
-	}
-
-	redisReply* operator->() & {
-		return mReply;
-	}
-
-private:
-	redisReply* mReply;
-};
-
-class RedisSyncContext {
-public:
-	RedisSyncContext(redisContext* ctx) : mCtx(ctx) {
-		BC_ASSERT_TRUE(mCtx && !mCtx->err);
-	}
-	~RedisSyncContext() {
-		redisFree(mCtx);
-	}
-
-	template <typename... Args>
-	RedisSyncReply command(Args&&... args) {
-		return reinterpret_cast<redisReply*>(redisCommand(mCtx, std::forward<Args>(args)...));
-	}
-
-private:
-	redisContext* mCtx;
 };
 
 class ContactsAreCorrectlyUpdatedWhenMatchedOnUri : public RegistrarDbTest<DbImplementation::Redis> {
