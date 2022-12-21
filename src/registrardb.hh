@@ -282,6 +282,7 @@ class RegistrarDb {
 		doBind(mainParams, listener);
 	}
 	void clear(const sip_t *sip, const std::shared_ptr<RegistrarDbListener> &listener);
+	void clear(const url_t *url, const std::string& callId, const std::shared_ptr<RegistrarDbListener>& listener);
 	void fetch(const url_t *url, const std::shared_ptr<RegistrarDbListener> &listener, bool recursive = false);
 	void fetch(const url_t *url, const std::shared_ptr<RegistrarDbListener> &listener, bool includingDomains, bool recursive);
 	void updateRemoteExpireTime(const std::string &key, time_t expireat);

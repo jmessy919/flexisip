@@ -564,6 +564,19 @@ void RegistrarDb::clear(const sip_t *sip, const shared_ptr<RegistrarDbListener> 
 	doClear(sip, listener);
 }
 
+void RegistrarDb::clear(const url_t *url,
+                        const std::string& callId,
+                        const std::shared_ptr<RegistrarDbListener>& listener) {
+	// Forged message
+	MsgSip msg(nta_msg_create(mAgent->getSofiaAgent(), 0));
+	auto home = msg.getHome();
+	auto sip = msg.getSip();
+	sip->sip_from = sip_from_create(home, reinterpret_cast<const url_string_t*>(url));
+	sip->sip_call_id = sip_call_id_make(home, callId.c_str());
+	sip->sip_cseq = sip_cseq_create(home, 0xDEADC0DE, SIP_METHOD_REGISTER); // Placeholder
+	clear(sip, listener);
+}
+
 class RecursiveRegistrarDbListener : public RegistrarDbListener,
 									 public enable_shared_from_this<RecursiveRegistrarDbListener> {
   private:
