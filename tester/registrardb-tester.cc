@@ -25,6 +25,7 @@
 #include "pushnotification/firebase/firebase-client.hh"
 
 #include "tester.hh"
+#include "utils/redis-sync-access.hh"
 #include "utils/string-utils.hh"
 #include "utils/test-patterns/registrardb-test.hh"
 
@@ -319,7 +320,7 @@ protected:
 
 		SipUri from("sip:bob@example.org");
 		BindingParameters params;
-		params.globalExpire = 5;
+		params.globalExpire = 4;
 		params.callId = "xyz";
 
 		sip_contact_t* ct;
@@ -391,22 +392,150 @@ protected:
 			}
 			checkFetch(listener->getRecord());
 		}
-		
-	}
+		/* let this Record expire, make sure that it is deleted */
+		sleep(5);
+		listener->reset();
+		regDb->fetch(from, listener);
+		BC_ASSERT_TRUE(waitFor([listener]() { return listener->getRecord() != nullptr; }, 1s));
+		BC_ASSERT_TRUE(listener->getRecord() && listener->getRecord()->getExtendedContacts().size() == 0);
 
-	// Protected methods
-	void onAgentConfiguration(GenericManager& cfg) override {
-		auto redisPort = mRedisServer.start();
+		/* bind a new Record with two contacts with diffent expirations */
+		listener->reset();
+		params.globalExpire = 6;
+		ct = sip_contact_create(home.home(), (url_string_t*)"sip:alice@10.0.0.3;transport=tcp",
+		                        "+sip.instance=\"<urn::uuid::abcd>\"", nullptr);
+		regDb->bind(from, ct, params, listener);
+		BC_ASSERT_TRUE(waitFor([listener]() { return listener->getRecord() != nullptr; }, 1s));
+		listener->reset();
+		params.callId = "wtf";
+		ct = sip_contact_create(home.home(), (url_string_t*)"sip:alice@10.0.0.18;transport=tcp",
+		                        "+sip.instance=\"<urn::uuid::efgh>\";expires=3", nullptr);
+		regDb->bind(from, ct, params, listener);
+		BC_ASSERT_TRUE(waitFor([listener]() { return listener->getRecord() != nullptr; }, 1s));
+		listener->reset();
 
-		auto* registrarConf = cfg.getRoot()->get<GenericStruct>("module::Registrar");
-		registrarConf->get<ConfigValue>("db-implementation")->set("redis");
-		registrarConf->get<ConfigValue>("redis-server-domain")->set("localhost");
-		registrarConf->get<ConfigValue>("redis-server-port")->set(std::to_string(redisPort));
+		/* Checking that fetch() has 2 contacts. */
+		regDb->fetch(from, listener);
+		if (BC_ASSERT_TRUE(waitFor([listener]() { return listener->getRecord() != nullptr; }, 1s))){
+			BC_ASSERT_EQUAL(listener->getRecord()->getExtendedContacts().size(), 2, int, "%d");
+		}
+		sleep(4);
+		listener->reset();
+		/* One should have expired, checking if one is remaining. */
+		regDb->fetch(from, listener);
+		if (BC_ASSERT_TRUE(waitFor([listener]() { return listener->getRecord() != nullptr; }, 1s))){
+			BC_ASSERT_EQUAL(listener->getRecord()->getExtendedContacts().size(), 1, int, "%d");
+		}
+		sleep(3);
+		cout << "Both should be expired now, checking that full record is cleared automatically by redis." << endl;
+
+		/* We do this by doing a raw redis request because regDb->fetch() does cleaning of expired contacts.
+		 * However, we really want to assert that redis automatically cleans fully expired Records, without
+		 * RegistrarDb action. */
+		RedisSyncContext redis = redisConnect("127.0.0.1", this->dbImpl.mPort);
+		auto reply = redis.command("HGETALL fs:%s@%s", from.getUser().c_str(), from.getHost().c_str());
+		BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
+		BC_ASSERT_EQUAL(reply->elements, 0, int, "%i");
+
+		/* Make a fetch to ensure as well */
+		listener->reset();
+		regDb->fetch(from, listener);
+		if (BC_ASSERT_TRUE(waitFor([listener]() { return listener->getRecord() != nullptr; }, 1s))){
+			BC_ASSERT_EQUAL(listener->getRecord()->getExtendedContacts().size(), 0, int, "%d");
+		}
 	}
-	RedisServer mRedisServer;
+};
+
+class ExpiredContactsArePurgedFromRedis : public RegistrarDbTest<DbImplementation::Redis> {
+	class TestListener : public ContactUpdateListener {
+	public:
+		std::shared_ptr<Record> mRecord{nullptr};
+
+		virtual void onRecordFound(const std::shared_ptr<Record>& r) override {
+			mRecord = r;
+		}
+		virtual void onError() override {
+		}
+		virtual void onInvalid() override {
+		}
+		virtual void onContactUpdated(const std::shared_ptr<ExtendedContact>& ec) override {
+		}
+	};
+
+	void testExec() noexcept override {
+		auto* regDb = RegistrarDb::get();
+		sofiasip::Home home{};
+		const auto contactBase = ":expiration-test@example.org";
+		const auto contactStr = "sip"s + contactBase;
+		const auto contactKey = "expiration-test";
+		auto contact =
+		    sip_contact_create(home.home(), reinterpret_cast<const url_string_t*>(contactStr.c_str()), nullptr);
+		const SipUri aor(contactStr);
+		BindingParameters params{};
+		params.globalExpire = 239;
+		params.callId = contactKey;
+		const auto listener = make_shared<TestListener>();
+		regDb->bind(aor, contact, params, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+
+		RedisSyncContext redis = redisConnect("127.0.0.1", this->dbImpl.mPort);
+		auto reply = redis.command("HGETALL fs%s", contactBase);
+		BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
+		BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
+		BC_ASSERT_EQUAL(reply->element[0]->type, REDIS_REPLY_STRING, int, "%i");
+		BC_ASSERT_STRING_EQUAL(reply->element[0]->str, contactKey);
+		BC_ASSERT_EQUAL(reply->element[1]->type, REDIS_REPLY_STRING, int, "%i");
+		char* serializedContact = reply->element[1]->str;
+		SLOGD << "serializedContact: " << serializedContact;
+
+		// Mangle contact update timestamp inside Redis
+		string param = "updatedAt=";
+		char* index = std::strstr(serializedContact, param.c_str()) + param.size();
+		BC_ASSERT_PTR_NOT_NULL(index);
+		*index = '0'; // Rewinding at least 31 years back, that should expire it
+
+		auto insert = redis.command("HMSET fs%s %s %s", contactBase, contactKey, serializedContact);
+		BC_ASSERT_EQUAL(insert->type, REDIS_REPLY_STATUS, int, "%i");
+		BC_ASSERT_STRING_EQUAL(insert->str, "OK");
+
+		listener->mRecord.reset();
+		regDb->fetch(aor, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			/* The contact is seen as expired, so the record shall be empty,
+			 because expired Contact are filtered out.*/
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 0, int, "%d");
+		}
+		/* However, it is still present in REDIS, because a fetch() operation does not write anything to the database.
+		 * Only bind() can clean and write the cleaned Record.*/
+
+		listener->mRecord.reset();
+		params.callId = "trigger-cleanup";
+		contact = sip_contact_create(home.home(),
+		                             reinterpret_cast<const url_string_t*>("sip:trigger-cleanup@example.org"), nullptr);
+		/* Perform a bind() with a new contact. The expired contact shall now disapear from REDIS */
+		regDb->bind(aor, contact, params, listener);
+		BC_ASSERT_TRUE(this->waitFor([&record = listener->mRecord]() { return record != nullptr; }, 1s));
+		{
+			auto& contacts = listener->mRecord->getExtendedContacts();
+			BC_ASSERT_EQUAL(contacts.size(), 1, int, "%d");
+		}
+		/* The "trigger-cleanup" contact shall be the only remaning one. */
+		{
+			auto reply = redis.command("HGETALL fs%s", contactBase);
+			BC_ASSERT_EQUAL(reply->type, REDIS_REPLY_ARRAY, int, "%i");
+			BC_ASSERT_EQUAL(reply->elements, 2, int, "%i");
+			BC_ASSERT_EQUAL(reply->element[0]->type, REDIS_REPLY_STRING, int, "%i");
+			BC_ASSERT_STRING_EQUAL(reply->element[0]->str, "trigger-cleanup");
+			BC_ASSERT_EQUAL(reply->element[1]->type, REDIS_REPLY_STRING, int, "%i");
+			BC_ASSERT_PTR_NOT_NULL(std::strstr(reply->element[1]->str, "sip:trigger-cleanup@example.org"));
+		}
+	}
 };
 
 static test_t tests[] = {
+    TEST_NO_TAG("Expired contacts are purged from Redis", run<ExpiredContactsArePurgedFromRedis>),
     TEST_NO_TAG("Fetch expiring contacts on Redis", run<TestFetchExpiringContacts<DbImplementation::Redis>>),
     TEST_NO_TAG("Fetch expiring contacts in Internal DB", run<TestFetchExpiringContacts<DbImplementation::Internal>>),
     TEST_NO_TAG("An AOR cannot contain more than max-contacts-by-aor [Internal]",
