@@ -31,6 +31,8 @@
 #include <functional>
 #include <algorithm>
 
+#include "signal-handling/sofia-driven-signal-handler.hh"
+
 using namespace std;
 
 class ModuleRegistrar;
@@ -83,7 +85,6 @@ class ModuleRegistrar : public Module, public ModuleToolbox {
 
 	ModuleRegistrar(Agent *ag) : Module(ag), mStaticRecordsTimer(NULL) {
 		sRegistrarInstanceForSigAction = this;
-		memset(&mSigaction, 0, sizeof(mSigaction));
 		mStaticRecordsVersion = 0;
 	}
 
@@ -190,10 +191,6 @@ class ModuleRegistrar : public Module, public ModuleToolbox {
 								   ->get<ConfigBoolean>("assume-unique-domains")
 								   ->read();
 		mUseGlobalDomain = GenericManager::get()->getRoot()->get<GenericStruct>("module::Router")->get<ConfigBoolean>("use-global-domain")->read();
-		mSigaction.sa_sigaction = ModuleRegistrar::sighandler;
-		mSigaction.sa_flags = SA_SIGINFO;
-		sigaction(SIGUSR1, &mSigaction, NULL);
-		sigaction(SIGUSR2, &mSigaction, NULL);
 
 		mParamsToRemove = GenericManager::get()->getRoot()->get<GenericStruct>("module::Forward")->get<ConfigStringList>("params-to-remove")->read();
 
@@ -202,6 +199,24 @@ class ModuleRegistrar : public Module, public ModuleToolbox {
 										   ->get<GenericStruct>("inter-domain-connections")
 										   ->get<ConfigBoolean>("relay-reg-to-domains")
 										   ->read();
+
+		mSignalHandler.reset(new flexisip::signal_handling::SofiaDrivenSignalHandler(
+			getAgent()->getRoot(), std::vector<int>{SIGUSR1, SIGUSR2},
+			// SAFETY: Capturing `this` is safe because we keep a handle to the Handler.
+			[this](int signum) {
+				if (signum == SIGUSR1) {
+					LOGI("Received signal triggering static records file re-read");
+					readStaticRecords();
+				} else if (signum == SIGUSR2) {
+					LOGI("Received signal triggering fake fetch");
+					su_home_t home;
+					su_home_init(&home);
+					url_t *url = url_make(&home, "sip:contact@domain");
+
+					auto listener = make_shared<FakeFetchListener>();
+					RegistrarDb::get()->fetch(url, listener, false);
+				}
+			}));
 	}
 
 	virtual void onUnload() {
@@ -258,12 +273,11 @@ class ModuleRegistrar : public Module, public ModuleToolbox {
 	bool mAssumeUniqueDomains;
 	bool mRelayRegsToDomains;
 
-	struct sigaction mSigaction;
-	static void sighandler(int signum, siginfo_t *info, void *ptr);
 	static ModuleInfo<ModuleRegistrar> sInfo;
 	bool mUseGlobalDomain;
 	int mExpireRandomizer;
 	std::list<std::string> mParamsToRemove;
+	std::unique_ptr<flexisip::signal_handling::SofiaDrivenSignalHandler> mSignalHandler = nullptr;
 };
 
 /**
@@ -773,6 +787,7 @@ class OnStaticBindListener : public RegistrarDbListener {
 
 void ModuleRegistrar::readStaticRecords() {
 	if (mStaticRecordsFile.empty())
+		SLOGW << "No static-records-file configured. Nothing to read.";
 		return;
 	LOGD("Reading static records file");
 
@@ -826,6 +841,31 @@ void ModuleRegistrar::readStaticRecords() {
 					continue;
 				}
 
+				{ // Delete existing record
+					class ClearListener : public RegistrarDbListener {
+					  public:
+						ClearListener(const std::string &uri) : mUri(uri) {
+						}
+
+						void onRecordFound(Record *) override {
+							SLOGD << "Cleared record " << mUri;
+						}
+						void onError() override {
+							SLOGE << "Error: cannot clear record " << mUri;
+						}
+						void onInvalid() override {
+							SLOGE << "Invalid: cannot clear record " << mUri;
+						}
+
+					  private:
+						std::string mUri;
+					};
+
+					RegistrarDb::get()->clear(url->m_url, std::string{"static-record-v"} + to_string(su_random()),
+											  std::make_shared<ClearListener>(from));
+				}
+
+
 				while (contact != NULL) {
 					sip_contact_t single = *contact;
 					single.m_next = NULL;
@@ -851,21 +891,6 @@ void ModuleRegistrar::readStaticRecords() {
 		su_home_deinit(&home);
 	} else {
 		LOGE("Can't open file %s", mStaticRecordsFile.c_str());
-	}
-}
-
-void ModuleRegistrar::sighandler(int signum, siginfo_t *info, void *ptr) {
-	if (signum == SIGUSR1) {
-		LOGI("Received signal triggering static records file re-read");
-		sRegistrarInstanceForSigAction->readStaticRecords();
-	} else if (signum == SIGUSR2) {
-		LOGI("Received signal triggering fake fetch");
-		su_home_t home;
-		su_home_init(&home);
-		url_t *url = url_make(&home, "sip:contact@domain");
-
-		auto listener = make_shared<FakeFetchListener>();
-		RegistrarDb::get()->fetch(url, listener, false);
 	}
 }
 

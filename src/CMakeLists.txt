@@ -71,6 +71,7 @@ set(FLEXISIP_SOURCES
 	expressionparser.cc expressionparser.hh
 	sipattrextractor.cc sipattrextractor.hh
 	h264iframefilter.cc h264iframefilter.hh
+	signal-handling/signal-handling.cc
 	telephone-event-filter.cc telephone-event-filter.hh
 	log/logmanager.cc log/logmanager.hh
 	eventlogs/eventlogs.cc eventlogs/eventlogs.hh

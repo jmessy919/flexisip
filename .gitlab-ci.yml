@@ -1,0 +1,39 @@
+#################################################
+# Base configuration
+#################################################
+
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_UPDATE_FLAGS: --jobs 8
+
+#https://docs.gitlab.com/ee/ci/yaml/index.html#workflow
+workflow:
+  rules:
+    # Allow merge request pipelines
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TITLE !~ /^Draft:.*/
+    # Allow scheduled pipelines
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+before_script:
+  - |
+    if [ "$GIT_STRATEGY" != "none" ]; then
+      git submodule foreach --recursive git fetch --tags --force
+    fi
+
+stages:
+  - build 🏗
+
+job-nix-build:
+  stage: build 🏗
+  tags: [ "docker" ]
+  image: nixos/nix:2.12.0
+  script:
+  # Enable nix flake support
+  - echo 'experimental-features = nix-command flakes' >> /etc/nix/nix.conf
+  - nix build '.?submodules=1'
+  rules:
+    - &exclude-from-deploy
+      if: $DEPLOY_ONLY
+      when: never
+    - &otherwise-run
+      when: on_success
