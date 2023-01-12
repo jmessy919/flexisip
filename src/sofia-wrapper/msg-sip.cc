@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "flexisip/logmanager.hh"
+#include "utils/string-utils.hh"
 
 #include "flexisip/sofia-wrapper/msg-sip.hh"
 
@@ -110,6 +111,19 @@ bool MsgSip::isGroupChatInvite() const noexcept {
 	return true;
 }
 
+bool MsgSip::isChatService() noexcept {
+	const auto* messageTypeHeader = this->findHeader("X-fs-message-type", true);
+	if (!messageTypeHeader) return false;
+
+	const auto messageTypeHeaderCString =
+	    sip_header_as_string(getHome(), reinterpret_cast<const sip_header_t*>(messageTypeHeader));
+	if (!messageTypeHeaderCString) return false;
+
+	if (string{messageTypeHeaderCString} == "X-fs-message-type: chat-service") return true;
+
+	return false;
+}
+
 shared_ptr<flexisip::SipBooleanExpression> MsgSip::sShowBodyFor{nullptr};
 
 void MsgSip::setShowBodyFor(const string& filterString) {
@@ -117,6 +131,44 @@ void MsgSip::setShowBodyFor(const string& filterString) {
 		throw invalid_argument("show_body-for-filter can't be empty. Use true to see all body, false to see none.");
 	}
 	sShowBodyFor = flexisip::SipBooleanExpressionBuilder::get().parse(filterString);
+}
+
+MsgSipPriority MsgSip::getPriority() const {
+	const auto sip = getSip();
+	const auto priorityString = sip->sip_priority && sip->sip_priority->g_string ? sip->sip_priority->g_string : ""s;
+
+	if (StringUtils::iequals(priorityString, "") || StringUtils::iequals(priorityString, "normal")) {
+		return MsgSipPriority::Normal;
+	} else if (StringUtils::iequals(priorityString, "non-urgent")) {
+		return MsgSipPriority::NonUrgent;
+	} else if (StringUtils::iequals(priorityString, "urgent")) {
+		return MsgSipPriority::Urgent;
+	} else if (StringUtils::iequals(priorityString, "emergency")) {
+		return MsgSipPriority::Emergency;
+	}
+
+	return MsgSipPriority::Normal;
+}
+
+std::string MsgSip::getCallID() const {
+	const auto sipCallId = getSip()->sip_call_id;
+	return sipCallId != nullptr ? sipCallId->i_id : ""s;
+}
+
+MsgSipPriority MsgSip::getPreviousPriority(MsgSipPriority current) {
+	switch (current) {
+		case MsgSipPriority::Emergency:
+			return MsgSipPriority::Urgent;
+		case MsgSipPriority::Urgent:
+			return MsgSipPriority::Normal;
+		case MsgSipPriority::Normal:
+			return MsgSipPriority::NonUrgent;
+		case MsgSipPriority::NonUrgent:
+			throw logic_error("MsgSipPriority::NonUrgent is the lowest priority");
+		default:
+			throw invalid_argument("MsgSip::getPreviousPriority - sofiasip::MsgSipPriority value is not valid ["s +
+			                       to_string(static_cast<int>(current)) + "]");
+	}
 }
 
 std::ostream& operator<<(std::ostream& strm, const sofiasip::MsgSip& obj) noexcept {

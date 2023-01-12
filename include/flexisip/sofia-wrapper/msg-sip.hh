@@ -35,6 +35,8 @@ using namespace ownership;
 
 namespace sofiasip {
 
+enum class MsgSipPriority { NonUrgent = 0, Normal = 1, Urgent = 2, Emergency = 3 };
+
 class MsgSip {
 public:
 	MsgSip() : mMsg{msg_create(sip_default_mclass(), 0)} {
@@ -73,14 +75,18 @@ public:
 	}
 
 	msg_header_t* findHeader(const std::string& name, bool searchUnknowns = false);
-	const msg_header_t* findHeader(const std::string& name) const {
-		return const_cast<MsgSip*>(this)->findHeader(name);
+	const msg_header_t* findHeader(const std::string& name, bool searchUnknowns = false) const {
+		return const_cast<MsgSip*>(this)->findHeader(name, searchUnknowns);
 	}
 
 	sip_method_t getSipMethod() const {
 		const auto rq = getSip()->sip_request;
 		return rq != nullptr ? rq->rq_method : sip_method_unknown;
 	}
+
+	std::string getCallID() const;
+
+	MsgSipPriority getPriority() const;
 
 	void serialize() {
 		msg_serialize(mMsg.borrow(), (msg_pub_t*)getSip());
@@ -90,6 +96,7 @@ public:
 	std::string printContext() const;
 
 	bool isGroupChatInvite() const noexcept;
+	bool isChatService() noexcept;
 
 	/**
 	 * Change the sip filter used by Flexisip to show or not request's body in logs.
@@ -105,6 +112,12 @@ public:
 		}
 		return sShowBodyFor;
 	}
+
+	/**
+	 * Return the priority just before the one in parameter;
+	 * @throw logic_error if current == MsgSipPriority::NonUrgent
+	 */
+	static MsgSipPriority getPreviousPriority(MsgSipPriority current);
 
 private:
 	// Private methods
