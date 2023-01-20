@@ -59,11 +59,11 @@ static string getRandomBranch() {
 
 OutgoingTransaction::OutgoingTransaction(Agent *agent)
 	: Transaction(agent), mOutgoing(NULL), mBranchId(getRandomBranch()) {
-	LOGD("New OutgoingTransaction %p", this);
+	LOGI("New OutgoingTransaction[%p]", this);
 }
 
 OutgoingTransaction::~OutgoingTransaction() {
-	LOGD("Delete OutgoingTransaction %p", this);
+	LOGI("Delete OutgoingTransaction[%p:%p]", this, mOutgoing);
 }
 
 const string &OutgoingTransaction::getBranchId() const {
@@ -75,20 +75,21 @@ su_home_t *OutgoingTransaction::getHome() {
 
 void OutgoingTransaction::cancel() {
 	if (mOutgoing) {
+		LOGI("Canceling OutgoingTransaction[%p:%p]", this, mOutgoing);
 		nta_outgoing_cancel(mOutgoing);
 		destroy();
 	} else {
-		LOGE("OutgoingTransaction::cancel(): transaction already destroyed.");
+		LOGE("OutgoingTransaction::cancel(): transaction already destroyed %p", this);
 	}
 }
 
 void OutgoingTransaction::cancelWithReason(sip_reason_t *reason) {
 	if (mOutgoing) {
-		//nta_outgoing_cancel(mOutgoing);
+		LOGI("Canceling OutgoingTransaction[%p:%p] with reason", this, mOutgoing);
 		nta_outgoing_tcancel(mOutgoing, NULL, NULL, SIPTAG_REASON(reason), TAG_END());
 		destroy();
 	} else {
-		LOGE("OutgoingTransaction::cancel(): transaction already destroyed.");
+		LOGE("OutgoingTransaction::cancel(): transaction already destroyed %p", this);
 	}
 }
 
@@ -137,6 +138,7 @@ void OutgoingTransaction::send(const shared_ptr<MsgSip> &ms, url_string_t const 
 			msg_destroy(msg);
 		} else {
 			mSofiaRef = shared_from_this();
+			LOGI("OutgoingTransaction[%p:%p]: request sent", this, mOutgoing);
 		}
 	} else {
 		// sofia transaction already created, this happens when attempting to forward a cancel

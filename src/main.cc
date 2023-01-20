@@ -830,9 +830,8 @@ int main(int argc, char *argv[]) {
 	}
 
 	su_log_redirect(NULL, sofiaLogHandler, NULL);
-	if (debug || log_level == "debug") {
-		su_log_set_level(NULL, 9);
-	}
+	su_log_set_level(NULL, 9);
+
 	/*read the pkcs passphrase if any from the fifo, and keep it in memory*/
 	auto passphrase = getPkcsPassphrase(pkcsFile);
 
