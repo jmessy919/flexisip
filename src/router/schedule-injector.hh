@@ -21,10 +21,11 @@
 #include <map>
 #include <vector>
 
-#include "inject-context.hh"
 #include "injector.hh"
 
 namespace flexisip {
+
+class InjectContext;
 
 /**
  * An injector that sort message by priority and then keep them in order.
@@ -58,20 +59,16 @@ public:
 	 * Create the order that will be enforced by ScheduleInjector::injectRequestEvent.
 	 */
 	void addContext(const std::shared_ptr<ForkContext>& fork, const std::string& contactId) override;
+	void addContext(const std::vector<std::shared_ptr<ForkContext>>& forks, const std::string& contactId) override;
 
 	/**
-	 * Starting from the end of the list remove a context that don't need inject.
+	 * Starting from the beginning of the list remove a context that don't need inject.
 	 */
 	void removeContext(const std::shared_ptr<ForkContext>& fork, const std::string& contactId) override;
 
 private:
-	void startInject(sofiasip::MsgSipPriority currentWorkingPriority,
-	                 InjectListType& contactInjectContexts,
-	                 const std::string& contactId);
-	void continueInjectIfNeeded(sofiasip::MsgSipPriority currentWorkingPriority, const std::string& contactId);
-
+	void startInject(const std::string& contactId);
 	InjectContextMap& getMapFromPriority(sofiasip::MsgSipPriority msgSipPriority);
-	bool areAllHigherPriorityMapEmpty(sofiasip::MsgSipPriority msgSipPriority, const std::string& contactId) const;
 
 	InjectContextMap mEmergencyInjectContexts{};
 	InjectContextMap mUrgentInjectContexts{};
