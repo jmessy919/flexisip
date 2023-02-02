@@ -92,7 +92,11 @@ job-rocky8-rpm-check-features:
     - .rocky8-image-variables
     - .rules-default
   stage: deploy 🚀
-  tags: [ "docker" ]
+  tags:
+    - "docker"
+    - "docker-test-flexisip"
+  needs:
+    - job-rocky8-rpm
   script:
     - sudo yum -y --nogpgcheck localinstall ./build/*.rpm
     - VERSION_STRING=$(flexisip --version)
