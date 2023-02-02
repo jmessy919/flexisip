@@ -94,7 +94,6 @@ job-rocky8-rpm-check-features:
   stage: deploy 🚀
   tags:
     - "docker"
-    - "docker-test-flexisip"
   needs:
     - job-rocky8-rpm
   script:
