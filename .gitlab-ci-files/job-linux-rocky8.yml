@@ -86,4 +86,20 @@ job-rocky8-rpm-deploy:
   variables:
     DISTRIB: rockylinux
 
-
+# Test installation of the RPM package and check its feature list
+job-rocky8-rpm-check-features:
+  extends:
+    - .rocky8-image-variables
+    - .rules-default
+  stage: deploy 🚀
+  tags: [ "docker" ]
+  script:
+    - sudo rpm --install ./build/*.rpm
+    - VERSION_STRING=$(flexisip --version)
+    - echo $VERSION_STRING | grep B2BUA
+    - echo $VERSION_STRING | grep Conference
+    - echo $VERSION_STRING | grep Presence
+    - echo $VERSION_STRING | grep Redis
+    - echo $VERSION_STRING | grep RegEvent
+    - echo $VERSION_STRING | grep Transcoder
+    - echo $VERSION_STRING | grep Soci
