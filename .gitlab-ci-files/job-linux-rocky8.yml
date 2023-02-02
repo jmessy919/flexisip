@@ -94,7 +94,7 @@ job-rocky8-rpm-check-features:
   stage: deploy 🚀
   tags: [ "docker" ]
   script:
-    - sudo rpm --install ./build/*.rpm
+    - sudo yum -y --nogpgcheck localinstall ./build/*.rpm
     - VERSION_STRING=$(flexisip --version)
     - echo $VERSION_STRING | grep B2BUA
     - echo $VERSION_STRING | grep Conference
