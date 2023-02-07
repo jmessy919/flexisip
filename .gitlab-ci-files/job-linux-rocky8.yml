@@ -90,7 +90,9 @@ job-rocky8-rpm-deploy:
 job-rocky8-rpm-check-features:
   extends:
     - .rocky8-image-variables
-    - .rules-default
+  rules:
+    - !reference [.rules-default, rules]
+    - !reference [.rules-ci, rules]
   stage: deploy 🚀
   tags:
     - "docker"

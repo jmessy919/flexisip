@@ -31,6 +31,14 @@
         - src/**/*
         - tester/**/*
 
+# TODO doc me
+.rules-ci:
+  rules:
+    - when: on_success
+      changes:
+        - .gitlab-ci.yml
+        - .gitlab-ci-files/**/*
+
 # Jobs that always run, except for DEPLOY_ONLY pipelines.
 .rules-dev:
   rules:

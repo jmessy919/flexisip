@@ -51,8 +51,9 @@
 .job-linux-rpm:
   stage: package 📦
   tags: [ "docker" ]
-  extends:
-    - .rules-default  # ⚠ See `rules.yml`
+  rules:
+    - !reference [.rules-default, rules]
+    - !reference [.rules-ci, rules]
   variables:
     CMAKE_GENERATOR: 'Ninja'
   script:
