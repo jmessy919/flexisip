@@ -100,7 +100,7 @@ job-rocky8-rpm-check-features:
     - job-rocky8-rpm
   script:
     - sudo yum -y --nogpgcheck localinstall ./build/*.rpm
-    - VERSION_STRING=$(flexisip --version)
+    - VERSION_STRING=$(/opt/belledonne-communications/bin/flexisip --version)
     - echo $VERSION_STRING | grep B2BUA
     - echo $VERSION_STRING | grep Conference
     - echo $VERSION_STRING | grep Presence
