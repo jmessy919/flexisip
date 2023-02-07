@@ -25,6 +25,11 @@
   rules:
     - &otherwise-run  # Default gitlab policy that we have to explicitely add back
       when: on_success
+      changes:
+        - cmake/**/*
+        - include/**/*
+        - src/**/*
+        - tester/**/*
 
 # Jobs that always run, except for DEPLOY_ONLY pipelines.
 .rules-dev:
