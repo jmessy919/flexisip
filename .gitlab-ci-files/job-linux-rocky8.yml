@@ -2,13 +2,6 @@ variables:
   ROCKY8_CMAKE_OPTIONS: -DINTERNAL_LIBHIREDIS=ON
   ROCKY8_CMAKE_OPTIONS_UNIT_TESTS: -DINTERNAL_LIBHIREDIS=ON -DENABLE_UNIT_TESTS=ON -DENABLE_UNIT_TESTS_MYSQL=ON -DCMAKE_PREFIX_PATH=/usr/local -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON
 
-.rocky8-rules:
-  rules:
-    - &this-file-modified
-      when: on_success
-      changes:
-        - .gitlab-ci-files/job-linux-rocky8.yml
-
 .rocky8-image-variables:
   image:
     name: gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-rocky8:$ROCKY_8_IMAGE_VERSION
@@ -83,9 +76,6 @@ job-rocky8-rpm:
   extends:
     - .job-linux-rpm
     - .rocky8-image-variables
-  rules:
-    - !reference [.job-linux-rpm, rules]
-    - !reference [.rocky8-rules, rules]
 
 job-rocky8-rpm-deploy:
   extends: .job-rpm-deploy
