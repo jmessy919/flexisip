@@ -33,8 +33,8 @@
 #include "router/schedule-injector.hh"
 
 #if ENABLE_SOCI
-#include "flexisip/fork-context/fork-message-context-soci-repository.hh"
 #include "flexisip/fork-context/fork-message-context-db-proxy.hh"
+#include "flexisip/fork-context/fork-message-context-soci-repository.hh"
 #endif
 
 using namespace std;
@@ -206,7 +206,7 @@ void ModuleRouter::onLoad(const GenericStruct* mc) {
 
 	if (mMessageForkCfg->mForkLate) {
 		mOnContactRegisteredListener = make_shared<OnContactRegisteredListener>(this);
-		#if ENABLE_SOCI
+#if ENABLE_SOCI
 		if ((mMessageForkCfg->mSaveForkMessageEnabled = mc->get<ConfigBoolean>("message-database-enabled")->read())) {
 			InjectContext::setMaxRequestRetentionTime(
 			    seconds{mc->get<ConfigInt>("max-request-retention-time")->read()});
@@ -217,7 +217,7 @@ void ModuleRouter::onLoad(const GenericStruct* mc) {
 
 			restoreForksFromDatabase();
 		} else
-		#endif
+#endif
 		{
 			mInjector = make_unique<AgentInjector>(this);
 		}
@@ -289,8 +289,7 @@ std::shared_ptr<BranchInfo> ModuleRouter::dispatch(const shared_ptr<ForkContext>
 
 	const auto& ev = context->getEvent();
 	const auto& ms = ev->getMsgSip();
-	time_t now = getCurrentTime();
-	sip_contact_t* ct = contact->toSofiaContact(ms->getHome(), now);
+	sip_contact_t* ct = contact->toSofiaContact(ms->getHome());
 	url_t* dest = ct->m_url;
 
 	/*sanity check on the contact address: might be '*' or whatever useless information*/
@@ -372,7 +371,7 @@ void ModuleRouter::onContactRegistered(const std::shared_ptr<OnContactRegistered
 		forksFound = true;
 		const shared_ptr<ExtendedContact> ec = record->extractContactByUniqueId(uid);
 		if (ec) {
-			contact = ec->toSofiaContact(home.home(), ec->mExpireAt - 1);
+			contact = ec->toSofiaContact(home.home());
 
 			// First use sipURI
 			mInjector->addContext(range, ec->contactId());
@@ -387,7 +386,7 @@ void ModuleRouter::onContactRegistered(const std::shared_ptr<OnContactRegistered
 		if (!ec || !ec->mAlias) continue;
 
 		// Find all contexts
-		contact = ec->toSofiaContact(home.home(), ec->mExpireAt - 1);
+		contact = ec->toSofiaContact(home.home());
 		auto rang = getLateForks(ExtendedContact::urlToString(ec->mSipContact->m_url));
 		mInjector->addContext(rang, ec->contactId());
 		for (const auto& context : rang) {
@@ -513,11 +512,7 @@ void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_pt
 	bool nonSipsFound = false;
 	for (auto it = contacts.begin(); it != contacts.end(); ++it) {
 		const shared_ptr<ExtendedContact>& ec = *it;
-		sip_contact_t* ct = ec->toSofiaContact(ms->getHome(), now);
-		if (!ct) {
-			SLOGE << "Can't create sip_contact of " << ec->mSipContact->m_url;
-			continue;
-		}
+		sip_contact_t* ct = ec->toSofiaContact(ms->getHome());
 		// If it's not a message, verify if it's really expired
 		if (sip->sip_request->rq_method != sip_method_message && (ec->getExpireNotAtMessage() < now)) {
 			LOGD("Sip_contact of %s is expired", url_as_string(ms->getHome(), ec->mSipContact->m_url));
@@ -563,23 +558,23 @@ void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_pt
 	           !(sip->sip_content_type &&
 	             strcasecmp(sip->sip_content_type->c_type, "application/im-iscomposing+xml") == 0) &&
 	           !(sip->sip_expires && sip->sip_expires->ex_delta == 0)) {
-		// Use the basic fork context for "im-iscomposing+xml" messages to prevent storing useless messages
-		#if ENABLE_SOCI
+// Use the basic fork context for "im-iscomposing+xml" messages to prevent storing useless messages
+#if ENABLE_SOCI
 		if (mMessageForkCfg->mSaveForkMessageEnabled) {
 			context = ForkMessageContextDbProxy::make(shared_from_this(), ev, msgPriority);
 		} else
-		#endif
+#endif
 		{
 			context = ForkMessageContext::make(shared_from_this(), ev, shared_from_this(), msgPriority);
 		}
 	} else if (sip->sip_request->rq_method == sip_method_refer &&
 	           (sip->sip_refer_to != nullptr && msg_params_find(sip->sip_refer_to->r_params, "text") != nullptr)) {
-		// Use the message fork context only for refers that are text to prevent storing useless refers
-		#if ENABLE_SOCI
+// Use the message fork context only for refers that are text to prevent storing useless refers
+#if ENABLE_SOCI
 		if (mMessageForkCfg->mSaveForkMessageEnabled) {
 			context = ForkMessageContextDbProxy::make(shared_from_this(), ev, msgPriority);
 		} else
-		#endif
+#endif
 		{
 			context = ForkMessageContext::make(shared_from_this(), ev, shared_from_this(), msgPriority);
 		}
