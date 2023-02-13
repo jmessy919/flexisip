@@ -64,3 +64,29 @@ stages:
   - coverage 📑
   - package 📦
   - deploy 🚀
+
+
+job-build-bypass:
+  stage: build 🏗
+  tags: [ "deploy" ]
+  variables:
+    GIT_STRATEGY: none
+  script:
+    - echo "Dummy job to let further stages of the pipeline run when everything else is manual jobs"
+  rules:
+    - if: $MANUAL_OVERRIDE
+
+job-test-bypass:
+  extends:
+    - job-build-bypass
+  stage: test 🧪
+
+job-coverage-bypass:
+  extends:
+    - job-build-bypass
+  stage: coverage 📑
+
+job-package-bypass:
+  extends:
+    - job-build-bypass
+  stage: package 📦
