@@ -1,6 +1,6 @@
 /*
  Flexisip, a flexible SIP proxy server with media capabilities.
- Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+ Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -9,11 +9,11 @@
 
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU Affero General Public License for more details.
 
  You should have received a copy of the GNU Affero General Public License
- along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <algorithm>
@@ -23,16 +23,14 @@
 #include <set>
 #include <vector>
 
-#ifndef INTERNAL_LIBHIREDIS
-#include <hiredis/hiredis.h>
-#else
-#include <hiredis.h>
-#endif
+#include "compat/hiredis/hiredis.h"
 
 #include <sofia-sip/sip_protos.h>
 
 #include <flexisip/common.hh>
 #include <flexisip/configmanager.hh>
+#include <flexisip/registrar/exceptions.hh>
+#include <flexisip/registrar/extended-contact.hh>
 
 #include "recordserializer.hh"
 #include "redis-async-script.hh"
@@ -55,6 +53,19 @@ const auto FETCH_EXPIRING_CONTACTS_SCRIPT = redis::AsyncScript<uint64_t, uint64_
     "19c02eaa010d82352e6df056e3302bc5a0a5f85b");
 
 } // namespace
+
+namespace flexisip {
+
+ostream& operator<<(ostream& out, const RedisArgsPacker& args) {
+	out << "RedisArgsPacker(\"";
+	for (const auto& arg : args.mArgs) {
+		out << arg << " ";
+	}
+	out << "\")";
+	return out;
+}
+
+} // namespace flexisip
 
 /******
  * RegistrarDbRedisAsync class
@@ -634,7 +645,14 @@ void RegistrarDbRedisAsync::sHandleBindStart(redisAsyncContext* ac, redisReply* 
 	/* Now update the existing Record with new SIP REGISTER and binding parameters
 	 * insertOrUpdateBinding() will do the job of contact comparison and invoke the onContactUpdated listener*/
 	LOGD("Updating Record content for key [fs:%s] with new contact(s).", context->mRecord->getKey().c_str());
-	context->mRecord->update(context->mMsg.getSip(), context->mBindingParameters, context->listener);
+	try {
+		context->mChangeSet =
+		    context->mRecord->update(context->mMsg.getSip(), context->mBindingParameters, context->listener);
+	} catch (const InvalidCSeq&) {
+		if (context->listener) context->listener->onInvalid();
+		delete context;
+		return;
+	}
 
 	/* now submit the changes triggered by the update operation to REDIS */
 	LOGD("Sending updated content to REDIS for key [fs:%s].", context->mRecord->getKey().c_str());
@@ -705,30 +723,34 @@ void RegistrarDbRedisAsync::serializeAndSendToRedis(RedisRegisterContext* contex
 	check_redis_command(redisAsyncCommand(mContext, nullptr, nullptr, "MULTI"), context);
 
 	/* First delete contacts that need to be deleted */
-	if (!context->mRecord->getContactsToRemove().empty()) {
+	if (!context->mChangeSet.mDelete.empty()) {
 		RedisArgsPacker hDelArgs("HDEL", key);
-		for (const auto& ec : context->mRecord->getContactsToRemove()) {
-			hDelArgs.addFieldName(ec->getUniqueId());
+		for (const auto& ec : context->mChangeSet.mDelete) {
+			hDelArgs.addFieldName(ec->mKey);
 			delCount++;
 		}
 		check_redis_command(redisAsyncCommandArgv(mContext, (void (*)(redisAsyncContext*, void*, void*)) nullptr,
 		                                          context, hDelArgs.getArgCount(), hDelArgs.getCArgs(),
 		                                          hDelArgs.getArgSizes()),
 		                    context);
+
+		SLOGD << hDelArgs;
 	}
 
 	/* Update or set new ones */
-	if (!context->mRecord->getContactsToAddOrUpdate().empty()) {
+	if (!context->mChangeSet.mUpsert.empty()) {
 		RedisArgsPacker hSetArgs("HMSET", key);
 
-		for (const auto& ec : context->mRecord->getContactsToAddOrUpdate()) {
-			hSetArgs.addPair(ec->getUniqueId(), ec->serializeAsUrlEncodedParams());
+		for (const auto& ec : context->mChangeSet.mUpsert) {
+			hSetArgs.addPair(ec->mKey, ec->serializeAsUrlEncodedParams());
 			setCount++;
 		}
 		check_redis_command(redisAsyncCommandArgv(mContext, (void (*)(redisAsyncContext*, void*, void*)) nullptr,
 		                                          context, hSetArgs.getArgCount(), hSetArgs.getCArgs(),
 		                                          hSetArgs.getArgSizes()),
 		                    context);
+
+		SLOGD << hSetArgs;
 	}
 
 	LOGD("Binding %s [%i] contact sets, [%i] contacts removed.", key.c_str(), setCount, delCount);
@@ -793,14 +815,14 @@ void RegistrarDbRedisAsync::doBind(const MsgSip& msg,
 	// - push the new record to redis by commiting changes to apply (set or remove).
 	// - notify the onRecordFound().
 
-	RedisRegisterContext* context = new RedisRegisterContext(this, msg, parameters, listener);
-
 	if (!isConnected() && !connect()) {
 		LOGE("Not connected to redis server");
-		if (context->listener) context->listener->onError();
-		delete context;
+		if (listener) listener->onError();
 		return;
 	}
+
+	RedisRegisterContext* context = new RedisRegisterContext(this, msg, parameters, listener);
+
 	check_redis_command(redisAsyncCommand(mContext, (void (*)(redisAsyncContext*, void*, void*))sHandleBindStart,
 	                                      context, "HGETALL fs:%s", context->mRecord->getKey().c_str()),
 	                    context);
@@ -829,19 +851,14 @@ void RegistrarDbRedisAsync::parseAndClean(redisReply* reply, RedisRegisterContex
 	for (size_t i = 0; i < reply->elements; i += 2) {
 		// Elements list is twice the size of the contacts list because the key is an element of the list itself
 		redisReply* element = reply->element[i];
-		const char* uid = element->str;
+		const char* key = element->str;
 		element = reply->element[i + 1];
 		const char* contact = element->str;
-		LOGD("Parsing contact %s => %s", uid, contact);
-		if (!context->mRecord->updateFromUrlEncodedParams(uid, contact, context->listener.get())) {
+		LOGD("Parsing contact %s => %s", key, contact);
+		if (!context->mRecord->updateFromUrlEncodedParams(key, contact)) {
 			LOGE("This contact could not be parsed.");
 		}
 	}
-	/* Start recording deleted/added or modified contacts from now on */
-	context->mRecord->clearChangeLists();
-
-	time_t now = getCurrentTime();
-	context->mRecord->clean(now, context->listener);
 }
 
 void RegistrarDbRedisAsync::doClear(const MsgSip& msg, const shared_ptr<ContactUpdateListener>& listener) {
@@ -897,9 +914,7 @@ void RegistrarDbRedisAsync::handleFetch(redisReply* reply, RedisRegisterContext*
 		const char* gruu = context->mUniqueIdToFetch.c_str();
 		if (reply->len > 0) {
 			LOGD("GOT fs:%s [%lu] for gruu %s --> %s", key, context->token, gruu, reply->str);
-			context->mRecord->updateFromUrlEncodedParams(gruu, reply->str, context->listener.get());
-			time_t now = getCurrentTime();
-			context->mRecord->clean(now, context->listener);
+			context->mRecord->updateFromUrlEncodedParams(gruu, reply->str);
 			if (context->listener) context->listener->onRecordFound(context->mRecord);
 		} else {
 			LOGD("Contact matching gruu %s in record fs:%s not found", gruu, key);

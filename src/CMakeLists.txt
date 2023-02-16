@@ -101,8 +101,14 @@ add_library(flexisip SHARED
 	push-param.cc
 	recordserializer-c.cc
 	recordserializer-json.cc
+	recordserializer.cc
+	registrar/contact-key.cc
+	registrar/exceptions.cc
+	registrar/extended-contact.cc
+	registrar/listeners.cc
+	registrar/record.cc
+	registrar/registrar-db.cc
 	registrardb-internal.cc registrardb-internal.hh
-	registrardb.cc
 	sdp-modifier.cc sdp-modifier.hh
 	service-server.cc service-server.hh
 	signal-handling/signal-handling.cc
@@ -203,10 +209,6 @@ endif ()
 if (ENABLE_REDIS)
 	target_sources(flexisip PRIVATE registrardb-redis-async.cc)
 	target_compile_definitions(flexisip PRIVATE "ENABLE_REDIS")
-	if (INTERNAL_LIBHIREDIS)
-		target_compile_definitions(flexisip PRIVATE "INTERNAL_LIBHIREDIS")
-	endif ()
-	#target_include_directories(flexisip PRIVATE ${HIREDIS_INCLUDE_DIRS})
 	target_link_libraries(flexisip PRIVATE hiredis)
 endif ()
 if (ENABLE_PROTOBUF)

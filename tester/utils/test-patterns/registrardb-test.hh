@@ -1,10 +1,15 @@
-/** Copyright (C) 2010-2022 Belledonne Communications SARL
+/** Copyright (C) 2010-2023 Belledonne Communications SARL
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
 #pragma once
 
 #include <bctoolbox/ownership.hh>
+
+#include <flexisip/registrar/listeners.hh>
+#include <flexisip/registrar/record.hh>
+#include <flexisip/registrar/extended-contact.hh>
+#include <flexisip/registrar/binding-parameters.hh>
 
 #include "../redis-server.hh"
 #include "agent-test.hh"
@@ -34,13 +39,15 @@ class Redis {
 	RedisServer mRedisServer{};
 
 public:
+	int mPort = -1;
+
 	void amendConfiguration(GenericManager& cfg) {
-		auto redisPort = mRedisServer.start();
+		mPort = mRedisServer.start();
 
 		auto* registrarConf = cfg.getRoot()->get<GenericStruct>("module::Registrar");
 		registrarConf->get<ConfigValue>("db-implementation")->set("redis");
 		registrarConf->get<ConfigValue>("redis-server-domain")->set("localhost");
-		registrarConf->get<ConfigValue>("redis-server-port")->set(to_string(redisPort));
+		registrarConf->get<ConfigValue>("redis-server-port")->set(to_string(mPort));
 	}
 
 	std::map<std::string, std::string> configAsMap() {
@@ -78,6 +85,7 @@ class ContactInserter {
 	shared_ptr<ContactInsertedListener> mListener;
 	MsgSip mForgedMessage;
 	BindingParameters mParameters;
+	int mCount = 0;
 
 public:
 	ContactInserter(RegistrarDb& regDb, const flexisip::Agent& agent)
@@ -97,11 +105,13 @@ public:
 		auto sip = mForgedMessage.getSip();
 		auto home = mForgedMessage.getHome();
 		sip->sip_from = sip_from_create(home, aorUrl);
-		sip->sip_contact = sip_contact_create(home, contactUrl, "+sip.instance=placeholder-uuid", nullptr);
+		sip->sip_contact =
+		    sip_contact_create(home, contactUrl, ("+sip.instance=test-contact-"s + to_string(mCount)).c_str(), nullptr);
 		mParameters.globalExpire = expire.count();
 
 		mListener->contactsToBeInserted.insert(contact);
 		mRegDb.bind(mForgedMessage, mParameters, mListener);
+		mCount++;
 	}
 
 	bool finished() const {
@@ -111,8 +121,6 @@ public:
 
 template <typename TDatabase>
 class RegistrarDbTest : public AgentTest {
-	TDatabase dbImpl;
-
 public:
 	RegistrarDbTest(bool startAgent = false) noexcept : AgentTest(startAgent) {
 	}
@@ -127,6 +135,9 @@ public:
 	}
 
 	std::unique_ptr<ContactInserter> mInserter{nullptr};
+
+protected:
+	TDatabase dbImpl;
 };
 
 } // namespace tester

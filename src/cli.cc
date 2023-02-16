@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -9,7 +9,7 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
@@ -26,12 +26,17 @@
 
 #include <bctoolbox/ownership.hh>
 
+#include <flexisip/agent.hh>
 #include <flexisip/logmanager.hh>
-#include <flexisip/registrardb.hh>
+#include <flexisip/registrar/binding-parameters.hh>
+#include <flexisip/registrar/contact-key.hh>
+#include <flexisip/registrar/listeners.hh>
+#include <flexisip/registrar/registrar-db.hh>
+#include <flexisip/sofia-wrapper/msg-sip.hh>
+#include <flexisip/utils/sip-uri.hh>
 
 #include "cJSON.h"
 
-#include "flexisip/utils/sip-uri.hh"
 #include "recordserializer.hh"
 #include "utils/string-utils.hh"
 
@@ -448,7 +453,7 @@ void ProxyCommandLineInterface::handleRegistrarUpsert(SocketHandle&& socket, con
 		instance_id += args.at(3);
 	} catch (const std::out_of_range& _) {
 		// Generate a unique (enough) ID that will *not* be considered as a placeholder
-		instance_id += "fs-cli-gen-" + InstanceID::generateUniqueId();
+		instance_id += "fs-cli-gen-" + ContactKey::generateUniqueId();
 	}
 
 	sofiasip::Home home{};
