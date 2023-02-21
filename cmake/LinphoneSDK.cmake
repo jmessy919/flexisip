@@ -114,6 +114,10 @@ if(ENABLE_TRANSCODER OR ENABLE_CONFERENCE OR ENABLE_B2BUA)
 	set(ENABLE_JPEG OFF)
 
 	set(DISABLE_SRTP_SEARCH ${INTERNAL_LIBSRTP2})
+	# FIXME
+	add_compile_options(
+		"-Wno-error=unused-parameter"
+	)
 	add_subdirectory("linphone-sdk/mediastreamer2")
 endif()
 
