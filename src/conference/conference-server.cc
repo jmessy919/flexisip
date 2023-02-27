@@ -16,6 +16,8 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "conference-server.hh"
+
 #include <fstream>
 #include <sstream>
 
@@ -24,17 +26,15 @@
 
 #include <flexisip/configmanager.hh>
 #include <flexisip/flexisip-version.h>
-#include <flexisip/registrar/binding-parameters.hh>
-#include <flexisip/registrar/extended-contact.hh>
-#include <flexisip/registrar/record.hh>
-#include <flexisip/registrar/registrar-db.hh>
 
 #include "conference-address-generator.hh"
+#include "registrar/binding-parameters.hh"
+#include "registrar/extended-contact.hh"
+#include "registrar/record.hh"
+#include "registrar/registrar-db.hh"
 #include "registration-events/client.hh"
 #include "utils/string-utils.hh"
 #include "utils/uri-utils.hh"
-
-#include "conference-server.hh"
 
 using namespace std;
 using namespace std::chrono;
