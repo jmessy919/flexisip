@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 
 #include <json/json.h>
 
@@ -87,12 +88,13 @@ bool Account::isAvailable() const {
 }
 
 ExternalSipProvider::ExternalSipProvider(string&& pattern,
+                                         std::optional<MatchTarget> matchTarget,
                                          vector<Account>&& accounts,
                                          string&& name,
                                          const optional<bool>& overrideAvpf,
                                          const optional<linphone::MediaEncryption>& overrideEncryption)
-    : pattern(move(pattern)), accounts(move(accounts)), name(move(name)), overrideAvpf(overrideAvpf),
-      overrideEncryption(overrideEncryption) {
+    : pattern(move(pattern)), matchTarget(matchTarget.value_or(MatchTarget::ToUri)), accounts(move(accounts)),
+      name(move(name)), overrideAvpf(overrideAvpf), overrideEncryption(overrideEncryption) {
 }
 
 void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& provDescs) {
@@ -110,7 +112,8 @@ void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& 
 			LOGF("Please provide an `outboundProxy` for provider '%s'", provDesc.name.c_str());
 		}
 		if (provDesc.maxCallsPerLine == 0) {
-			SLOGW << "Provider '" << provDesc.name << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
+			SLOGW << "Provider '" << provDesc.name
+			      << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
 		}
 		if (provDesc.accounts.empty()) {
 			SLOGW << "Provider '" << provDesc.name << "' has no `accounts` and will not be used to bridge calls";
@@ -139,8 +142,9 @@ void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& 
 
 			accounts.emplace_back(Account(move(account), move(provDesc.maxCallsPerLine)));
 		}
-		providers.emplace_back(ExternalSipProvider(move(provDesc.pattern), move(accounts), move(provDesc.name),
-		                                           provDesc.overrideAvpf, provDesc.overrideEncryption));
+		providers.emplace_back(ExternalSipProvider(move(provDesc.pattern), provDesc.matchTarget, move(accounts),
+		                                           move(provDesc.name), provDesc.overrideAvpf,
+		                                           provDesc.overrideEncryption));
 	}
 }
 
@@ -190,8 +194,19 @@ void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip
 		if (enableAvpf.isBool()) {
 			overrideAvpf = enableAvpf.asBool();
 		}
+
+		auto matchTarget = std::optional<MatchTarget>{};
+		auto matchTargetStr = provider["matchTarget"].asString();
+		if (matchTargetStr == "from") {
+			matchTarget = MatchTarget::FromUri;
+		} else if (matchTargetStr == "to") {
+			matchTarget = MatchTarget::ToUri;
+		} else if (!matchTargetStr.empty()) {
+			throw invalid_argument{"invalid value for 'matchTarget' parameter: '" + matchTargetStr + "'"};
+		}
+
 		providers.emplace_back(
-		    ProviderDesc{provider["name"].asString(), provider["pattern"].asString(),
+		    ProviderDesc{provider["name"].asString(), provider["pattern"].asString(), matchTarget,
 		                 provider["outboundProxy"].asString(), provider["registrationRequired"].asBool(),
 		                 provider["maxCallsPerLine"].asUInt(), move(accounts), overrideAvpf, overrideEncryption});
 	}
@@ -200,9 +215,10 @@ void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip
 }
 
 unique_ptr<pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>>
-AccountManager::findAccountToCall(const string& destinationUri) {
+AccountManager::findAccountToCall(const string& fromUri, const string& destinationUri) {
 	for (auto& provider : providers) {
-		if (!regex_match(destinationUri, provider.pattern)) {
+		const auto& uriToMatch = provider.matchTarget == MatchTarget::FromUri ? fromUri : destinationUri;
+		if (!regex_match(uriToMatch, provider.pattern)) {
 			continue;
 		}
 
@@ -225,7 +241,8 @@ AccountManager::findAccountToCall(const string& destinationUri) {
 linphone::Reason AccountManager::onCallCreate(const linphone::Call& incomingCall,
                                               linphone::Address& callee,
                                               linphone::CallParams& outgoingCallParams) {
-	const auto pair = findAccountToCall(callee.asStringUriOnly());
+	const auto fromUri = incomingCall.getRemoteAddress()->asString();
+	const auto pair = findAccountToCall(fromUri, callee.asStringUriOnly());
 	if (!pair) {
 		SLOGD << "No external accounts available to bridge the call";
 		return linphone::Reason::NotAcceptable;

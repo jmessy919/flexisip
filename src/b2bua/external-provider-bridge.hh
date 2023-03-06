@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include <optional>
 #include <regex>
 #include <unordered_map>
 
@@ -57,6 +58,8 @@ public:
 	Account(Account&& other) = default;
 };
 
+enum class MatchTarget { FromUri, ToUri };
+
 class ExternalSipProvider {
 	friend class AccountManager;
 
@@ -66,12 +69,14 @@ public:
 
 private:
 	std::regex pattern;
+	MatchTarget matchTarget;
 	std::vector<Account> accounts;
 	std::string name;
 	stl_backports::optional<bool> overrideAvpf;
 	stl_backports::optional<linphone::MediaEncryption> overrideEncryption;
 
 	ExternalSipProvider(std::string&& pattern,
+	                    std::optional<MatchTarget> matchTarget,
 	                    std::vector<Account>&& accounts,
 	                    std::string&& name,
 	                    const stl_backports::optional<bool>& overrideAvpf,
@@ -91,6 +96,7 @@ struct AccountDesc {
 struct ProviderDesc {
 	std::string name;
 	std::string pattern;
+	std::optional<MatchTarget> matchTarget{};
 	std::string outboundProxy;
 	bool registrationRequired;
 	uint32_t maxCallsPerLine;
@@ -121,7 +127,7 @@ private:
 	void initFromDescs(linphone::Core& core, std::vector<ProviderDesc>&& provDescs);
 
 	std::unique_ptr<std::pair<std::reference_wrapper<ExternalSipProvider>, std::reference_wrapper<Account>>>
-	findAccountToCall(const std::string& destinationUri);
+	findAccountToCall(const std::string& fromUri, const std::string& destinationUri);
 };
 
 } // namespace bridge

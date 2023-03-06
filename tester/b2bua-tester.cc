@@ -195,6 +195,7 @@ static void external_provider_bridge__one_provider_one_line() {
 	const auto line1 = "sip:bridge@sip.provider1.com";
 	auto providers = {bridge::ProviderDesc{"provider1",
 	                                       "sip:\\+39.*",
+	                                       {},
 	                                       outboundProxy,
 	                                       false,
 	                                       1,
@@ -241,6 +242,7 @@ static void external_provider_bridge__dtmf_forwarding() {
 	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
 	auto providers = {bridge::ProviderDesc{"provider1",
 	                                       "sip:\\+39.*",
+	                                       {},
 	                                       outboundProxy,
 	                                       false,
 	                                       1,
@@ -283,6 +285,7 @@ static void external_provider_bridge__call_release() {
 	auto providers = {bridge::ProviderDesc{
 	    "2 lines 2 slots",
 	    ".*",
+	    {},
 	    outboundProxy,
 	    false,
 	    2,
@@ -370,6 +373,7 @@ static void external_provider_bridge__load_balancing() {
 	server->configureExternalProviderBridge({bridge::ProviderDesc{
 	    "provider1",
 	    "sip:\\+39.*",
+	    {},
 	    outboundProxy,
 	    false,
 	    maxCallsPerLine,
@@ -607,6 +611,7 @@ static void external_provider_bridge__cli() {
 	const auto core = linphone::Factory::get()->createCore("", "", nullptr);
 	auto accman = bridge::AccountManager(*core, {bridge::ProviderDesc{"provider1",
 	                                                                  "regex1",
+	                                                                  {},
 	                                                                  "sip:107.20.139.176:682;transport=scp",
 	                                                                  false,
 	                                                                  682,
