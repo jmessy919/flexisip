@@ -51,7 +51,7 @@ public:
 	 *through.
 	 **/
 	virtual linphone::Reason onCallCreate(const linphone::Call& incomingCall,
-	                                      linphone::Address& callee,
+	                                      std::shared_ptr<linphone::Address>& callee,
 	                                      linphone::CallParams& outgoingCallParams) = 0;
 	virtual void onCallEnd([[maybe_unused]] const linphone::Call& call) {
 	}

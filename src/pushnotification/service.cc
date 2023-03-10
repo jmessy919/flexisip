@@ -206,7 +206,8 @@ Client* Service::createWindowsClient(const std::shared_ptr<MicrosoftRequest>& pn
 	return client.get();
 }
 
-std::shared_ptr<GenericRequest> Service::makeGenericRequest(PushType pType, const std::shared_ptr<const PushInfo>& pInfo) const {
+std::shared_ptr<GenericRequest> Service::makeGenericRequest(PushType pType,
+                                                            const std::shared_ptr<const PushInfo>& pInfo) const {
 	auto request = make_shared<GenericRequest>(pType, pInfo);
 
 	// Set the authentication key in case the native PNR is for the Firebase service.

@@ -389,7 +389,7 @@ static void external_provider_bridge__load_balancing() {
 
 	uint32_t i = 0;
 	for (; i < maxCallsPerLine; i++) {
-		const auto decline = accman.onCallCreate(*call, *address, *params);
+		const auto decline = accman.onCallCreate(*call, address, *params);
 		BC_ASSERT_TRUE(decline == linphone::Reason::None);
 		tally[params->getAccount().get()]++;
 	}
@@ -407,11 +407,11 @@ static void external_provider_bridge__load_balancing() {
 
 	// Finish saturating all the lines
 	for (; i < maxCallsPerLine * line_count; i++) {
-		BC_ASSERT_TRUE(accman.onCallCreate(*call, *address, *params) == linphone::Reason::None);
+		BC_ASSERT_TRUE(accman.onCallCreate(*call, address, *params) == linphone::Reason::None);
 	}
 
 	// Only now would the call get rejected
-	BC_ASSERT_FALSE(accman.onCallCreate(*call, *address, *params) == linphone::Reason::None);
+	BC_ASSERT_FALSE(accman.onCallCreate(*call, address, *params) == linphone::Reason::None);
 }
 
 static void external_provider_bridge__parse_register_authenticate() {
@@ -499,7 +499,7 @@ static void external_provider_bridge__override_special_options() {
 	params->setMediaEncryption(MediaEncryption::ZRTP);
 	params->enableAvpf(true);
 
-	const auto decline = accman.onCallCreate(*call, *calleeAddr, *params);
+	const auto decline = accman.onCallCreate(*call, calleeAddr, *params);
 
 	BC_ASSERT_TRUE(decline == linphone::Reason::None);
 	// Special call params overriden

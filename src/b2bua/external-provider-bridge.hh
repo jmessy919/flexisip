@@ -71,6 +71,7 @@ private:
 	std::regex pattern;
 	MatchTarget matchTarget;
 	std::vector<Account> accounts;
+	std::shared_ptr<linphone::Address> callbackURI;
 	std::string name;
 	stl_backports::optional<bool> overrideAvpf;
 	stl_backports::optional<linphone::MediaEncryption> overrideEncryption;
@@ -78,6 +79,7 @@ private:
 	ExternalSipProvider(std::string&& pattern,
 	                    std::optional<MatchTarget> matchTarget,
 	                    std::vector<Account>&& accounts,
+	                    std::shared_ptr<linphone::Address>&& callbackURI,
 	                    std::string&& name,
 	                    const stl_backports::optional<bool>& overrideAvpf,
 	                    const stl_backports::optional<linphone::MediaEncryption>& overrideEncryption);
@@ -101,6 +103,7 @@ struct ProviderDesc {
 	bool registrationRequired;
 	uint32_t maxCallsPerLine;
 	std::vector<AccountDesc> accounts;
+	std::string callbackURI;
 	stl_backports::optional<bool> overrideAvpf;
 	stl_backports::optional<linphone::MediaEncryption> overrideEncryption;
 };
@@ -114,7 +117,7 @@ public:
 
 	void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) override;
 	linphone::Reason onCallCreate(const linphone::Call& incomingCall,
-	                              linphone::Address& callee,
+	                              std::shared_ptr<linphone::Address>& callee,
 	                              linphone::CallParams& outgoingCallParams) override;
 	void onCallEnd(const linphone::Call& call) override;
 
@@ -128,6 +131,7 @@ private:
 
 	std::unique_ptr<std::pair<std::reference_wrapper<ExternalSipProvider>, std::reference_wrapper<Account>>>
 	findAccountToCall(const std::string& fromUri, const std::string& destinationUri);
+	const ExternalSipProvider* findIncomingProvider(const linphone::Address& requestURI) const noexcept;
 };
 
 } // namespace bridge

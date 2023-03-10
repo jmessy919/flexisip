@@ -90,11 +90,13 @@ bool Account::isAvailable() const {
 ExternalSipProvider::ExternalSipProvider(string&& pattern,
                                          std::optional<MatchTarget> matchTarget,
                                          vector<Account>&& accounts,
+                                         std::shared_ptr<linphone::Address>&& callbackURI,
                                          string&& name,
                                          const optional<bool>& overrideAvpf,
                                          const optional<linphone::MediaEncryption>& overrideEncryption)
     : pattern(move(pattern)), matchTarget(matchTarget.value_or(MatchTarget::ToUri)), accounts(move(accounts)),
-      name(move(name)), overrideAvpf(overrideAvpf), overrideEncryption(overrideEncryption) {
+      callbackURI(move(callbackURI)), name(move(name)), overrideAvpf(overrideAvpf),
+      overrideEncryption(overrideEncryption) {
 }
 
 void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& provDescs) {
@@ -142,8 +144,17 @@ void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& 
 
 			accounts.emplace_back(Account(move(account), move(provDesc.maxCallsPerLine)));
 		}
+
+		auto callbackAddress = std::shared_ptr<linphone::Address>{};
+		if (const auto& callbackURI = provDesc.callbackURI; !callbackURI.empty()) {
+			callbackAddress = core.createAddress(callbackURI);
+			if (callbackAddress == nullptr) {
+				LOGF("Invalid callback URI for provider '%s'", provDesc.name.c_str());
+			}
+		}
+
 		providers.emplace_back(ExternalSipProvider(move(provDesc.pattern), provDesc.matchTarget, move(accounts),
-		                                           move(provDesc.name), provDesc.overrideAvpf,
+		                                           move(callbackAddress), move(provDesc.name), provDesc.overrideAvpf,
 		                                           provDesc.overrideEncryption));
 	}
 }
@@ -205,10 +216,11 @@ void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip
 			throw invalid_argument{"invalid value for 'matchTarget' parameter: '" + matchTargetStr + "'"};
 		}
 
-		providers.emplace_back(
-		    ProviderDesc{provider["name"].asString(), provider["pattern"].asString(), matchTarget,
-		                 provider["outboundProxy"].asString(), provider["registrationRequired"].asBool(),
-		                 provider["maxCallsPerLine"].asUInt(), move(accounts), overrideAvpf, overrideEncryption});
+		providers.emplace_back(ProviderDesc{provider["name"].asString(), provider["pattern"].asString(), matchTarget,
+		                                    provider["outboundProxy"].asString(),
+		                                    provider["registrationRequired"].asBool(),
+		                                    provider["maxCallsPerLine"].asUInt(), move(accounts),
+		                                    provider["callbackURI"].asString(), overrideAvpf, overrideEncryption});
 	}
 
 	initFromDescs(*core, move(providers));
@@ -238,11 +250,31 @@ AccountManager::findAccountToCall(const string& fromUri, const string& destinati
 	return nullptr;
 }
 
+const ExternalSipProvider* AccountManager::findIncomingProvider(const linphone::Address& requestURI) const noexcept {
+	auto it = find_if(providers.cbegin(), providers.cend(), [&requestURI](const auto& provider) {
+		const auto& accounts = provider.accounts;
+		return accounts.cend() != find_if(accounts.cbegin(), accounts.cend(), [&requestURI](const auto& account) {
+			       const auto& contactAddress = account.account->getContactAddress();
+			       return contactAddress && requestURI.weakEqual(contactAddress);
+		       });
+	});
+	return it != providers.cend() ? it.base() : nullptr;
+}
+
 linphone::Reason AccountManager::onCallCreate(const linphone::Call& incomingCall,
-                                              linphone::Address& callee,
+                                              std::shared_ptr<linphone::Address>& callee,
                                               linphone::CallParams& outgoingCallParams) {
 	const auto fromUri = incomingCall.getRemoteAddress()->asString();
-	const auto pair = findAccountToCall(fromUri, callee.asStringUriOnly());
+	const auto& requestUri = incomingCall.getRequestAddress();
+
+	const auto* incomingSipProvider = findIncomingProvider(*requestUri);
+	if (incomingSipProvider) {
+		outgoingCallParams.setFromHeader(incomingCall.getRemoteAddress()->asString());
+		callee = incomingSipProvider->callbackURI->clone();
+		return linphone::Reason::None;
+	}
+
+	const auto pair = findAccountToCall(fromUri, callee->asStringUriOnly());
 	if (!pair) {
 		SLOGD << "No external accounts available to bridge the call";
 		return linphone::Reason::NotAcceptable;
@@ -252,7 +284,7 @@ linphone::Reason AccountManager::onCallCreate(const linphone::Call& incomingCall
 	occupiedSlots[incomingCall.getCallLog()->getCallId()] = &extAccount;
 	extAccount.freeSlots--;
 	const auto& linAccount = extAccount.account;
-	callee.setDomain(linAccount->getParams()->getIdentityAddress()->getDomain());
+	callee->setDomain(linAccount->getParams()->getIdentityAddress()->getDomain());
 	outgoingCallParams.setAccount(linAccount);
 	const auto& provider = pair->first.get();
 	if (const auto& mediaEncryption = provider.overrideEncryption) {
