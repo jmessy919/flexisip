@@ -336,14 +336,37 @@ void B2buaServer::_init() {
 	// Get transport from flexisip configuration
 	std::string mTransport = config->get<ConfigString>("transport")->read();
 	if (mTransport.length() > 0) {
-		sofiasip::Home mHome;
-		url_t* urlTransport = url_make(mHome.home(), mTransport.c_str());
-		if (urlTransport == nullptr || mTransport.at(0) == '<') {
+		try {
+			const auto urlTransport = SipUri{mTransport};
+			const auto scheme = urlTransport.getScheme();
+			const auto transportParam = urlTransport.getParam("transport");
+			const auto listeningPort = stoi(urlTransport.getPort(true));
+			if (scheme == "sip") {
+				if (transportParam.empty() || transportParam == "udp") {
+					b2buaTransport->setUdpPort(listeningPort);
+				} else if (transportParam == "tcp") {
+					b2buaTransport->setTcpPort(listeningPort);
+				} else if (transportParam == "tls") {
+					b2buaTransport->setTlsPort(listeningPort);
+				} else {
+					throw sofiasip::InvalidUrlError{
+					    mTransport, "invalid transport parameter value for 'sip' scheme: "s + transportParam};
+				}
+			} else if (scheme == "sips") {
+				if (transportParam == "udp") {
+					b2buaTransport->setDtlsPort(listeningPort);
+				} else if (transportParam.empty() || transportParam == "tcp") {
+					b2buaTransport->setTlsPort(listeningPort);
+				} else {
+					throw sofiasip::InvalidUrlError{
+					    mTransport, "invalid transport parameter value for 'sips' scheme: "s + transportParam};
+				}
+			}
+		} catch (const sofiasip::InvalidUrlError& e) {
 			LOGF("B2bua server: Your configured conference transport(\"%s\") is not an URI.\n"
-			     "If you have \"<>\" in your transport, remove them.",
-			     mTransport.c_str());
-		}
-		b2buaTransport->setTcpPort(stoi(urlTransport->url_port));
+			     "%s",
+			     mTransport.c_str(), e.what());
+		};
 	}
 
 	mCore->setTransports(b2buaTransport);
