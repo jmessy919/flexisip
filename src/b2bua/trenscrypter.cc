@@ -184,19 +184,10 @@ linphone::Reason Trenscrypter::onCallCreate(const linphone::Call& incomingCall,
 
 void Trenscrypter::init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& configRoot) {
 	mCore = core;
-	const auto config = configRoot.get<GenericStruct>(configSection);
+	const auto* config = configRoot.get<GenericStruct>(configSection);
 
-	// create a non registered account to force route outgoing call through the proxy
-	auto route = mCore->createAddress(
-	    configRoot.get<GenericStruct>(b2bua::configSection)->get<ConfigString>("outbound-proxy")->read());
-	auto accountParams = mCore->createAccountParams();
-	accountParams->setIdentityAddress(mCore->createAddress(mCore->getPrimaryContact()));
-	accountParams->enableRegister(false);
-	accountParams->setServerAddress(route);
-	accountParams->setRoutesAddresses({route});
-	auto account = mCore->createAccount(accountParams);
-	mCore->addAccount(account);
-	mCore->setDefaultAccount(account);
+	// Common initializations
+	BridgedCallApplication::init(core, configRoot);
 
 	// Parse configuration for outgoing encryption mode
 	auto outgoingEncryptionList = config->get<ConfigStringList>("outgoing-enc-regex")->read();

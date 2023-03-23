@@ -164,6 +164,9 @@ AccountManager::AccountManager(linphone::Core& core, vector<ProviderDesc>&& prov
 }
 
 void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) {
+	// Common initializations
+	BridgedCallApplication::init(core, config);
+
 	auto filePath = config.get<GenericStruct>(configSection)->get<ConfigString>(providersConfigItem)->read();
 	if (filePath[0] != '/') {
 		// Interpret as relative to config file

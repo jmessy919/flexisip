@@ -32,11 +32,27 @@ namespace flexisip {
 
 // b2bua namespace to declare internal structures
 namespace b2bua {
+
 struct callsRefs {
 	std::shared_ptr<linphone::Call> legA; /**< legA is the incoming call intercepted by the b2bua */
 	std::shared_ptr<linphone::Call> legB; /**< legB is the call initiated by the b2bua to the original recipient */
 	std::shared_ptr<linphone::Conference> conf; /**< the conference created to connect legA and legB */
 };
+
+void BridgedCallApplication::init(const std::shared_ptr<linphone::Core>& core, const GenericStruct& configRoot) {
+	// create a non registered account to force route outgoing call through the proxy
+	auto route = core->createAddress(
+	    configRoot.get<GenericStruct>(b2bua::configSection)->get<ConfigString>("outbound-proxy")->read());
+	auto accountParams = core->createAccountParams();
+	accountParams->setIdentityAddress(core->createAddress(core->getPrimaryContact()));
+	accountParams->enableRegister(false);
+	accountParams->setServerAddress(route);
+	accountParams->setRoutesAddresses({route});
+	auto account = core->createAccount(accountParams);
+	core->addAccount(account);
+	core->setDefaultAccount(account);
+}
+
 } // namespace b2bua
 
 // unamed namespace for local functions

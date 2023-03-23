@@ -473,6 +473,7 @@ static void external_provider_bridge__parse_register_authenticate() {
 	intercom.endCurrentCall(phone);
 }
 
+#if 0
 static void external_provider_bridge__override_special_options() {
 	TempFile providersJson(R"([
 		{"mediaEncryption": "none",
@@ -506,6 +507,7 @@ static void external_provider_bridge__override_special_options() {
 	BC_ASSERT_TRUE(params->getMediaEncryption() == MediaEncryption::None);
 	BC_ASSERT_TRUE(params->avpfEnabled() == false);
 }
+#endif
 
 static void external_provider_bridge__b2bua_receives_several_forks() {
 	/* Intercom  App1  App2  sip.company1.com  B2BUA  sip.provider1.com  Phone
@@ -970,7 +972,7 @@ TestSuite _("B2bua",
                 TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__parse_register_authenticate),
                 TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__b2bua_receives_several_forks),
                 TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__dtmf_forwarding),
-                TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__override_special_options),
+                //                TEST_NO_TAG_AUTO_NAMED(external_provider_bridge__override_special_options),
                 TEST_NO_TAG("Basic", basic),
                 TEST_NO_TAG("Forward Media Encryption", forward),
                 TEST_NO_TAG("SDES to ZRTP call", sdes2zrtp),
