@@ -1044,6 +1044,7 @@ int main(int argc, char* argv[]) {
 	if (startB2bua) {
 #if ENABLE_B2BUA
 		b2buaServer = make_shared<flexisip::B2buaServer>(root);
+		b2buaServer->useIgnoreHeader(false);
 		if (daemonMode) {
 			notifyWatchDog();
 		}

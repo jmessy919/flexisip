@@ -95,7 +95,9 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 			// callId
 			auto outgoingCallParams = mCore->createCallParams(call);
 			// add this custom header so this call will not be intercepted by the b2bua
-			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+			if (mUseIgnoreHeader) {
+				outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+			}
 
 			const auto decline = mApplication->onCallCreate(*call, callee, *outgoingCallParams);
 			if (decline != linphone::Reason::None) {
@@ -164,7 +166,9 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 				SLOGD << "b2bua server leg B running -> answer legA";
 				auto incomingCallParams = mCore->createCallParams(peerCall);
 				// add this custom header so this call will not be intercepted by the b2bua
-				incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				if (mUseIgnoreHeader) {
+					incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				}
 				// enforce same video/audio enable to legA than on legB - manage video rejected by legB
 				incomingCallParams->enableAudio(call->getCurrentParams()->audioEnabled());
 				incomingCallParams->enableVideo(call->getCurrentParams()->videoEnabled());
@@ -255,7 +259,9 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 			if (update) {
 				SLOGD << "update peer call";
 				// add this custom header so this call will not be intercepted by the b2bua
-				peerCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				if (mUseIgnoreHeader) {
+					peerCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				}
 				peerCall->update(peerCallParams);
 				call->deferUpdate();
 			} else { // no update on video/audio status, just accept it with requested params
