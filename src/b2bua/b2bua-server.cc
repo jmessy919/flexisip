@@ -266,7 +266,7 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 				call->deferUpdate();
 			} else { // no update on video/audio status, just accept it with requested params
 				SLOGD << "accept update without forwarding it to peer call";
-				call->acceptUpdate(call->getRemoteParams());
+				call->acceptUpdate(peerCallParams);
 			}
 		} break;
 		case linphone::Call::State::IncomingEarlyMedia:
