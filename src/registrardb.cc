@@ -675,7 +675,7 @@ void Record::update(const sip_t* sip,
 void Record::update(const ExtendedContactCommon& ecc,
                     const char* sipuri,
                     long expireAt,
-                    float q,
+                    float,
                     uint32_t cseq,
                     time_t updated_time,
                     bool alias,
@@ -886,7 +886,7 @@ private:
 	}
 	void onInvalid() override {
 	}
-	void onContactUpdated(const std::shared_ptr<ExtendedContact>& ec) override {
+	void onContactUpdated(const std::shared_ptr<ExtendedContact>&) override {
 	}
 
 	string mUid;
@@ -995,7 +995,7 @@ int RegistrarDb::countSipContacts(const sip_contact_t* contact) {
 
 bool RegistrarDb::errorOnTooMuchContactInBind(const sip_contact_t* sip_contact,
                                               const string& key,
-                                              const shared_ptr<RegistrarDbListener>& listener) {
+                                              const shared_ptr<RegistrarDbListener>&) {
 	int nb_contact = this->countSipContacts(sip_contact);
 	int max_contact = Record::getMaxContacts();
 	if (nb_contact > max_contact) {
@@ -1163,7 +1163,7 @@ public:
 		}
 	}
 
-	void onContactUpdated(const shared_ptr<ExtendedContact>& ec) override {
+	void onContactUpdated(const shared_ptr<ExtendedContact>&) override {
 	}
 
 private:
@@ -1261,7 +1261,7 @@ void RegistrarDb::fetchList(const vector<SipUri> urls, const shared_ptr<ListCont
 			if (r) listListener->records.push_back(r);
 			updateCount();
 		}
-		void onContactUpdated(const shared_ptr<ExtendedContact>& ec) override {
+		void onContactUpdated(const shared_ptr<ExtendedContact>&) override {
 		}
 		void updateCount() {
 			count--;
@@ -1413,7 +1413,7 @@ public:
 		checkFinished();
 	}
 
-	virtual void onContactUpdated(const shared_ptr<ExtendedContact>& ec) override {
+	virtual void onContactUpdated(const shared_ptr<ExtendedContact>&) override {
 	}
 };
 

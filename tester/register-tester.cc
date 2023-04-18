@@ -43,7 +43,7 @@ static int expectedFetchingDone = 0;
 
 class RegisterBindListener : public ContactUpdateListener {
 public:
-	void onRecordFound(const shared_ptr<Record>& r) override {
+	void onRecordFound(const shared_ptr<Record>&) override {
 		bidingDone++;
 	}
 	void onError() override {
@@ -52,7 +52,7 @@ public:
 	void onInvalid() override {
 		BC_FAIL("Only onRecordFound must be called.");
 	}
-	void onContactUpdated(const std::shared_ptr<ExtendedContact>& ec) override {
+	void onContactUpdated(const std::shared_ptr<ExtendedContact>&) override {
 		BC_FAIL("Only onRecordFound must be called.");
 	}
 };
@@ -90,7 +90,7 @@ public:
 	void onInvalid() override {
 		BC_FAIL("Only onRecordFound must be called.");
 	}
-	void onContactUpdated(const std::shared_ptr<ExtendedContact>& ec) override {
+	void onContactUpdated([[maybe_unused]] const std::shared_ptr<ExtendedContact>& ec) override {
 		BC_FAIL("Only onRecordFound must be called.");
 	}
 

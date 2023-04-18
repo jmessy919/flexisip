@@ -38,7 +38,7 @@ static inline char *parseOptionalField(cJSON *json, const char *field) {
 	return cObj ? cObj->valuestring : NULL;
 }
 
-bool RecordSerializerJson::parse(const char *str, int len, Record *r) {
+bool RecordSerializerJson::parse(const char *str, int, Record *r) {
 	if (!str)
 		return true;
 

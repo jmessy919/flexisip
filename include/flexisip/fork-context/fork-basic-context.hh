@@ -43,7 +43,7 @@ protected:
 	void onResponse(const std::shared_ptr<BranchInfo>& br, const std::shared_ptr<ResponseSipEvent>& event) override;
 
 	OnNewRegisterAction
-	onNewRegister(const SipUri& url, const std::string& uid, const DispatchFunction& dispatchFunction) override {
+	onNewRegister(const SipUri&, const std::string&, const DispatchFunction&) override {
 		return OnNewRegisterAction::NoChanges;
 	}
 
