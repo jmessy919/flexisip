@@ -2,14 +2,15 @@
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+#include "extended-contact.hh"
+
+#include <chrono>
+
 #include <sofia-sip/sip_tag.h>
 
 #include "registrar-db.hh"
-
 #include "utils/uri-utils.hh"
 #include "utils/utf8-string.hh"
-
-#include "extended-contact.hh"
 
 using namespace std;
 
@@ -19,13 +20,13 @@ ostream& ExtendedContact::print(ostream& stream, time_t _now, time_t _offset) co
 	time_t now = _now;
 	time_t offset = _offset;
 	char buffer[256] = "UNDETERMINED";
-	time_t expire = mExpireAt;
+	time_t expire = getExpireTime();
 	expire += offset;
 	struct tm* ptm = localtime(&expire);
 	if (ptm != nullptr) {
 		strftime(buffer, sizeof(buffer) - 1, "%c", ptm);
 	}
-	int expireAfter = mExpireNotAtMessage - now;
+	int expireAfter = expire - now;
 
 	stream << "ExtendedContact[" << this << "]( ";
 	stream << urlToString(mSipContact->m_url) << " path=\"";
@@ -69,10 +70,7 @@ const string ExtendedContact::getMessageExpires(const msg_param_t* m_params) {
 	return RegistrarDb::get()->getMessageExpires(m_params);
 }
 
-sip_contact_t* ExtendedContact::toSofiaContact(su_home_t* home, time_t now) const {
-	time_t expire = mExpireAt - now;
-	if (expire <= 0) return nullptr;
-
+sip_contact_t* ExtendedContact::toSofiaContact(su_home_t* home) const {
 	mSipContact->m_next = nullptr;
 	return sip_contact_dup(home, mSipContact);
 }
@@ -178,8 +176,7 @@ string ExtendedContact::serializeAsUrlEncodedParams() {
 	url_param_add(home.home(), contact->m_url, param.c_str());
 
 	// Expire
-	auto expire = mExpireNotAtMessage - getCurrentTime();
-	param = "expires=" + to_string(expire);
+	param = "expires=" + to_string(mExpires.count());
 	url_param_add(home.home(), contact->m_url, param.c_str());
 
 	// CSeq
@@ -187,7 +184,7 @@ string ExtendedContact::serializeAsUrlEncodedParams() {
 	url_param_add(home.home(), contact->m_url, param.c_str());
 
 	// Updated at
-	param = "updatedAt=" + to_string(mUpdatedTime);
+	param = "updatedAt=" + to_string(mRegisterTime);
 	url_param_add(home.home(), contact->m_url, param.c_str());
 
 	// Alias
@@ -234,16 +231,10 @@ void ExtendedContact::init(bool initExpire) {
 		}
 
 		if (initExpire) {
-			int expire = resolveExpire(mSipContact->m_expires, mExpireNotAtMessage);
-			mExpireNotAtMessage = mUpdatedTime + expire;
-			expire = resolveExpire(getMessageExpires(mSipContact->m_params).c_str(), expire);
-			if (expire == -1) {
-				LOGE("no global expire (%li) nor local contact expire (%s)found", mExpireNotAtMessage,
-				     mSipContact->m_expires);
-				expire = 0;
+			mMessageExpires = chrono::seconds(atoi(getMessageExpires(mSipContact->m_params).c_str()));
+			if (mSipContact->m_expires) {
+				mExpires = chrono::seconds(atoi(mSipContact->m_expires));
 			}
-			mExpireAt = mUpdatedTime + expire;
-			mExpireAt = mExpireAt > mExpireNotAtMessage ? mExpireAt : mExpireNotAtMessage;
 		}
 		auto pnProvider = UriUtils::getParamValue(mSipContact->m_url->url_params, "pn-provider");
 		auto pnPrId = UriUtils::getParamValue(mSipContact->m_url->url_params, "pn-prid");
@@ -313,10 +304,10 @@ void ExtendedContact::extractInfoFromUrl(const char* full_url) {
 	mCallId = extractStringParam(url, "callid");
 
 	// Expire
-	mExpireNotAtMessage = extractIntParam(url, "expires");
+	mExpires = chrono::seconds(extractIntParam(url, "expires"));
 
 	// Update time
-	mUpdatedTime = extractUnsignedLongParam(url, "updatedAt");
+	mRegisterTime = extractUnsignedLongParam(url, "updatedAt");
 
 	// CSeq
 	mCSeq = extractIntParam(url, "cseq");

@@ -26,6 +26,8 @@
 #include "fork-context/fork-basic-context.hh"
 #include "fork-context/fork-call-context.hh"
 #include "fork-context/fork-message-context.hh"
+#include "registrar/change-set.hh"
+#include "registrar/extended-contact.hh"
 #include "registrar/record.hh"
 #include "router/agent-injector.hh"
 #include "router/inject-context.hh"
@@ -209,7 +211,7 @@ void ModuleRouter::onLoad(const GenericStruct* mc) {
 
 	if (mMessageForkCfg->mForkLate) {
 		mOnContactRegisteredListener = make_shared<OnContactRegisteredListener>(this);
-		#if ENABLE_SOCI
+#if ENABLE_SOCI
 		if ((mMessageForkCfg->mSaveForkMessageEnabled = mc->get<ConfigBoolean>("message-database-enabled")->read())) {
 			InjectContext::setMaxRequestRetentionTime(
 			    seconds{mc->get<ConfigInt>("max-request-retention-time")->read()});
@@ -220,7 +222,7 @@ void ModuleRouter::onLoad(const GenericStruct* mc) {
 
 			restoreForksFromDatabase();
 		} else
-		#endif
+#endif
 		{
 			mInjector = make_unique<AgentInjector>(this);
 		}
@@ -292,8 +294,7 @@ std::shared_ptr<BranchInfo> ModuleRouter::dispatch(const shared_ptr<ForkContext>
 
 	const auto& ev = context->getEvent();
 	const auto& ms = ev->getMsgSip();
-	time_t now = getCurrentTime();
-	sip_contact_t* ct = contact->toSofiaContact(ms->getHome(), now);
+	sip_contact_t* ct = contact->toSofiaContact(ms->getHome());
 	url_t* dest = ct->m_url;
 
 	/*sanity check on the contact address: might be '*' or whatever useless information*/
@@ -374,7 +375,7 @@ void ModuleRouter::onContactRegistered(const std::shared_ptr<OnContactRegistered
 		forksFound = true;
 		const shared_ptr<ExtendedContact> ec = record->extractContactByUniqueId(uid);
 		if (ec) {
-			contact = ec->toSofiaContact(home.home(), ec->mExpireAt - 1);
+			contact = ec->toSofiaContact(home.home());
 
 			// First use sipURI
 			mInjector->addContext(range, ec->contactId());
@@ -389,7 +390,7 @@ void ModuleRouter::onContactRegistered(const std::shared_ptr<OnContactRegistered
 		if (!ec || !ec->mAlias) continue;
 
 		// Find all contexts
-		contact = ec->toSofiaContact(home.home(), ec->mExpireAt - 1);
+		contact = ec->toSofiaContact(home.home());
 		auto rang = getLateForks(ExtendedContact::urlToString(ec->mSipContact->m_url));
 		mInjector->addContext(rang, ec->contactId());
 		for (const auto& context : rang) {
@@ -495,7 +496,7 @@ private:
 void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_ptr<Record>& aor, const url_t* sipUri) {
 	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
 	sip_t* sip = ms->getSip();
-	list<shared_ptr<ExtendedContact>> contacts;
+	Record::Contacts contacts{};
 	list<pair<sip_contact_t*, shared_ptr<ExtendedContact>>> usable_contacts;
 	bool isInvite = false;
 
@@ -509,19 +510,15 @@ void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_pt
 	// _Copy_ list of extended contacts
 	if (aor) contacts = aor->getExtendedContacts();
 
-	time_t now = getCurrentTime();
+	auto now = getCurrentTime();
 
 	// now, create the list of usable contacts to fork to
 	bool nonSipsFound = false;
 	for (auto it = contacts.begin(); it != contacts.end(); ++it) {
 		const shared_ptr<ExtendedContact>& ec = *it;
-		sip_contact_t* ct = ec->toSofiaContact(ms->getHome(), now);
-		if (!ct) {
-			SLOGE << "Can't create sip_contact of " << ec->mSipContact->m_url;
-			continue;
-		}
+		sip_contact_t* ct = ec->toSofiaContact(ms->getHome());
 		// If it's not a message, verify if it's really expired
-		if (sip->sip_request->rq_method != sip_method_message && (ec->getExpireNotAtMessage() < now)) {
+		if (sip->sip_request->rq_method != sip_method_message && (ec->getSipExpireTime() <= now)) {
 			LOGD("Sip_contact of %s is expired", url_as_string(ms->getHome(), ec->mSipContact->m_url));
 			continue;
 		}
@@ -565,23 +562,23 @@ void ModuleRouter::routeRequest(shared_ptr<RequestSipEvent>& ev, const shared_pt
 	           !(sip->sip_content_type &&
 	             strcasecmp(sip->sip_content_type->c_type, "application/im-iscomposing+xml") == 0) &&
 	           !(sip->sip_expires && sip->sip_expires->ex_delta == 0)) {
-		// Use the basic fork context for "im-iscomposing+xml" messages to prevent storing useless messages
-		#if ENABLE_SOCI
+// Use the basic fork context for "im-iscomposing+xml" messages to prevent storing useless messages
+#if ENABLE_SOCI
 		if (mMessageForkCfg->mSaveForkMessageEnabled) {
 			context = ForkMessageContextDbProxy::make(shared_from_this(), ev, msgPriority);
 		} else
-		#endif
+#endif
 		{
 			context = ForkMessageContext::make(shared_from_this(), ev, shared_from_this(), msgPriority);
 		}
 	} else if (sip->sip_request->rq_method == sip_method_refer &&
 	           (sip->sip_refer_to != nullptr && msg_params_find(sip->sip_refer_to->r_params, "text") != nullptr)) {
-		// Use the message fork context only for refers that are text to prevent storing useless refers
-		#if ENABLE_SOCI
+// Use the message fork context only for refers that are text to prevent storing useless refers
+#if ENABLE_SOCI
 		if (mMessageForkCfg->mSaveForkMessageEnabled) {
 			context = ForkMessageContextDbProxy::make(shared_from_this(), ev, msgPriority);
 		} else
-		#endif
+#endif
 		{
 			context = ForkMessageContext::make(shared_from_this(), ev, shared_from_this(), msgPriority);
 		}
@@ -648,7 +645,8 @@ class PreroutingFetcher : public ContactUpdateListener,
 	shared_ptr<Record> m_record;
 
 public:
-	// Adding maybe_unused after the argument because of C++ compiler bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81429
+	// Adding maybe_unused after the argument because of C++ compiler bug:
+	// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81429
 	PreroutingFetcher(ModuleRouter* module [[maybe_unused]],
 	                  shared_ptr<RequestSipEvent> ev,
 	                  const shared_ptr<ContactUpdateListener>& listener,
@@ -676,9 +674,7 @@ public:
 	void onRecordFound(const shared_ptr<Record>& r) override {
 		--pending;
 		if (r != NULL) {
-			const auto& ctlist = r->getExtendedContacts();
-			for (auto it = ctlist.begin(); it != ctlist.end(); ++it)
-				m_record->pushContact(*it);
+			m_record->appendContactsFrom(r);
 		}
 		checkFinished();
 	}
@@ -716,7 +712,8 @@ class TargetUriListFetcher : public ContactUpdateListener,
 	bool mError = false;
 
 public:
-	// Adding maybe_unused after the argument because of C++ compiler bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81429
+	// Adding maybe_unused after the argument because of C++ compiler bug:
+	// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=81429
 	TargetUriListFetcher(ModuleRouter* module [[maybe_unused]],
 	                     const shared_ptr<RequestSipEvent>& ev,
 	                     const shared_ptr<ContactUpdateListener>& listener,
@@ -756,9 +753,7 @@ public:
 	void onRecordFound(const shared_ptr<Record>& r) override {
 		--mPending;
 		if (r != NULL) {
-			const auto& ctlist = r->getExtendedContacts();
-			for (auto it = ctlist.begin(); it != ctlist.end(); ++it)
-				mRecord->pushContact(*it);
+			mRecord->appendContactsFrom(r);
 		}
 		checkFinished();
 	}
@@ -783,12 +778,13 @@ public:
 			mListener->onError();
 		} else {
 			if (mRecord->count() > 0) {
+				auto& contacts = mRecord->getExtendedContacts();
 				/*also add aliases in the ExtendedContact list for the searched AORs, so that they are added to the
 				 * ForkMap.*/
 				for (const auto& uri : mUriList) {
 					shared_ptr<ExtendedContact> alias = make_shared<ExtendedContact>(uri, "");
 					alias->mAlias = true;
-					mRecord->pushContact(alias);
+					contacts.emplace(move(alias));
 				}
 			}
 			mListener->onRecordFound(mRecord);
@@ -820,10 +816,9 @@ public:
 		}
 
 		if (!mModule->isManagedDomain(mSipUri.get())) {
-			shared_ptr<ExtendedContact> contact = make_shared<ExtendedContact>(mSipUri, "");
-			r->pushContact(contact);
+			const auto contact = r->getExtendedContacts().emplace(make_shared<ExtendedContact>(mSipUri, ""));
 
-			SLOGD << "Record [" << r << "] Original request URI added because domain is not managed: " << *contact;
+			SLOGD << "Record [" << r << "] Original request URI added because domain is not managed: " << **contact;
 		}
 
 		if (!fallbackRoute.empty() && mModule->getFallbackRouteFilter()->eval(*mEv->getMsgSip()->getSip())) {
@@ -831,7 +826,7 @@ public:
 			                                       mModule->getFallbackRouteParsed())) {
 				shared_ptr<ExtendedContact> fallback = make_shared<ExtendedContact>(mSipUri, fallbackRoute, 0.0);
 				fallback->mIsFallback = true;
-				r->pushContact(fallback);
+				r->getExtendedContacts().emplace(fallback);
 				SLOGD << "Record [" << r << "] Fallback route '" << fallbackRoute << "' added: " << *fallback;
 			} else {
 				SLOGD << "Not adding fallback route '" << fallbackRoute
