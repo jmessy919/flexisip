@@ -60,9 +60,6 @@ static constexpr auto dtlsUri = "sip:b2bua_dtlsp@sip.example.org";
 static constexpr auto outboundProxy = "sip:127.0.0.1:5860;transport=tcp";
 
 class B2buaServer : public Server {
-private:
-	std::shared_ptr<flexisip::B2buaServer> mB2buaServer;
-
 public:
 	explicit B2buaServer(const std::string& configFile = std::string(), bool start = true) : Server(configFile) {
 		// Configure B2bua Server
@@ -88,6 +85,16 @@ public:
 	void start() override {
 		mB2buaServer->init();
 
+		// Configure module b2bua
+		const auto configRoot = GenericManager::get()->getRoot();
+		configRoot->get<GenericStruct>("module::Forward")
+		    ->get<ConfigValue>("routes-config-path")
+		    ->set(routingRules.name);
+		const auto& transport = configRoot->get<GenericStruct>("b2bua-server")->get<ConfigString>("transport")->read();
+		routingRules.writeStream() << "<" << transport
+		                           << ">  !(user-agent contains 'flexisip-b2bua') && (request.method == 'INVITE' || "
+		                              "request.method == 'CANCEL')";
+
 		// Start proxy
 		Server::start();
 	}
@@ -101,6 +108,10 @@ public:
 	flexisip::b2bua::BridgedCallApplication& getModule() {
 		return *mB2buaServer->mApplication;
 	}
+
+private:
+	std::shared_ptr<flexisip::B2buaServer> mB2buaServer;
+	TempFile routingRules;
 };
 
 class ExternalClient;
