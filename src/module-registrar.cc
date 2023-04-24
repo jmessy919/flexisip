@@ -181,7 +181,7 @@ OnStaticBindListener::OnStaticBindListener(const url_t* from, const sip_contact_
 	mFrom = url_as_string(mHome.home(), from);
 	mContact = url_as_string(mHome.home(), ct->m_url);
 }
-void OnStaticBindListener::onRecordFound(const shared_ptr<Record>& r) {
+void OnStaticBindListener::onRecordFound([[maybe_unused]] const shared_ptr<Record>& r) {
 	LOGD("Static route added for %s: %s", mFrom.c_str(), mContact.c_str());
 }
 void OnStaticBindListener::onError() {
@@ -190,7 +190,7 @@ void OnStaticBindListener::onError() {
 void OnStaticBindListener::onInvalid() {
 	LOGE("OnStaticBindListener onInvalid");
 }
-void OnStaticBindListener::onContactUpdated(const shared_ptr<ExtendedContact>& ec) {
+void OnStaticBindListener::onContactUpdated([[maybe_unused]] const shared_ptr<ExtendedContact>& ec) {
 }
 
 FakeFetchListener::FakeFetchListener() {
@@ -210,7 +210,7 @@ void FakeFetchListener::onInvalid() {
 	LOGD("FakeFetchListener: onInvalid");
 }
 
-void FakeFetchListener::onContactUpdated(const shared_ptr<ExtendedContact>& ec) {
+void FakeFetchListener::onContactUpdated([[maybe_unused]] const shared_ptr<ExtendedContact>& ec) {
 }
 
 ResponseContext::ResponseContext(const shared_ptr<RequestSipEvent>& ev, int globalDelta) : mRequestSipEvent{ev} {
@@ -292,7 +292,7 @@ static void replyPopulateEventLog(shared_ptr<SipEvent> ev, const sip_t* sip, int
 	}
 }
 
-static void staticRoutesRereadTimerfunc(su_root_magic_t* magic, su_timer_t* t, void* data) {
+static void staticRoutesRereadTimerfunc([[maybe_unused]] su_root_magic_t* magic, [[maybe_unused]] su_timer_t* t, void* data) {
 	ModuleRegistrar* r = (ModuleRegistrar*)data;
 	r->readStaticRecords();
 }
@@ -913,7 +913,7 @@ void ModuleRegistrar::readStaticRecords() {
 	}
 }
 
-void ModuleRegistrar::sighandler(int signum, siginfo_t* info, void* ptr) {
+void ModuleRegistrar::sighandler(int signum, siginfo_t*, void*) {
 	if (signum == SIGUSR1) {
 		LOGI("Received signal triggering static records file re-read");
 		sRegistrarInstanceForSigAction->readStaticRecords();

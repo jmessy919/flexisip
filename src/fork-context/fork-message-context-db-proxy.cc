@@ -131,7 +131,7 @@ bool ForkMessageContextDbProxy::saveToDb(const ForkMessageContextDb& dbFork) {
 	return true;
 }
 
-void ForkMessageContextDbProxy::onForkContextFinished(const shared_ptr<ForkContext>& ctx) {
+void ForkMessageContextDbProxy::onForkContextFinished([[maybe_unused]] const shared_ptr<ForkContext>& ctx) {
 	LOGD("ForkMessageContextDbProxy[%p] onForkContextFinished", this);
 	mIsFinished = true;
 	if (auto originListener = mOriginListener.lock()) {

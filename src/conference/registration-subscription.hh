@@ -97,7 +97,7 @@ class OwnRegistrationSubscription
 		virtual void onRecordFound (const std::shared_ptr<Record> &r) override;
 		virtual void onError () override {};
 		virtual void onInvalid () override {};
-		virtual void onContactUpdated (const std::shared_ptr<ExtendedContact> &ec) override {}
+		virtual void onContactUpdated (const std::shared_ptr<ExtendedContact> &) override {}
 		/*ContactRegisteredListener overrides*/
 		virtual void onContactRegistered(const std::shared_ptr<Record> &r, const std::string &uid) override;
 

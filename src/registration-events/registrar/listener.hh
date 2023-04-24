@@ -33,7 +33,7 @@ public:
 	void onError() override {}
 	void onInvalid() override {}
 	void onContactRegistered(const std::shared_ptr<Record> &r, const std::string &uid) override;
-	void onContactUpdated(const std::shared_ptr<ExtendedContact> &ec) override {}
+	void onContactUpdated(const std::shared_ptr<ExtendedContact> &) override {}
 private:
 	const std::shared_ptr<linphone::Event> mEvent;
 	void processRecord(const std::shared_ptr<Record> &r, const std::string &uidOfFreshlyRegistered);

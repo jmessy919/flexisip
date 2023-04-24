@@ -24,6 +24,7 @@ using namespace std;
 
 namespace sofiasip {
 
+// This function is not signal-safe. (allocates dynamic memory)
 void SuRoot::addToMainLoop(const function<void()>& functionToAdd) {
 	su_msg_r msg = SU_MSG_R_INIT;
 	if (-1 == su_msg_create(msg, su_root_task(mCPtr), su_root_task(mCPtr), mainLoopFunctionCallback,
@@ -39,7 +40,7 @@ void SuRoot::addToMainLoop(const function<void()>& functionToAdd) {
 	}
 }
 
-void SuRoot::mainLoopFunctionCallback(su_root_magic_t* rm, su_msg_t** msg, void* u) noexcept {
+void SuRoot::mainLoopFunctionCallback([[maybe_unused]] su_root_magic_t* rm, su_msg_t** msg, [[maybe_unused]] void* u) noexcept {
 	auto clientCb = *reinterpret_cast<function<void()>**>(su_msg_data(msg));
 	(*clientCb)();
 	delete clientCb;

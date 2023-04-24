@@ -88,8 +88,8 @@ public:
 	void setInfo(ModuleInfoBase *moduleInfo);
 
 protected:
-	virtual void onDeclare(GenericStruct *root) {}
-	virtual void onLoad(const GenericStruct *root) {}
+	virtual void onDeclare(GenericStruct *) {}
+	virtual void onLoad(const GenericStruct *) {}
 	virtual void onUnload() {}
 
 	virtual void onRequest(std::shared_ptr<RequestSipEvent> &ev) = 0;
@@ -100,7 +100,7 @@ protected:
 
 	virtual bool onCheckValidNextConfig() {return true;}
 
-	virtual bool isValidNextConfig(const ConfigValue &cv) {return true;}
+	virtual bool isValidNextConfig(const ConfigValue &) {return true;}
 
 	void sendTrap(const std::string &msg) {GenericManager::get()->sendTrap(mModuleConfig, msg);}
 
