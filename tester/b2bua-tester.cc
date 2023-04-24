@@ -88,11 +88,6 @@ public:
 	void start() override {
 		mB2buaServer->init();
 
-		// Configure module b2bua
-		const auto configRoot = GenericManager::get()->getRoot();
-		const auto& transport = configRoot->get<GenericStruct>("b2bua-server")->get<ConfigString>("transport")->read();
-		configRoot->get<GenericStruct>("module::B2bua")->get<ConfigString>("b2bua-server")->set(transport);
-
 		// Start proxy
 		Server::start();
 	}
@@ -534,12 +529,8 @@ static void external_provider_bridge__b2bua_receives_several_forks() {
 		root->get<GenericStruct>("b2bua-server::sip-bridge")
 		    ->get<ConfigString>("providers")
 		    ->set("b2bua-receives-several-forks.sip-providers.json");
-		// We don't want *every* call to go through the B2BUA, only those tagged with user=phone
-		root->get<GenericStruct>("module::B2bua")
-		    ->get<ConfigValue>("filter")
-		    ->set("request.uri.params contains 'user=phone'");
-		// But we do want *all* user=phone calls to be routed to the B2BUA, even (especially) if they are not within our
-		// managed domains
+		// We want all user=phone calls to be routed to the B2BUA,
+		// even (especially) if they are not within our managed domains
 		root->get<GenericStruct>("module::Forward")
 		    ->get<ConfigValue>("routes-config-path")
 		    ->set(bcTesterRes("config/forward_phone_to_b2bua.rules"));
@@ -668,8 +659,6 @@ static void external_provider_bridge__cli() {
 static void basic() {
 	// Create a server and start it
 	auto server = std::make_shared<Server>("/config/flexisip_b2bua.conf");
-	// flexisip_b2bua config file enables the module B2bua in proxy, disable it for this basic test
-	GenericManager::get()->getRoot()->get<GenericStruct>("module::B2bua")->get<ConfigBoolean>("enabled")->set("false");
 	server->start();
 	{
 		// create clients and register them on the server

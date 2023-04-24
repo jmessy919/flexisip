@@ -81,7 +81,6 @@ add_library(flexisip SHARED
 	module-sanitychecker.cc
 	module-statistics-collector.cc
 	module-transcode.cc module-transcode.hh
-	module-b2bua.cc
 	module.cc
 	monitor.cc monitor.hh
 	plugin/plugin-loader.cc plugin/plugin-loader.hh
