@@ -60,20 +60,29 @@ static constexpr auto dtlsUri = "sip:b2bua_dtlsp@sip.example.org";
 static constexpr auto outboundProxy = "sip:127.0.0.1:5860;transport=tcp";
 
 class B2buaServer : public Server {
-private:
-	std::shared_ptr<flexisip::B2buaServer> mB2buaServer;
-
 public:
 	explicit B2buaServer(const std::string& configFile = std::string(), bool start = true) : Server(configFile) {
 		// Configure B2bua Server
 		auto* b2buaServerConf = GenericManager::get()->getRoot()->get<GenericStruct>("b2bua-server");
 		// b2bua server needs an outbound proxy to route all sip messages to the proxy, set it to the first transport
 		// of the proxy.
-		auto proxyTransports =
-		    GenericManager::get()->getRoot()->get<GenericStruct>("global")->get<ConfigStringList>("transports")->read();
+		const auto configRoot = GenericManager::get()->getRoot();
+		auto proxyTransports = configRoot->get<GenericStruct>("global")->get<ConfigStringList>("transports")->read();
 		b2buaServerConf->get<ConfigString>("outbound-proxy")->set(proxyTransports.front());
 		// need a writable dir to store DTLS-SRTP self signed certificate
 		b2buaServerConf->get<ConfigString>("data-directory")->set(bcTesterWriteDir());
+
+		// Configure module b2bua
+		const string forwardToB2buaRule = "!(user-agent contains 'flexisip-b2bua') && (request.method == 'INVITE' || "
+		                                  "request.method == 'CANCEL')";
+		configRoot->get<GenericStruct>("module::Router")
+		    ->get<ConfigValue>("filter")
+		    ->set("!(" + forwardToB2buaRule + ")");
+		const auto* forwardModule = configRoot->get<GenericStruct>("module::Forward");
+		forwardModule->get<ConfigValue>("routes-config-path")->set(routingRules.name);
+		forwardModule->get<ConfigValue>("rewrite-req-uri")->set("true");
+		const auto& transport = configRoot->get<GenericStruct>("b2bua-server")->get<ConfigString>("transport")->read();
+		routingRules.writeStream() << "<" << transport << "> " << forwardToB2buaRule;
 
 		mB2buaServer = make_shared<flexisip::B2buaServer>(this->getRoot());
 
@@ -88,11 +97,6 @@ public:
 	void start() override {
 		mB2buaServer->init();
 
-		// Configure module b2bua
-		const auto configRoot = GenericManager::get()->getRoot();
-		const auto& transport = configRoot->get<GenericStruct>("b2bua-server")->get<ConfigString>("transport")->read();
-		configRoot->get<GenericStruct>("module::B2bua")->get<ConfigString>("b2bua-server")->set(transport);
-
 		// Start proxy
 		Server::start();
 	}
@@ -106,6 +110,10 @@ public:
 	flexisip::b2bua::BridgedCallApplication& getModule() {
 		return *mB2buaServer->mApplication;
 	}
+
+private:
+	std::shared_ptr<flexisip::B2buaServer> mB2buaServer;
+	TempFile routingRules;
 };
 
 class ExternalClient;
@@ -534,15 +542,14 @@ static void external_provider_bridge__b2bua_receives_several_forks() {
 		root->get<GenericStruct>("b2bua-server::sip-bridge")
 		    ->get<ConfigString>("providers")
 		    ->set("b2bua-receives-several-forks.sip-providers.json");
-		// We don't want *every* call to go through the B2BUA, only those tagged with user=phone
-		root->get<GenericStruct>("module::B2bua")
-		    ->get<ConfigValue>("filter")
-		    ->set("request.uri.params contains 'user=phone'");
-		// But we do want *all* user=phone calls to be routed to the B2BUA, even (especially) if they are not within our
-		// managed domains
+		// We want all user=phone calls to be routed to the B2BUA,
+		// even (especially) if they are not within our managed domains
 		root->get<GenericStruct>("module::Forward")
 		    ->get<ConfigValue>("routes-config-path")
 		    ->set(bcTesterRes("config/forward_phone_to_b2bua.rules"));
+		root->get<GenericStruct>("module::Router")
+		    ->get<ConfigValue>("filter")
+		    ->set("");
 	}
 	server->start();
 
@@ -668,8 +675,6 @@ static void external_provider_bridge__cli() {
 static void basic() {
 	// Create a server and start it
 	auto server = std::make_shared<Server>("/config/flexisip_b2bua.conf");
-	// flexisip_b2bua config file enables the module B2bua in proxy, disable it for this basic test
-	GenericManager::get()->getRoot()->get<GenericStruct>("module::B2bua")->get<ConfigBoolean>("enabled")->set("false");
 	server->start();
 	{
 		// create clients and register them on the server
