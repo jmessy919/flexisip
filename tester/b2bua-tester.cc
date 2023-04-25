@@ -66,11 +66,23 @@ public:
 		auto* b2buaServerConf = GenericManager::get()->getRoot()->get<GenericStruct>("b2bua-server");
 		// b2bua server needs an outbound proxy to route all sip messages to the proxy, set it to the first transport
 		// of the proxy.
-		auto proxyTransports =
-		    GenericManager::get()->getRoot()->get<GenericStruct>("global")->get<ConfigStringList>("transports")->read();
+		const auto configRoot = GenericManager::get()->getRoot();
+		auto proxyTransports = configRoot->get<GenericStruct>("global")->get<ConfigStringList>("transports")->read();
 		b2buaServerConf->get<ConfigString>("outbound-proxy")->set(proxyTransports.front());
 		// need a writable dir to store DTLS-SRTP self signed certificate
 		b2buaServerConf->get<ConfigString>("data-directory")->set(bcTesterWriteDir());
+
+		// Configure module b2bua
+		const string forwardToB2buaRule = "!(user-agent contains 'flexisip-b2bua') && (request.method == 'INVITE' || "
+		                                  "request.method == 'CANCEL')";
+		configRoot->get<GenericStruct>("module::Router")
+		    ->get<ConfigValue>("filter")
+		    ->set("!(" + forwardToB2buaRule + ")");
+		const auto* forwardModule = configRoot->get<GenericStruct>("module::Forward");
+		forwardModule->get<ConfigValue>("routes-config-path")->set(routingRules.name);
+		forwardModule->get<ConfigValue>("rewrite-req-uri")->set("true");
+		const auto& transport = configRoot->get<GenericStruct>("b2bua-server")->get<ConfigString>("transport")->read();
+		routingRules.writeStream() << "<" << transport << "> " << forwardToB2buaRule;
 
 		mB2buaServer = make_shared<flexisip::B2buaServer>(this->getRoot());
 
@@ -84,19 +96,6 @@ public:
 
 	void start() override {
 		mB2buaServer->init();
-
-		// Configure module b2bua
-		const string forwardToB2buaRule = "!(user-agent contains 'flexisip-b2bua') && (request.method == 'INVITE' || "
-		                                  "request.method == 'CANCEL')";
-		const auto configRoot = GenericManager::get()->getRoot();
-		configRoot->get<GenericStruct>("module::Router")
-		    ->get<ConfigValue>("filter")
-		    ->set("!(" + forwardToB2buaRule + ")");
-		const auto* forwardModule = configRoot->get<GenericStruct>("module::Forward");
-		forwardModule->get<ConfigValue>("routes-config-path")->set(routingRules.name);
-		forwardModule->get<ConfigValue>("rewrite-req-uri")->set("true");
-		const auto& transport = configRoot->get<GenericStruct>("b2bua-server")->get<ConfigString>("transport")->read();
-		routingRules.writeStream() << "<" << transport << "> " << forwardToB2buaRule;
 
 		// Start proxy
 		Server::start();
@@ -548,6 +547,9 @@ static void external_provider_bridge__b2bua_receives_several_forks() {
 		root->get<GenericStruct>("module::Forward")
 		    ->get<ConfigValue>("routes-config-path")
 		    ->set(bcTesterRes("config/forward_phone_to_b2bua.rules"));
+		root->get<GenericStruct>("module::Router")
+		    ->get<ConfigValue>("filter")
+		    ->set("");
 	}
 	server->start();
 
