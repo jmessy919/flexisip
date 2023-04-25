@@ -86,14 +86,17 @@ public:
 		mB2buaServer->init();
 
 		// Configure module b2bua
+		const string forwardToB2buaRule = "!(user-agent contains 'flexisip-b2bua') && (request.method == 'INVITE' || "
+		                                  "request.method == 'CANCEL')";
 		const auto configRoot = GenericManager::get()->getRoot();
-		configRoot->get<GenericStruct>("module::Forward")
-		    ->get<ConfigValue>("routes-config-path")
-		    ->set(routingRules.name);
+		configRoot->get<GenericStruct>("module::Router")
+		    ->get<ConfigValue>("filter")
+		    ->set("!(" + forwardToB2buaRule + ")");
+		const auto* forwardModule = configRoot->get<GenericStruct>("module::Forward");
+		forwardModule->get<ConfigValue>("routes-config-path")->set(routingRules.name);
+		forwardModule->get<ConfigValue>("rewrite-req-uri")->set("true");
 		const auto& transport = configRoot->get<GenericStruct>("b2bua-server")->get<ConfigString>("transport")->read();
-		routingRules.writeStream() << "<" << transport
-		                           << ">  !(user-agent contains 'flexisip-b2bua') && (request.method == 'INVITE' || "
-		                              "request.method == 'CANCEL')";
+		routingRules.writeStream() << "<" << transport << "> " << forwardToB2buaRule;
 
 		// Start proxy
 		Server::start();
