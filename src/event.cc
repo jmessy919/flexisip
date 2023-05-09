@@ -74,9 +74,13 @@ SipEvent::~SipEvent() {
 }
 
 void SipEvent::flushLog() {
-	if (mEventLog) {
-		mAgent->logEvent(shared_from_this());
-		mEventLog.reset();
+	if (!mEventLog || !mEventLog->isCompleted()) return;
+	sendLog(mEventLog);
+}
+
+void SipEvent::sendLog(const std::shared_ptr<const EventLogWriteDispatcher>& log) {
+	if (auto logWriter = mAgent->getEventLogWriter()) {
+		logWriter->write(log);
 	}
 }
 

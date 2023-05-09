@@ -81,7 +81,8 @@ private:
 	void onLateTimeout() override;
 	void cancelOthers(const std::shared_ptr<BranchInfo>& br, sip_t* received_cancel);
 	void cancelOthersWithStatus(const std::shared_ptr<BranchInfo>& br, ForkStatus status);
-	void logResponse(const std::shared_ptr<ResponseSipEvent>& ev);
+	void logResponse(const std::shared_ptr<ResponseSipEvent>& ev, const BranchInfo*);
+	void forwardThenLogResponse(const std::shared_ptr<BranchInfo>&);
 	void cancelBranch(const std::shared_ptr<BranchInfo>& brit);
 	bool shouldFinish() override {
 		return !mCfg->mForkLate;

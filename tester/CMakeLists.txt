@@ -72,6 +72,8 @@ add_executable(flexisip_tester
 	sofia-tester.cc
 	sofia-driven-signal-handler-tester.cc
 	tester.cc
+	tests/eventlogs/event-log-stats-tester.cc
+	tests/eventlogs/event-log-writer-visitor-adapter-tester.cc
 	tests/presence/presence-pidf-tester.cc
 	tests/pushnotification/service-tester.cc
 	tests/sofia-wrapper/home-tester.cc
@@ -104,6 +106,7 @@ endif ()
 if (ENABLE_SOCI)
 	target_sources(flexisip_tester PRIVATE
 		fork-context-mysql-tester.cc
+		tests/eventlogs/database-event-log-writer-tester.cc
 	)
 endif()
 

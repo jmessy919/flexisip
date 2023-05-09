@@ -19,12 +19,17 @@
 #include "fork-call-context.hh"
 
 #include <algorithm>
+#include <memory>
 
 #include <sofia-sip/sip_status.h>
 
 #include "flexisip/common.hh"
 
 #include "agent.hh"
+#include "eventlogs/call-ringing-event-log.hh"
+#include "eventlogs/call-started-event-log.hh"
+#include "eventlogs/event-log-writer.hh"
+#include "fork-context/branch-info.hh"
 
 using namespace std;
 
@@ -139,17 +144,21 @@ void ForkCallContext::onResponse(const shared_ptr<BranchInfo>& br, const shared_
 			}
 		} else if (allBranchesAnswered(mCfg->mForkLate)) {
 			shared_ptr<BranchInfo> best = findBestBranch(mCfg->mForkLate);
-			if (best) logResponse(forwardResponse(best));
+			if (best) forwardThenLogResponse(best);
 		} else if (isUrgent(code, getUrgentCodes()) && mShortTimer == nullptr) {
 			mShortTimer = make_unique<sofiasip::Timer>(mAgent->getRoot());
 			mShortTimer->set([this]() { onShortTimer(); }, mCfg->mUrgentTimeout);
 		}
 	} else if (code >= 200) {
-		logResponse(forwardResponse(br));
+		forwardThenLogResponse(br);
 		mCancelled = true;
 		cancelOthersWithStatus(br, ForkStatus::AcceptedElsewhere);
 	} else if (code >= 100) {
-		logResponse(forwardResponse(br));
+		if (code == 180) {
+			mEvent->sendLog(make_shared<CallRingingEventLog>(*mEvent->getMsgSip()->getSip(), br.get()));
+		}
+
+		forwardThenLogResponse(br);
 	}
 
 	checkFinished();
@@ -162,8 +171,16 @@ void ForkCallContext::onPushSent(PushNotificationContext& aPNCtx, bool aRingingP
 	}
 }
 
-void ForkCallContext::logResponse(const shared_ptr<ResponseSipEvent>& ev) {
+void ForkCallContext::forwardThenLogResponse(const shared_ptr<BranchInfo>& branch) {
+	logResponse(forwardResponse(branch), branch.get());
+}
+
+void ForkCallContext::logResponse(const shared_ptr<ResponseSipEvent>& ev, const BranchInfo* branch) {
 	if (ev) {
+		if (branch) {
+			mLog->mDevice.emplace(*branch->mContact);
+		}
+
 		sip_t* sip = ev->getMsgSip()->getSip();
 		mLog->setStatusCode(sip->sip_status->st_status, sip->sip_status->st_phrase);
 
@@ -240,7 +257,7 @@ void ForkCallContext::onShortTimer() {
 
 	auto br = findBestBranch(mCfg->mForkLate);
 
-	if (br) logResponse(forwardResponse(br));
+	if (br) forwardThenLogResponse(br);
 }
 
 void ForkCallContext::onLateTimeout() {
@@ -248,9 +265,9 @@ void ForkCallContext::onLateTimeout() {
 		auto br = findBestBranch(mCfg->mForkLate);
 
 		if (!br || br->getStatus() == 0 || br->getStatus() == 503) {
-			logResponse(forwardCustomResponse(SIP_408_REQUEST_TIMEOUT));
+			logResponse(forwardCustomResponse(SIP_408_REQUEST_TIMEOUT), br.get());
 		} else {
-			logResponse(forwardResponse(br));
+			forwardThenLogResponse(br);
 		}
 
 		/*cancel all possibly pending outgoing transactions*/
@@ -264,9 +281,13 @@ void ForkCallContext::processInternalError(int status, const char* phrase) {
 }
 
 void ForkCallContext::start() {
-	if (!isCompleted()) {
-		ForkContextBase::start();
-	}
+	if (isCompleted()) return;
+
+	// SOUNDNESS: getBranches() returns the waiting branches. We want all branches in the event, so that presumes there
+	// are no branches answered yet. We also presume all branches have been added by now.
+	mEvent->sendLog(make_shared<CallStartedEventLog>(*mEvent->getMsgSip()->getSip(), getBranches()));
+
+	ForkContextBase::start();
 }
 
 } // namespace flexisip

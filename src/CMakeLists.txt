@@ -48,7 +48,16 @@ add_library(flexisip SHARED
 	entryfilter.cc entryfilter.hh
 	etchosts.cc etchosts.hh
 	event.cc
+	eventlogs/call-ringing-event-log.cc eventlogs/call-ringing-event-log.hh
+	eventlogs/call-started-event-log.cc eventlogs/call-started-event-log.hh
+	eventlogs/event-id.cc eventlogs/event-id.hh
+	eventlogs/event-log-utils.cc eventlogs/event-log-utils.hh
+	eventlogs/event-log-write-dispatcher.hh
+	eventlogs/event-log-writer-visitor-adapter.hh
+	eventlogs/event-log-writer.hh
 	eventlogs/eventlogs.cc eventlogs/eventlogs.hh
+	eventlogs/filesystem-event-log-writer.cc eventlogs/filesystem-event-log-writer.hh
+	eventlogs/sip-event-log.cc eventlogs/sip-event-log.hh
 	fork-context/branch-info.hh
 	fork-context/branch-info-db.hh
 	fork-context/fork-basic-context.cc fork-context/fork-basic-context.hh
@@ -329,7 +338,7 @@ if (ENABLE_SOCI)
 	target_compile_definitions(flexisip PRIVATE "ENABLE_SOCI")
 	target_sources(flexisip PRIVATE
 		authdb-soci.cc
-		eventlogs/eventlogs-soci.cc
+		eventlogs/database-event-log-writer.cc eventlogs/database-event-log-writer.hh
 		fork-context/fork-message-context-soci-repository.cc fork-context/fork-message-context-soci-repository.hh
 		fork-context/fork-message-context-db-proxy.cc fork-context/fork-message-context-db-proxy.hh
 		soci-helper.cc soci-helper.hh

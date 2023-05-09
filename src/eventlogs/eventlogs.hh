@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -18,26 +18,26 @@
 
 #pragma once
 
-#include <array>
-#include <memory>
-#include <mutex>
-#include <queue>
+#include <optional>
 #include <string>
 
-#include <sofia-sip/sip.h>
+#include "flexisip/sofia-wrapper/home.hh"
 #include <sofia-sip/sip_protos.h>
 
-#include "flexisip/common.hh"
-#include "flexisip/sofia-wrapper/home.hh"
+#include "eventlogs/event-id.hh"
+#include "eventlogs/event-log-write-dispatcher.hh"
+#include "eventlogs/sip-event-log.hh"
+#include "registrar/extended-contact.hh"
 
 namespace flexisip {
 
 class EventLogWriter;
 
-class EventLog {
+class EventLog : public EventLogWriteDispatcher, public SipEventLog {
 public:
 	EventLog(const sip_t* sip);
 	EventLog(const EventLog&) = delete;
+	EventLog(EventLog&&) = default;
 	virtual ~EventLog() = default;
 
 	const sip_from_t* getFrom() const {
@@ -66,7 +66,7 @@ public:
 		mCompleted = true;
 	}
 
-	int getStatusCode() const {
+	const int& getStatusCode() const {
 		return mStatusCode;
 	}
 	template <typename T>
@@ -84,11 +84,6 @@ public:
 	}
 
 protected:
-	virtual void write(EventLogWriter& writer) const = 0;
-
-	sofiasip::Home mHome{};
-	sip_from_t* mFrom{nullptr};
-	sip_to_t* mTo{nullptr};
 	sip_user_agent_t* mUA{nullptr};
 	time_t mDate{0};
 	int mStatusCode{0};
@@ -102,9 +97,6 @@ protected:
 		Init();
 	};
 	static Init evStaticInit;
-
-	friend class FilesystemEventLogWriter;
-	friend class DataBaseEventLogWriter;
 };
 
 class RegistrationLog : public EventLog {
@@ -130,7 +122,7 @@ private:
 
 class CallLog : public EventLog {
 public:
-	CallLog(const sip_t* sip) : EventLog(sip) {
+	CallLog(const sip_t* sip) : EventLog(sip), mId(*sip) {
 	}
 
 	bool isCancelled() const {
@@ -141,6 +133,9 @@ public:
 	}
 
 	void write(EventLogWriter& writer) const override;
+
+	const EventId mId;
+	std::optional<ExtendedContact> mDevice = std::nullopt;
 
 private:
 	bool mCancelled{false};
@@ -214,156 +209,4 @@ private:
 	std::string mReport{};
 };
 
-class EventLogWriter {
-public:
-	EventLogWriter() = default;
-	EventLogWriter(const EventLogWriter&) = delete;
-	virtual ~EventLogWriter() = default;
-
-	virtual void write(std::shared_ptr<const EventLog> evlog) = 0;
-
-protected:
-	virtual void writeRegistrationLog(const RegistrationLog& rlog) = 0;
-	virtual void writeCallLog(const CallLog& clog) = 0;
-	virtual void writeCallQualityStatisticsLog(const CallQualityStatisticsLog& mlog) = 0;
-	virtual void writeMessageLog(const MessageLog& mlog) = 0;
-	virtual void writeAuthLog(const AuthLog& alog) = 0;
-
-	friend RegistrationLog;
-	friend CallLog;
-	friend CallQualityStatisticsLog;
-	friend MessageLog;
-	friend AuthLog;
-};
-
-class FilesystemEventLogWriter : public EventLogWriter {
-public:
-	FilesystemEventLogWriter(const std::string& rootpath);
-	void write(std::shared_ptr<const EventLog> evlog) override {
-		evlog->write(*this);
-	}
-	bool isReady() const {
-		return mIsReady;
-	}
-
-private:
-	int openPath(const url_t* uri, const char* kind, time_t curtime, int errorcode = 0);
-
-	void writeRegistrationLog(const RegistrationLog& evlog) override;
-	void writeCallLog(const CallLog& clog) override;
-	void writeCallQualityStatisticsLog(const CallQualityStatisticsLog& mlog) override;
-	void writeMessageLog(const MessageLog& mlog) override;
-	void writeAuthLog(const AuthLog& alog) override;
-
-	void writeErrorLog(const EventLog& log, const char* kind, const std::string& logstr);
-
-	std::string mRootPath{};
-	bool mIsReady{false};
-};
-
 } // namespace flexisip
-
-#if ENABLE_SOCI
-
-#include <soci/soci.h>
-
-#include "utils/thread/thread-pool.hh"
-
-namespace flexisip {
-
-class DataBaseEventLogWriter : public EventLogWriter {
-public:
-	DataBaseEventLogWriter(const std::string& backendString,
-	                       const std::string& connectionString,
-	                       unsigned int maxQueueSize,
-	                       unsigned int nbThreadsMax);
-
-	void write(std::shared_ptr<const EventLog> evlog) override;
-	bool isReady() const {
-		return mIsReady;
-	}
-
-private:
-	class BackendInfo {
-	public:
-		BackendInfo() noexcept;
-		virtual ~BackendInfo() = default;
-
-		const std::string& tableOptions() const noexcept {
-			return mTableOptions;
-		}
-		const std::string& primaryKeyIncrementType() const noexcept {
-			return mPrimaryKeyIncrementType;
-		}
-		const std::string& insertPrefix() const noexcept {
-			return mInsertPrefix;
-		}
-		const std::string& lastIdFunction() const noexcept {
-			return mLastIdFunction;
-		}
-		const std::string& onConfflictType() const noexcept {
-			return mOnConflictType;
-		}
-		const std::string& tableNamesQuery() const noexcept {
-			return mTableNamesQuery;
-		}
-
-		bool databaseIsEmpty(soci::session& session);
-		void createSchemaVersionTable(soci::session& session);
-		unsigned int getSchemaVersion(soci::session& session);
-		void setSchemaVersion(soci::session& session, unsigned int version);
-		void initTables(soci::session& session);
-
-		static std::unique_ptr<BackendInfo> getBackendInfo(const std::string& backendName);
-
-	protected:
-		std::string mTableOptions{};
-		std::string mInsertPrefix{};
-		std::string mPrimaryKeyIncrementType{};
-		std::string mLastIdFunction{};
-		std::string mOnConflictType{};
-		std::string mTableNamesQuery{};
-	};
-
-	class Sqlite3Info : public BackendInfo {
-	public:
-		Sqlite3Info() noexcept;
-	};
-
-	class MysqlInfo : public BackendInfo {
-	public:
-		MysqlInfo() noexcept;
-	};
-
-	class PostgresqlInfo : public BackendInfo {
-	public:
-		PostgresqlInfo() noexcept;
-	};
-
-	static void writeEventLog(soci::session& session, const EventLog& evlog, int typeId);
-
-	void writeRegistrationLog(const RegistrationLog& evlog) override;
-	void writeCallLog(const CallLog& evlog) override;
-	void writeMessageLog(const MessageLog& evlog) override;
-	void writeAuthLog(const AuthLog& evlog) override;
-	void writeCallQualityStatisticsLog(const CallQualityStatisticsLog& evlog) override;
-
-	void writeEventFromQueue();
-
-	bool mIsReady{false};
-	std::mutex mMutex{};
-	std::queue<std::shared_ptr<const EventLog>> mListLogs{};
-
-	std::unique_ptr<soci::connection_pool> mConnectionPool{};
-	std::unique_ptr<ThreadPool> mThreadPool{};
-
-	unsigned int mMaxQueueSize{0};
-
-	std::array<std::string, 5> mInsertReq{};
-
-	static constexpr unsigned int sRequiredSchemaVersion = 1;
-};
-
-} // namespace flexisip
-
-#endif
