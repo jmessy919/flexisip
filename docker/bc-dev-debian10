@@ -1,8 +1,8 @@
 ###############################################################################
-# Dockerfile used to make gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian10:20230227_add_mariadb_server
+# Dockerfile used to make gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-debian10:20230510_use_cmake_3.22
 ###############################################################################
 
-FROM gitlab.linphone.org:4567/bc/public/linphone-sdk/bc-dev-debian10:20210421_python3_fix_pip
+FROM gitlab.linphone.org:4567/bc/public/linphone-sdk/bc-dev-debian10:20230420_use_cmake_3.22
 
 MAINTAINER François Grisez <francois.grisez@belledonne-communications.com>
 
@@ -33,10 +33,6 @@ RUN wget https://github.com/nghttp2/nghttp2/releases/download/v1.36.0/nghttp2-1.
 	sudo make -C src install && \
 	cd - && \
 	rm -rf nghttp2-1.36.0.tar.bz2 nghttp2-1.36.0
-
-# Install CMake 3.20.5
-COPY cmake_install.sh .
-RUN ./cmake_install.sh 3.20.5 && rm cmake_install.sh
 
 # CVE-2022-24765, from git 2.35.2 onward
 RUN git config --global --add safe.directory *

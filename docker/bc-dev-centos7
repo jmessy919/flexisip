@@ -1,98 +1,60 @@
 ###############################################################################
-# Dockerfile used to make gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-centos7:20230220_remove_GL_deps
+# Dockerfile used to make gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-centos7:20230513_use_cmake_3.22
 ###############################################################################
 
-FROM centos:7
+FROM gitlab.linphone.org:4567/bc/public/linphone-sdk/bc-dev-centos7:20230420_use_cmake_3.22
 
 MAINTAINER Anthony Gauchy <anthony.gauchy@belledonne-communications.com>
 
 # Install common general tools
-RUN yum install -y sudo vim wget
-
-# Configure additional repositories
-RUN yum install -y epel-release && sudo yum install -y centos-release-scl
+RUN sudo yum install -y vim wget
 
 # Update
-RUN sudo yum makecache && yum -y update
+RUN sudo yum makecache && sudo yum -y update
 
  # Install development tools
-RUN sudo yum -y install devtoolset-8 \
-                   ccache \
-                   clang \
-                   cmake3 \
-                   doxygen \
-                   gdb \
-                   git \
-                   make \
-                   ninja-build \
-                   python3 \
-                   python3-pip \
-                   bzip2 \
-                   c-ares-devel \
-                   libev-devel \
-                   zlib-devel \
-                   libuv-devel \
-                   devtoolset-8-libasan-devel \
-                   devtoolset-8-libubsan-devel \
-                   rpm-build \
-                   llvm \
-                 # Install all dependencies needed for Flexisip
-                   openssl-devel \
-                   boost169-devel \
-                   hiredis-devel \
-                   jansson-devel \
-                   libsqlite3x-devel \
-                   mariadb-devel \
-                   mariadb-server \
-                   postgresql-devel \
-                   nghttp2 \
-                   libnghttp2-devel \
-                   protobuf-devel \
-                   net-snmp-devel \
-                   xerces-c-devel \
-                   gsm-devel \
-                   opus-devel \
-                   mbedtls-devel \
-                   speex-devel \
-                   speexdsp-devel \
-                   libxml2-devel \
-                   protobuf-compiler \
-                   redis \
-                 # Dependencies of the B2BUA
-                   libvpx-devel \
-                   jsoncpp-devel \
-               &&  yum -y clean all \
-               && scl enable devtoolset-8 bash \
-               && ln -s /usr/bin/ccmake3 /usr/bin/ccmake \
-               && ln -s /usr/bin/cmake3 /usr/bin/cmake \
-               && ln -s /usr/bin/cpack3 /usr/bin/cpack \
-               && ln -s /usr/bin/ctest3 /usr/bin/ctest
-
+RUN sudo yum -y install \
+	bzip2 \
+	c-ares-devel \
+	libev-devel \
+	zlib-devel \
+	libuv-devel \
+	devtoolset-8-libasan-devel \
+	devtoolset-8-libubsan-devel \
+	llvm \
+	# Install all dependencies needed for Flexisip
+	openssl-devel \
+	boost169-devel \
+	hiredis-devel \
+	jansson-devel \
+	libsqlite3x-devel \
+	mariadb-devel \
+	mariadb-server \
+	postgresql-devel \
+	nghttp2 \
+	libnghttp2-devel \
+	protobuf-devel \
+	net-snmp-devel \
+	xerces-c-devel \
+	gsm-devel \
+	opus-devel \
+	mbedtls-devel \
+	speex-devel \
+	speexdsp-devel \
+	libxml2-devel \
+	protobuf-compiler \
+	redis \
+	# Dependencies of the B2BUA
+	jsoncpp-devel \
+	&& sudo yum -y clean all \
+	&& sudo scl enable devtoolset-8 bash
 
 # Install libnghttp2_asio 1.30.0
 COPY libnghttp2_asio_install.sh .
 RUN source /opt/rh/devtoolset-8/enable \
     && export CC=gcc && export CXX=g++ \
     && export BOOST_INCLUDEDIR=/usr/include/boost169 && export BOOST_LIBRARYDIR=/usr/lib64/boost169 \
-    && ./libnghttp2_asio_install.sh 1.30.0 && rm libnghttp2_asio_install.sh
-
-# Configure user bc
-RUN useradd -ms /bin/bash bc && \
-    echo 'bc:cotcot' | chpasswd && \
-    echo 'bc ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
-# Switch to 'bc' user
-USER bc
-WORKDIR /home/bc
-
-# Install python3 modules.
-# This must be done as user 'bc' because python modules are installed in /usr/local/lib when pip is invoked
-# as root, and rpmbuild prevents python from searching its modules in this prefix. Installing with user 'bc' puts
-# the modules in /home/bc/.local/bin.
-RUN python3 -m pip install --user pystache six
-ENV PATH=$PATH:/home/bc/.local/bin
-
-ENV PS1='\[\e[34m\]\u@bc-dev-centos7>\[\e[0m\] '
+    && sudo ./libnghttp2_asio_install.sh 1.30.0 && rm libnghttp2_asio_install.sh
 
 # CVE-2022-24765, from git 2.35.2 onward
 RUN git config --global --add safe.directory *
