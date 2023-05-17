@@ -2,9 +2,13 @@
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-#include "db/db-transaction.hh"
+#include "database-event-log-writer.hh"
 
-#include "eventlogs.hh"
+#include <sofia-sip/sip_protos.h>
+
+#include "db/db-transaction.hh"
+#include "eventlogs/events/event-log-write-dispatcher.hh"
+#include "eventlogs/events/eventlogs.hh"
 #include "utils/thread/auto-thread-pool.hh"
 
 using namespace std;
@@ -63,7 +67,7 @@ static string sipDataToString(const sip_user_agent_t* ua) {
 	}
 
 	char tmp[256] = {};
-	sip_user_agent_e(tmp, sizeof(tmp) - 1, (msg_header_t*)ua, 0);
+	::sip_user_agent_e(tmp, sizeof(tmp) - 1, (msg_header_t*)ua, 0);
 	return string(tmp);
 }
 
@@ -337,7 +341,7 @@ void DataBaseEventLogWriter::writeEventLog(soci::session& session, const EventLo
 // So the choice here is to use the `LAST_INSERT_ID()` and `last_insert_rowid()`
 // from MySQL and SQlite3 directly in SQL.
 
-void DataBaseEventLogWriter::writeRegistrationLog(const RegistrationLog& evlog) {
+void DataBaseEventLogWriter::write(const RegistrationLog& evlog) {
 	soci::session session{*mConnectionPool};
 	DB_TRANSACTION(&session) {
 		auto contact = sipDataToString(evlog.getContacts());
@@ -347,7 +351,7 @@ void DataBaseEventLogWriter::writeRegistrationLog(const RegistrationLog& evlog) 
 	};
 }
 
-void DataBaseEventLogWriter::writeCallLog(const CallLog& evlog) {
+void DataBaseEventLogWriter::write(const CallLog& evlog) {
 	soci::session session{*mConnectionPool};
 	DB_TRANSACTION(&session) {
 		auto cancelled = boolToSqlString(evlog.isCancelled());
@@ -357,17 +361,18 @@ void DataBaseEventLogWriter::writeCallLog(const CallLog& evlog) {
 	};
 }
 
-void DataBaseEventLogWriter::writeMessageLog(const MessageLog& evlog) {
+void DataBaseEventLogWriter::write(const MessageLog& evlog) {
 	soci::session session{*mConnectionPool};
 	DB_TRANSACTION(&session) {
-		auto uri = sipDataToString(evlog.getUri());
 		writeEventLog(session, evlog, SqlMessageEventLogId);
-		session << mInsertReq[SqlMessageEventLogId], soci::use(int(evlog.getReportType())), soci::use(uri);
+		auto uri = sipDataToString(evlog.getUri());
+		auto reportType = int(evlog.getReportType());
+		session << mInsertReq[SqlMessageEventLogId], soci::use(reportType), soci::use(uri);
 		tr.commit();
 	};
 }
 
-void DataBaseEventLogWriter::writeAuthLog(const AuthLog& evlog) {
+void DataBaseEventLogWriter::write(const AuthLog& evlog) {
 	soci::session session{*mConnectionPool};
 	DB_TRANSACTION(&session) {
 		auto origin = sipDataToString(evlog.getOrigin());
@@ -379,7 +384,7 @@ void DataBaseEventLogWriter::writeAuthLog(const AuthLog& evlog) {
 	};
 }
 
-void DataBaseEventLogWriter::writeCallQualityStatisticsLog(const CallQualityStatisticsLog& evlog) {
+void DataBaseEventLogWriter::write(const CallQualityStatisticsLog& evlog) {
 	soci::session session{*mConnectionPool};
 	DB_TRANSACTION(&session) {
 		writeEventLog(session, evlog, SqlCallQualityEventLogId);
@@ -393,10 +398,10 @@ void DataBaseEventLogWriter::writeEventFromQueue() {
 	auto evlog = mListLogs.front();
 	mListLogs.pop();
 	mMutex.unlock();
-	evlog->write(*this);
+	EventLogWriter::write(evlog);
 }
 
-void DataBaseEventLogWriter::write(std::shared_ptr<const EventLog> evlog) {
+void DataBaseEventLogWriter::write(std::shared_ptr<const EventLogWriteDispatcher> evlog) {
 	mMutex.lock();
 
 	if (mListLogs.size() < mMaxQueueSize) {
