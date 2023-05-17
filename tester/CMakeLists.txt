@@ -74,6 +74,7 @@ add_executable(flexisip_tester
 	tester.cc
 	tests/presence/presence-pidf-tester.cc
 	tests/pushnotification/service-tester.cc
+	tests/sofia-wrapper/home-tester.cc
 	thread-pool-tester.cc
 	tls-connection-tester.cc
 	utils-tester.cc
