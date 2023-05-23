@@ -16,6 +16,8 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#include "flexisip/event.hh"
+
 #include <sofia-sip/sip_protos.h>
 #include <sofia-sip/su_tagarg.h>
 
@@ -23,9 +25,8 @@
 #include "flexisip/module.hh"
 
 #include "agent.hh"
+#include "eventlogs/event-log-writer.hh"
 #include "transaction.hh"
-
-#include "flexisip/event.hh"
 
 using namespace std;
 

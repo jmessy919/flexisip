@@ -46,7 +46,6 @@
 #include "flexisip/utils/sip-uri.hh"
 
 #include "agent-interface.hh"
-#include "eventlogs/event-log-writer.hh"
 #include "eventlogs/eventlogs.hh"
 #include "transaction.hh"
 #include "transport.hh"

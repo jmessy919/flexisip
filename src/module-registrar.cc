@@ -31,6 +31,7 @@
 
 #include "agent.hh"
 #include "domain-registrations.hh"
+#include "eventlogs/event-log-writer.hh"
 #include "registrar/binding-parameters.hh"
 #include "registrar/extended-contact.hh"
 #include "registrar/record.hh"

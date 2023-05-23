@@ -23,6 +23,7 @@
 #include "flexisip/common.hh"
 
 #include "agent.hh"
+#include "eventlogs/event-log-writer.hh"
 #include "fork-context/branch-info.hh"
 
 using namespace std;
