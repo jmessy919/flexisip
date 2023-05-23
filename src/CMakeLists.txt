@@ -48,6 +48,7 @@ add_library(flexisip SHARED
 	entryfilter.cc entryfilter.hh
 	etchosts.cc etchosts.hh
 	event.cc
+	eventlogs/call-ended-event-log.cc eventlogs/call-ended-event-log.hh
 	eventlogs/call-ringing-event-log.cc eventlogs/call-ringing-event-log.hh
 	eventlogs/call-started-event-log.cc eventlogs/call-started-event-log.hh
 	eventlogs/event-id.cc eventlogs/event-id.hh

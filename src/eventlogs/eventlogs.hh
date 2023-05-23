@@ -26,7 +26,9 @@
 
 #include "eventlogs/event-id.hh"
 #include "eventlogs/event-log-write-dispatcher.hh"
+#include "eventlogs/identified.hh"
 #include "eventlogs/sip-event-log.hh"
+#include "fork-context/fork-status.hh"
 #include "registrar/extended-contact.hh"
 
 namespace flexisip {
@@ -120,9 +122,9 @@ private:
 	sip_contact_t* mContacts{nullptr};
 };
 
-class CallLog : public EventLog {
+class CallLog : public EventLog, public Identified {
 public:
-	CallLog(const sip_t* sip) : EventLog(sip), mId(*sip) {
+	CallLog(const sip_t* sip) : EventLog(sip), Identified(*sip) {
 	}
 
 	bool isCancelled() const {
@@ -134,7 +136,7 @@ public:
 
 	void write(EventLogWriter& writer) const override;
 
-	const EventId mId;
+	ForkStatus mForkStatus = ForkStatus::Standard;
 	std::optional<ExtendedContact> mDevice = std::nullopt;
 
 private:

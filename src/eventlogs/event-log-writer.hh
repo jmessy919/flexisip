@@ -15,6 +15,7 @@ class RegistrationLog;
 class CallStartedEventLog;
 class CallRingingEventLog;
 class CallLog;
+class CallEndedEventLog;
 class CallQualityStatisticsLog;
 class MessageLog;
 class AuthLog;
@@ -34,21 +35,27 @@ protected:
 	friend CallStartedEventLog;
 	friend CallRingingEventLog;
 	friend CallLog;
+	friend CallEndedEventLog;
 	friend CallQualityStatisticsLog;
 	friend MessageLog;
 	friend AuthLog;
 
 	virtual void write(const RegistrationLog& rlog) = 0;
-	virtual void write(const CallStartedEventLog&) {
-		SLOGD << typeid(*this).name() << " does not implement " << __PRETTY_FUNCTION__;
-	}
-	virtual void write(const CallRingingEventLog&) {
-		SLOGD << typeid(*this).name() << " does not implement " << __PRETTY_FUNCTION__;
-	}
 	virtual void write(const CallLog& clog) = 0;
 	virtual void write(const CallQualityStatisticsLog& mlog) = 0;
 	virtual void write(const MessageLog& mlog) = 0;
 	virtual void write(const AuthLog& alog) = 0;
+
+#define STUB(T)                                                                                                        \
+	virtual void write(const T&) {                                                                                     \
+		SLOGD << typeid(*this).name() << " does not implement " << __PRETTY_FUNCTION__;                                \
+	}
+
+	STUB(CallStartedEventLog)
+	STUB(CallRingingEventLog)
+	STUB(CallEndedEventLog)
+
+#undef STUB
 };
 
 } // namespace flexisip

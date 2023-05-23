@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "eventlogs/event-log-writer.hh"
+#include "eventlogs/identified.hh"
 #include "fork-context/branch-info.hh"
 #include "registrar/extended-contact.hh"
 
@@ -15,7 +16,7 @@ namespace flexisip {
 using namespace std;
 
 CallStartedEventLog::CallStartedEventLog(const sip_t& sip, const std::list<std::shared_ptr<BranchInfo>>& branchInfoList)
-    : SipEventLog(sip), mId(sip), mDevices([&branchInfoList] {
+    : SipEventLog(sip), Identified(sip), mDevices([&branchInfoList] {
 	      std::remove_const_t<decltype(mDevices)> devices{};
 	      devices.reserve(branchInfoList.size());
 	      for (const auto& branchInfo : branchInfoList) {

@@ -4,32 +4,28 @@
 
 #pragma once
 
-#include <chrono>
 #include <list>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "eventlogs/identified.hh"
 #include "sofia-sip/sip.h"
 
-#include "eventlogs/event-id.hh"
 #include "eventlogs/event-log-write-dispatcher.hh"
 #include "eventlogs/sip-event-log.hh"
+#include "eventlogs/timestamped.hh"
 
 namespace flexisip {
-
-using Timestamp = std::chrono::time_point<std::chrono::system_clock>;
 
 class BranchInfo;
 struct ExtendedContact;
 
-class CallStartedEventLog : public EventLogWriteDispatcher, public SipEventLog {
+class CallStartedEventLog : public EventLogWriteDispatcher, public SipEventLog, public Identified, public Timestamped {
 public:
 	CallStartedEventLog(const sip_t&, const std::list<std::shared_ptr<BranchInfo>>&);
 
-	const EventId mId;
 	const std::vector<ExtendedContact> mDevices;
-	const Timestamp mInitiatedAt = std::chrono::system_clock::now();
 
 protected:
 	void write(EventLogWriter& writer) const override;

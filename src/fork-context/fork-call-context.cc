@@ -29,7 +29,9 @@
 #include "eventlogs/call-ringing-event-log.hh"
 #include "eventlogs/call-started-event-log.hh"
 #include "eventlogs/event-log-writer.hh"
+#include "eventlogs/eventlogs.hh"
 #include "fork-context/branch-info.hh"
+#include "fork-context/fork-status.hh"
 
 using namespace std;
 
@@ -101,6 +103,12 @@ void ForkCallContext::cancelOthersWithStatus(const shared_ptr<BranchInfo>& br, F
 		if (brit != br) {
 			cancelBranch(brit);
 			brit->notifyBranchCanceled(status);
+
+			auto eventLog = make_shared<CallLog>(mEvent->getMsgSip()->getSip());
+			eventLog->mDevice.emplace(*brit->mContact);
+			eventLog->setCancelled();
+			eventLog->mForkStatus = status;
+			mEvent->sendLog(eventLog);
 		}
 	}
 	mNextBranchesTimer.reset();

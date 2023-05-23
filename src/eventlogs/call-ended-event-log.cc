@@ -2,7 +2,7 @@
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-#include "eventlogs/call-ringing-event-log.hh"
+#include "eventlogs/call-ended-event-log.hh"
 
 #include "eventlogs/event-log-writer.hh"
 #include "eventlogs/identified.hh"
@@ -11,11 +11,10 @@
 namespace flexisip {
 using namespace std;
 
-CallRingingEventLog::CallRingingEventLog(const sip_t& sip, const BranchInfo* branch)
-    : Identified(sip), mDevice(*branch->mContact) {
+CallEndedEventLog::CallEndedEventLog(const sip_t& sip) : Identified(sip) {
 }
 
-void CallRingingEventLog::write(EventLogWriter& writer) const {
+void CallEndedEventLog::write(EventLogWriter& writer) const {
 	writer.write(*this);
 }
 

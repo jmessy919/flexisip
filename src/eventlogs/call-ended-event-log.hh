@@ -9,17 +9,14 @@
 #include "eventlogs/event-log-write-dispatcher.hh"
 #include "eventlogs/identified.hh"
 #include "eventlogs/timestamped.hh"
-#include "registrar/extended-contact.hh"
 
 namespace flexisip {
 
 class BranchInfo;
 
-class CallRingingEventLog : public EventLogWriteDispatcher, public Identified, public Timestamped {
+class CallEndedEventLog : public EventLogWriteDispatcher, public Identified, public Timestamped {
 public:
-	CallRingingEventLog(const sip_t&, const BranchInfo*);
-
-	const ExtendedContact mDevice;
+	CallEndedEventLog(const sip_t&);
 
 protected:
 	void write(EventLogWriter& writer) const override;

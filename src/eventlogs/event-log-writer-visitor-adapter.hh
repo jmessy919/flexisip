@@ -20,27 +20,21 @@ public:
 	}
 
 protected:
-	void write(const RegistrationLog& event) override {
-		mVisitor(event);
+#define DELEGATE_TO_VISITOR(T)                                                                                         \
+	void write(const T& event) override {                                                                              \
+		mVisitor(event);                                                                                               \
 	}
-	void write(const CallStartedEventLog& event) override {
-		mVisitor(event);
-	}
-	void write(const CallRingingEventLog& event) override {
-		mVisitor(event);
-	}
-	void write(const CallLog& event) override {
-		mVisitor(event);
-	}
-	void write(const CallQualityStatisticsLog& event) override {
-		mVisitor(event);
-	}
-	void write(const MessageLog& event) override {
-		mVisitor(event);
-	}
-	void write(const AuthLog& event) override {
-		mVisitor(event);
-	}
+
+	DELEGATE_TO_VISITOR(RegistrationLog)
+	DELEGATE_TO_VISITOR(CallStartedEventLog)
+	DELEGATE_TO_VISITOR(CallRingingEventLog)
+	DELEGATE_TO_VISITOR(CallLog)
+	DELEGATE_TO_VISITOR(CallEndedEventLog)
+	DELEGATE_TO_VISITOR(CallQualityStatisticsLog)
+	DELEGATE_TO_VISITOR(MessageLog)
+	DELEGATE_TO_VISITOR(AuthLog)
+
+#undef DELEGATE_TO_VISITOR
 
 private:
 	TVisitor mVisitor;
