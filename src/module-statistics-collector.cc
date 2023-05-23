@@ -27,6 +27,7 @@
 #include "agent.hh"
 #include "etchosts.hh"
 #include "eventlogs/event-log-writer.hh"
+#include "eventlogs/eventlogs.hh"
 #include "transaction.hh"
 
 using namespace std;

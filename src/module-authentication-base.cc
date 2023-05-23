@@ -22,6 +22,7 @@
 
 #include "agent.hh"
 #include "eventlogs/event-log-writer.hh"
+#include "eventlogs/eventlogs.hh"
 
 #include "auth/realm-extractor.hh"
 #include "utils/string-utils.hh"
