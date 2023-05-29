@@ -18,7 +18,9 @@
 
 #include "http-mock.hh"
 
+#include <functional>
 #include <regex>
+#include <string>
 #include <thread>
 
 #include <flexisip/logmanager.hh>
@@ -40,33 +42,31 @@ HttpMock::HttpMock(const std::initializer_list<std::string> handles,
 	mCtx.use_certificate_chain_file(bcTesterRes("cert/self.signed.cert.test.pem"));
 
 	for (const auto& handle : handles) {
-		mServer.handle(handle, handleRequest());
+		mServer.handle(handle, bind(&HttpMock::handleRequest, this, placeholders::_1, placeholders::_2));
 	}
 }
 
-request_cb HttpMock::handleRequest() {
-	return [this](const request& req, const response& res) {
-		SLOGD << " HttpMock::handleRequest()";
+void HttpMock::handleRequest(const request& req, const response& res) {
+	SLOGD << " HttpMock::handleRequest()";
+	lock_guard<recursive_mutex> lock(mMutex);
+	auto requestReceived = make_shared<Request>();
+	req.on_data([this, requestReceived](const uint8_t* data, std::size_t len) {
 		lock_guard<recursive_mutex> lock(mMutex);
-		auto requestReceived = make_shared<Request>();
-		req.on_data([this, requestReceived](const uint8_t* data, std::size_t len) {
-			lock_guard<recursive_mutex> lock(mMutex);
-			if (len > 0) {
-				string body{reinterpret_cast<const char*>(data), len};
-				requestReceived->body += body;
-				if (mRequestReceivedCount) {
-					(*(mRequestReceivedCount.value()))++;
-				}
+		if (len > 0) {
+			string body{reinterpret_cast<const char*>(data), len};
+			requestReceived->body += body;
+			if (mRequestReceivedCount) {
+				(*(mRequestReceivedCount.value()))++;
 			}
-		});
-		requestReceived->method = req.method();
-		requestReceived->headers = req.header();
-		requestReceived->path = req.uri().path;
-		mRequestsReceived.push(requestReceived);
+		}
+	});
+	requestReceived->method = req.method();
+	requestReceived->headers = req.header();
+	requestReceived->path = req.uri().path;
+	mRequestsReceived.push(requestReceived);
 
-		res.write_head(200);
-		res.end("200 OK");
-	};
+	res.write_head(200);
+	res.end("200 OK");
 }
 
 bool HttpMock::serveAsync(const std::string& port) {

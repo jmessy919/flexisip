@@ -53,8 +53,7 @@ public:
 	std::shared_ptr<Request> popRequestReceived();
 
 private:
-	std::function<void(const nghttp2::asio_http2::server::request&, const nghttp2::asio_http2::server::response&)>
-	handleRequest();
+	void handleRequest(const nghttp2::asio_http2::server::request&, const nghttp2::asio_http2::server::response&);
 
 	nghttp2::asio_http2::server::http2 mServer{};
 	ssl::context mCtx;
