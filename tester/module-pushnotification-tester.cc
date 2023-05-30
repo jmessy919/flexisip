@@ -605,7 +605,7 @@ protected:
 		auto proxy = make_shared<Server>(mAgent);
 		auto core1 = make_shared<CoreClient>("sip:user1@sip.example.org", proxy);
 		auto core2 = make_shared<CoreClient>(
-		    move(ClientBuilder{"sip:user2@sip.example.org"}.setPushParams(mPlatform->getContactPushParams())), proxy);
+		    std::move(ClientBuilder{"sip:user2@sip.example.org"}.setPushParams(mPlatform->getContactPushParams())), proxy);
 		core2->getCore()->setNetworkReachable(false);
 		core2->setCallInviteReceivedDelay(core2->getCallInviteReceivedDelay() +
 		                                  mPNHandler->getCallInviteReceivedExtraDelay());
@@ -650,7 +650,7 @@ public:
 		auto proxy = make_shared<Server>(mAgent);
 		auto core1 = make_shared<CoreClient>("sip:user1@sip.example.org", proxy);
 		auto core2 = make_shared<CoreClient>(
-		    move(ClientBuilder{"sip:user2@sip.example.org"}.setPushParams(mPlatform->getContactPushParams())), proxy);
+		    std::move(ClientBuilder{"sip:user2@sip.example.org"}.setPushParams(mPlatform->getContactPushParams())), proxy);
 		core2->getCore()->setNetworkReachable(false);
 
 		auto pushClient = dynamic_pointer_cast<_DummyPushClient>(mPushClient);
@@ -742,10 +742,10 @@ protected:
 
 		RFC8599PushParams devCalleePushParams{"apns.dev", calleePushParams.getParam(), calleePushParams.getPrid()};
 		auto calleeDevDevice = make_shared<CoreClient>(
-		    move(ClientBuilder{"sip:user2@sip.example.org"}.setPushParams(devCalleePushParams)), proxy);
+		    std::move(ClientBuilder{"sip:user2@sip.example.org"}.setPushParams(devCalleePushParams)), proxy);
 
 		auto callee = make_shared<CoreClient>(
-		    move(ClientBuilder{"sip:user2@sip.example.org"}.setPushParams(calleePushParams)), proxy);
+		    std::move(ClientBuilder{"sip:user2@sip.example.org"}.setPushParams(calleePushParams)), proxy);
 		callee->getCore()->setNetworkReachable(false);
 		callee->setCallInviteReceivedDelay(callee->getCallInviteReceivedDelay() +
 		                                   mPNHandler->getCallInviteReceivedExtraDelay());

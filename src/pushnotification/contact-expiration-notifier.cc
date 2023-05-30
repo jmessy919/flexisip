@@ -34,7 +34,7 @@ ContactExpirationNotifier::ContactExpirationNotifier(chrono::seconds interval,
                                                      const shared_ptr<sofiasip::SuRoot>& root,
                                                      weak_ptr<pn::Service>&& pnService,
                                                      const RegistrarDb& registrar)
-    : mLifetimeThreshold(lifetimeThreshold), mTimer(root, interval), mPNService(move(pnService)),
+    : mLifetimeThreshold(lifetimeThreshold), mTimer(root, interval), mPNService(std::move(pnService)),
       mRegistrar(registrar) {
 	// SAFETY: This lambda is safe memory-wise if and only if it doesn't outlive `this`.
 	// Which is the case as long as `this` holds the sofiasip::Timer.
@@ -82,7 +82,7 @@ unique_ptr<ContactExpirationNotifier> ContactExpirationNotifier::make_unique(con
 	}
 	float threshold = cfg.get<ConfigInt>("register-wakeup-threshold")->read() / 100.0;
 
-	return std::make_unique<ContactExpirationNotifier>(chrono::minutes(interval), threshold, root, move(pnService),
+	return std::make_unique<ContactExpirationNotifier>(chrono::minutes(interval), threshold, root, std::move(pnService),
 	                                                   registrar);
 }
 

@@ -97,7 +97,7 @@ FlexisipAuthStatus* ModuleExternalAuthentication::createAuthStatus(const std::sh
 			auto uuid = UriUtils::getParamValue(sip->sip_contact->m_url->url_params, "gr");
 			if (uuid.empty()) uuid = UriUtils::uniqueIdToGr(as->sipInstance());
 			uuid = StringUtils::removePrefix(uuid, "urn:uuid:");
-			as->uuid(move(uuid));
+			as->uuid(std::move(uuid));
 		} catch (const invalid_argument& e) { // raised by removePrefix() when uuid doesn't start by 'urn:uuid:'
 			SLOGE << "ExernalAuthentication: error while getting UUID: " << e.what();
 		}

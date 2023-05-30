@@ -194,7 +194,7 @@ void ConferenceServer::_init() {
 	/* Get additional local domains */
 	auto otherLocalDomains = config->get<ConfigStringList>("local-domains")->read();
 	for (auto& domain : otherLocalDomains)
-		mLocalDomains.emplace_back(move(domain));
+		mLocalDomains.emplace_back(std::move(domain));
 	otherLocalDomains.clear();
 	mLocalDomains.sort();
 	mLocalDomains.unique();
@@ -596,7 +596,7 @@ ConferenceServer::Init::Init() {
 	    "It will use the Registrar backend (see section module::Registrar) to discover devices (or client instances) "
 	    "of each participant.",
 	    0);
-	auto s = GenericManager::get()->getRoot()->addChild(move(uS));
+	auto s = GenericManager::get()->getRoot()->addChild(std::move(uS));
 	s->addChildrenValues(items);
 	s->get<ConfigString>("conference-factory-uri")
 	    ->setDeprecated("2020-09-30", "2.1.0",

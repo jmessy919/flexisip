@@ -596,7 +596,7 @@ void RegistrarDb::bind(const SipUri& aor,
 
 	sip->sip_expires = sip_expires_create(homeSip, 0);
 
-	bind(move(msg), parameter, listener);
+	bind(std::move(msg), parameter, listener);
 }
 
 class AgregatorRegistrarDbListener : public ContactUpdateListener {
