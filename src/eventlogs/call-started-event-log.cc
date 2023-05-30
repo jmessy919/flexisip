@@ -7,8 +7,8 @@
 #include <type_traits>
 #include <vector>
 
-#include "eventlogs/event-log-writer.hh"
 #include "eventlogs/identified.hh"
+#include "eventlogs/type-complete-event-log-variant.hh"
 #include "fork-context/branch-info.hh"
 #include "registrar/extended-contact.hh"
 
@@ -26,8 +26,8 @@ CallStartedEventLog::CallStartedEventLog(const sip_t& sip, const std::list<std::
       }()) {
 }
 
-void CallStartedEventLog::write(EventLogWriter& writer) const {
-	writer.write(*this);
+eventlogs::EventLogVariant CallStartedEventLog::intoVariant() && {
+	return move(*this);
 }
 
 } // namespace flexisip

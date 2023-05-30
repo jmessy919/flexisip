@@ -4,12 +4,14 @@
 
 #pragma once
 
-#include <functional>
 #include <memory>
+#include <type_traits>
 #include <utility>
 #include <variant>
 
+#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/event-log-writer.hh"
+#include "eventlogs/type-complete-event-log-variant.hh"
 
 namespace flexisip {
 
@@ -19,22 +21,17 @@ public:
 	EventLogWriterVisitorAdapter(TVisitor&& visitor) : mVisitor(std::move(visitor)) {
 	}
 
-protected:
-#define DELEGATE_TO_VISITOR(T)                                                                                         \
-	void write(const T& event) override {                                                                              \
-		mVisitor(event);                                                                                               \
+	void write(eventlogs::IntoEventLogVariant&& event) override {
+		std::visit(mVisitor, std::move(event).intoVariant());
 	}
-
-	DELEGATE_TO_VISITOR(RegistrationLog)
-	DELEGATE_TO_VISITOR(CallStartedEventLog)
-	DELEGATE_TO_VISITOR(CallRingingEventLog)
-	DELEGATE_TO_VISITOR(CallLog)
-	DELEGATE_TO_VISITOR(CallEndedEventLog)
-	DELEGATE_TO_VISITOR(CallQualityStatisticsLog)
-	DELEGATE_TO_VISITOR(MessageLog)
-	DELEGATE_TO_VISITOR(AuthLog)
-
-#undef DELEGATE_TO_VISITOR
+	void write(const std::shared_ptr<const eventlogs::ToEventLogVariant>& event) override {
+		std::visit(
+		    [this, &event](const auto& ref) {
+			    using TEvent = typename std::decay_t<decltype(ref)>::type;
+			    mVisitor(std::dynamic_pointer_cast<TEvent>(event));
+		    },
+		    event->toRefVariant());
+	}
 
 private:
 	TVisitor mVisitor;

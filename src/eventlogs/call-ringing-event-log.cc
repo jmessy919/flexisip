@@ -4,8 +4,9 @@
 
 #include "eventlogs/call-ringing-event-log.hh"
 
-#include "eventlogs/event-log-writer.hh"
+#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/identified.hh"
+#include "eventlogs/type-complete-event-log-variant.hh"
 #include "fork-context/branch-info.hh"
 
 namespace flexisip {
@@ -15,8 +16,12 @@ CallRingingEventLog::CallRingingEventLog(const sip_t& sip, const BranchInfo* bra
     : Identified(sip), mDevice(*branch->mContact) {
 }
 
-void CallRingingEventLog::write(EventLogWriter& writer) const {
-	writer.write(*this);
+eventlogs::EventLogVariant CallRingingEventLog::intoVariant() && {
+	return move(*this);
+}
+
+eventlogs::EventLogRefVariant CallRingingEventLog::toRefVariant() const {
+	return *this;
 }
 
 } // namespace flexisip

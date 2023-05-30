@@ -19,9 +19,8 @@
 #include "eventlogs.hh"
 
 #include "eventlogs/sip-event-log.hh"
+#include "eventlogs/type-complete-event-log-variant.hh"
 #include "flexisip/configmanager.hh"
-
-#include "event-log-writer.hh"
 
 using namespace std;
 
@@ -91,16 +90,22 @@ RegistrationLog::RegistrationLog(const sip_t* sip, const sip_contact_t* contacts
 	mContacts = sip_contact_dup(mHome.home(), contacts);
 }
 
-void RegistrationLog::write(EventLogWriter& writer) const {
-	writer.write(*this);
+eventlogs::EventLogRefVariant RegistrationLog::toRefVariant() const {
+	return *this;
 }
 
-void CallLog::write(EventLogWriter& writer) const {
-	writer.write(*this);
+eventlogs::EventLogRefVariant CallLog::toRefVariant() const {
+	return *this;
+}
+eventlogs::EventLogVariant CallLog::intoVariant() && {
+	return move(*this);
 }
 
-void MessageLog::write(EventLogWriter& writer) const {
-	writer.write(*this);
+eventlogs::EventLogRefVariant MessageLog::toRefVariant() const {
+	return *this;
+}
+eventlogs::EventLogVariant MessageLog::intoVariant() && {
+	return move(*this);
 }
 
 AuthLog::AuthLog(const sip_t* sip, bool userExists)
@@ -128,16 +133,16 @@ void AuthLog::setOrigin(const sip_via_t* via) {
 	}
 }
 
-void AuthLog::write(EventLogWriter& writer) const {
-	writer.write(*this);
+eventlogs::EventLogRefVariant AuthLog::toRefVariant() const {
+	return *this;
 }
 
 CallQualityStatisticsLog::CallQualityStatisticsLog(const sip_t* sip)
     : EventLog(sip), mReport{sip->sip_payload && sip->sip_payload->pl_data ? sip->sip_payload->pl_data : nullptr} {
 }
 
-void CallQualityStatisticsLog::write(EventLogWriter& writer) const {
-	writer.write(*this);
+eventlogs::EventLogRefVariant CallQualityStatisticsLog::toRefVariant() const {
+	return *this;
 }
 
 } // namespace flexisip

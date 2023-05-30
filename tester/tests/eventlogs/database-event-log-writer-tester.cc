@@ -14,6 +14,7 @@
 #include "flexisip/sofia-wrapper/msg-sip.hh"
 
 #include "eventlogs/eventlogs.hh"
+#include "eventlogs/type-complete-event-log-variant.hh"
 #include "sofia-wrapper/sip-header-private.hh"
 #include "utils/asserts.hh"
 #include "utils/mysql-server.hh"
@@ -32,12 +33,12 @@ void logMessage() {
 	msg.makeAndInsert<sofiasip::SipHeaderTo>("msg-event-log-test-to@example.org");
 	msg.makeAndInsert<sofiasip::SipHeaderUserAgent>("msg-event-log-test-user-agent");
 	msg.makeAndInsert<sofiasip::SipHeaderCallID>();
-	auto messageLog = make_shared<MessageLog>(msg.getSip(), MessageLog::ReportType::DeliveredToUser);
+	eventlogs::IntoEventLogVariant&& messageLog = MessageLog(msg.getSip(), MessageLog::ReportType::DeliveredToUser);
 	db.waitReady();
 	DataBaseEventLogWriter logWriter{"mysql", db.connectionString(), 1, 1};
 	BC_ASSERT_CPP_EQUAL(logWriter.isReady(), true);
 
-	logWriter.write(messageLog);
+	logWriter.write(move(messageLog));
 
 	BcAssert asserter{};
 	asserter.addCustomIterate([]() { this_thread::sleep_for(10ms); });

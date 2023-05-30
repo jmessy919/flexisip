@@ -104,11 +104,11 @@ void ForkCallContext::cancelOthersWithStatus(const shared_ptr<BranchInfo>& br, F
 			cancelBranch(brit);
 			brit->notifyBranchCanceled(status);
 
-			auto eventLog = make_shared<CallLog>(mEvent->getMsgSip()->getSip());
-			eventLog->mDevice.emplace(*brit->mContact);
-			eventLog->setCancelled();
-			eventLog->mForkStatus = status;
-			mEvent->sendLog(eventLog);
+			CallLog eventLog{mEvent->getMsgSip()->getSip()};
+			eventLog.mDevice.emplace(*brit->mContact);
+			eventLog.setCancelled();
+			eventLog.mForkStatus = status;
+			mEvent->sendLog(move(eventLog));
 		}
 	}
 	mNextBranchesTimer.reset();
@@ -163,7 +163,7 @@ void ForkCallContext::onResponse(const shared_ptr<BranchInfo>& br, const shared_
 		cancelOthersWithStatus(br, ForkStatus::AcceptedElsewhere);
 	} else if (code >= 100) {
 		if (code == 180) {
-			mEvent->sendLog(make_shared<CallRingingEventLog>(*mEvent->getMsgSip()->getSip(), br.get()));
+			mEvent->sendLog(CallRingingEventLog(*mEvent->getMsgSip()->getSip(), br.get()));
 		}
 
 		forwardThenLogResponse(br);
@@ -293,7 +293,7 @@ void ForkCallContext::start() {
 
 	// SOUNDNESS: getBranches() returns the waiting branches. We want all branches in the event, so that presumes there
 	// are no branches answered yet. We also presume all branches have been added by now.
-	mEvent->sendLog(make_shared<CallStartedEventLog>(*mEvent->getMsgSip()->getSip(), getBranches()));
+	mEvent->sendLog(CallStartedEventLog(*mEvent->getMsgSip()->getSip(), getBranches()));
 
 	ForkContextBase::start();
 }

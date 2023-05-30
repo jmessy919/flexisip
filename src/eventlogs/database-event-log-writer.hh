@@ -4,28 +4,28 @@
 
 #pragma once
 
-#include "event-log-writer.hh"
+#include "explicit-type-event-log-writer.hh"
 
 #include <mutex>
 #include <queue>
 
 #include <soci/soci.h>
 
-#include "eventlogs/event-log-write-dispatcher.hh"
 #include "utils/thread/thread-pool.hh"
 
 namespace flexisip {
 
 class EventLog;
 
-class DataBaseEventLogWriter : public EventLogWriter {
+class DataBaseEventLogWriter : public ExplicitTypeEventLogWriter {
 public:
 	DataBaseEventLogWriter(const std::string& backendString,
 	                       const std::string& connectionString,
 	                       unsigned int maxQueueSize,
 	                       unsigned int nbThreadsMax);
 
-	void write(std::shared_ptr<const EventLogWriteDispatcher> evlog) override;
+	void write(eventlogs::IntoEventLogVariant&&) override;
+	void write(const std::shared_ptr<const eventlogs::ToEventLogVariant>&) override;
 	bool isReady() const {
 		return mIsReady;
 	}
@@ -99,7 +99,7 @@ private:
 
 	bool mIsReady{false};
 	std::mutex mMutex{};
-	std::queue<std::shared_ptr<const EventLogWriteDispatcher>> mListLogs{};
+	std::queue<std::shared_ptr<const eventlogs::ToEventLogVariant>> mListLogs{};
 
 	std::unique_ptr<soci::connection_pool> mConnectionPool{};
 	std::unique_ptr<ThreadPool> mThreadPool{};

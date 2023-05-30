@@ -35,6 +35,11 @@
 
 namespace flexisip {
 
+namespace eventlogs {
+class IntoEventLogVariant;
+class ToEventLogVariant;
+}
+
 class Agent;
 class Module;
 class IncomingAgent;
@@ -123,7 +128,8 @@ public:
 	void flushLog(); /*to be used exceptionally when an event log needs to be flushed immediately, for example because
 	                    you need to submit a new one.*/
 	// Write given EventLog immediately
-	void sendLog(const std::shared_ptr<const EventLogWriteDispatcher>&);
+	void sendLog(const std::shared_ptr<const eventlogs::ToEventLogVariant>&);
+	void sendLog(eventlogs::IntoEventLogVariant&&);
 	std::shared_ptr<IncomingTransaction> getIncomingTransaction();
 	std::shared_ptr<OutgoingTransaction> getOutgoingTransaction();
 

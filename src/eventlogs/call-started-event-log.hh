@@ -12,7 +12,7 @@
 #include "eventlogs/identified.hh"
 #include "sofia-sip/sip.h"
 
-#include "eventlogs/event-log-write-dispatcher.hh"
+#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/sip-event-log.hh"
 #include "eventlogs/timestamped.hh"
 
@@ -21,14 +21,16 @@ namespace flexisip {
 class BranchInfo;
 struct ExtendedContact;
 
-class CallStartedEventLog : public EventLogWriteDispatcher, public SipEventLog, public Identified, public Timestamped {
+class CallStartedEventLog : public eventlogs::IntoEventLogVariant,
+                            public SipEventLog,
+                            public Identified,
+                            public Timestamped {
 public:
 	CallStartedEventLog(const sip_t&, const std::list<std::shared_ptr<BranchInfo>>&);
 
 	const std::vector<ExtendedContact> mDevices;
 
-protected:
-	void write(EventLogWriter& writer) const override;
+	eventlogs::EventLogVariant intoVariant() && override;
 };
 
 } // namespace flexisip

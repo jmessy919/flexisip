@@ -4,8 +4,8 @@
 
 #include "eventlogs/call-ended-event-log.hh"
 
-#include "eventlogs/event-log-writer.hh"
 #include "eventlogs/identified.hh"
+#include "eventlogs/type-complete-event-log-variant.hh"
 #include "fork-context/branch-info.hh"
 
 namespace flexisip {
@@ -14,8 +14,8 @@ using namespace std;
 CallEndedEventLog::CallEndedEventLog(const sip_t& sip) : Identified(sip) {
 }
 
-void CallEndedEventLog::write(EventLogWriter& writer) const {
-	writer.write(*this);
+eventlogs::EventLogVariant CallEndedEventLog::intoVariant() && {
+	return move(*this);
 }
 
 } // namespace flexisip

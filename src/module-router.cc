@@ -902,7 +902,7 @@ void ModuleRouter::onRequest(shared_ptr<RequestSipEvent>& ev) {
 
 	bool iAmTheEdgeProxy = !sip->sip_via || !sip->sip_via->v_next;
 	if (sip->sip_request->rq_method == sip_method_bye && iAmTheEdgeProxy) {
-		ev->sendLog(make_shared<CallEndedEventLog>(*sip));
+		ev->sendLog(CallEndedEventLog(*sip));
 	}
 
 	// Handle SipEvent associated with a Stateful transaction

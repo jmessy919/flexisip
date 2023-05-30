@@ -4,12 +4,14 @@
 
 #include "database-event-log-writer.hh"
 
+#include <memory>
+
 #include <sofia-sip/sip_protos.h>
 
 #include "db/db-transaction.hh"
 #include "eventlogs.hh"
 #include "eventlogs/event-log-utils.hh"
-#include "eventlogs/event-log-write-dispatcher.hh"
+#include "eventlogs/type-complete-event-log-variant.hh"
 #include "utils/thread/auto-thread-pool.hh"
 
 using namespace std;
@@ -390,10 +392,10 @@ void DataBaseEventLogWriter::writeEventFromQueue() {
 	auto evlog = mListLogs.front();
 	mListLogs.pop();
 	mMutex.unlock();
-	EventLogWriter::write(evlog);
+	ExplicitTypeEventLogWriter::write(evlog);
 }
 
-void DataBaseEventLogWriter::write(std::shared_ptr<const EventLogWriteDispatcher> evlog) {
+void DataBaseEventLogWriter::write(const std::shared_ptr<const eventlogs::ToEventLogVariant>& evlog) {
 	mMutex.lock();
 
 	if (mListLogs.size() < mMaxQueueSize) {
@@ -408,6 +410,27 @@ void DataBaseEventLogWriter::write(std::shared_ptr<const EventLogWriteDispatcher
 		mMutex.unlock();
 		LOGE("DataBaseEventLogWriter: too many events in queue! (%i)", (int)mMaxQueueSize);
 	}
+}
+
+namespace {
+
+class WrappedVariant : public eventlogs::ToEventLogVariant {
+public:
+	WrappedVariant(eventlogs::IntoEventLogVariant&& evlog) : mVariant(std::move(evlog).intoVariant()) {
+	}
+
+	eventlogs::EventLogRefVariant toRefVariant() const override {
+		return std::visit([](const auto& evlog) -> eventlogs::EventLogRefVariant { return evlog; }, mVariant);
+	}
+
+private:
+	eventlogs::EventLogVariant mVariant;
+};
+
+} // namespace
+
+void DataBaseEventLogWriter::write(eventlogs::IntoEventLogVariant&& evlog) {
+	write(make_shared<WrappedVariant>(move(evlog)));
 }
 
 } // namespace flexisip

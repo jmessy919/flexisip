@@ -71,17 +71,16 @@ string toString(const sip_from_t* from) {
 }
 
 template <typename Event>
-auto storeEventsInto(vector<Event>& container) {
-	return [&container](const Event& event) {
-		// SAFETY: force-moving is OK as long as the event is not accessed after this callback
-		container.emplace_back(move(const_cast<Event&>(event)));
-	};
+auto moveEventsInto(vector<Event>& container) {
+	return [&container](Event&& event) { container.emplace_back(move(event)); };
 }
 
 template <typename Event>
 class Ignore {
 public:
 	void operator()(const Event&) {
+	}
+	void operator()(const shared_ptr<const Event>&) {
 	}
 };
 
@@ -98,13 +97,13 @@ void callStartedAndEnded() {
 	const auto& agent = proxy->getAgent();
 	vector<CallStartedEventLog> callsStarted{};
 	vector<CallRingingEventLog> callsRung{};
-	vector<CallLog> invitesEnded{};
+	vector<shared_ptr<const CallLog>> invitesEnded{};
 	vector<CallEndedEventLog> callsEnded{};
 	plugEventCallbacks(*agent, overloaded{
-	                               storeEventsInto(callsStarted),
-	                               storeEventsInto(invitesEnded),
-	                               storeEventsInto(callsRung),
-	                               storeEventsInto(callsEnded),
+	                               moveEventsInto(callsStarted),
+	                               moveEventsInto(invitesEnded),
+	                               moveEventsInto(callsRung),
+	                               moveEventsInto(callsEnded),
 	                               Ignore<RegistrationLog>(),
 	                           });
 	const string expectedFrom = "sip:tony@sip.example.org";
@@ -132,17 +131,17 @@ void callStartedAndEnded() {
 	BC_ASSERT_CPP_EQUAL(ringingEvent.mDevice.mKey.str(), deviceKey);
 	BC_ASSERT_TRUE(startedEvent.mTimestamp < ringingEvent.mTimestamp);
 	const auto& acceptedEvent = invitesEnded[0];
-	BC_ASSERT_CPP_EQUAL(toString(acceptedEvent.mFrom), expectedFrom);
-	BC_ASSERT_CPP_EQUAL(toString(acceptedEvent.mTo), expectedTo);
-	BC_ASSERT_CPP_EQUAL(string(acceptedEvent.mId), eventId);
-	BC_ASSERT_TRUE(acceptedEvent.mDevice != nullopt);
-	BC_ASSERT_CPP_EQUAL(acceptedEvent.mDevice->mKey.str(), deviceKey);
-	const auto& acceptedAt = acceptedEvent.getDate();
+	BC_ASSERT_CPP_EQUAL(toString(acceptedEvent->mFrom), expectedFrom);
+	BC_ASSERT_CPP_EQUAL(toString(acceptedEvent->mTo), expectedTo);
+	BC_ASSERT_CPP_EQUAL(string(acceptedEvent->mId), eventId);
+	BC_ASSERT_TRUE(acceptedEvent->mDevice != nullopt);
+	BC_ASSERT_CPP_EQUAL(acceptedEvent->mDevice->mKey.str(), deviceKey);
+	const auto& acceptedAt = acceptedEvent->getDate();
 	BC_ASSERT_TRUE(chrono::system_clock::to_time_t(ringingEvent.mTimestamp) <=
 	               acceptedAt
 	                   // Precision? Different clocks? I don't know why, but without this +1 it sometimes fails
 	                   + 1);
-	BC_ASSERT_CPP_EQUAL(acceptedEvent.getStatusCode(), 200 /* Accepted */);
+	BC_ASSERT_CPP_EQUAL(acceptedEvent->getStatusCode(), 200 /* Accepted */);
 
 	tony.endCurrentCall(mike);
 
@@ -155,14 +154,16 @@ void callStartedAndEnded() {
 void callInviteStatuses() {
 	const auto proxy = makeAndStartProxy();
 	const auto& agent = proxy->getAgent();
-	vector<CallLog> invitesEnded{};
-	plugEventCallbacks(*agent, overloaded{
-	                               storeEventsInto(invitesEnded),
-	                               Ignore<CallStartedEventLog>(),
-	                               Ignore<CallRingingEventLog>(),
-	                               Ignore<CallEndedEventLog>(),
-	                               Ignore<RegistrationLog>(),
-	                           });
+	vector<shared_ptr<const CallLog>> invitesEnded{};
+	plugEventCallbacks(
+	    *agent, overloaded{
+	                moveEventsInto(invitesEnded),
+	                [&invitesEnded](CallLog&& owned) { invitesEnded.emplace_back(make_shared<CallLog>(move(owned))); },
+	                Ignore<CallStartedEventLog>(),
+	                Ignore<CallRingingEventLog>(),
+	                Ignore<CallEndedEventLog>(),
+	                Ignore<RegistrationLog>(),
+	            });
 	const string mike = "sip:mike@sip.example.org";
 	auto tony = ClientBuilder("sip:tony@sip.example.org").registerTo(proxy);
 	auto mikePhone = ClientBuilder(mike).registerTo(proxy);
@@ -190,8 +191,8 @@ void callInviteStatuses() {
 
 	BC_ASSERT_CPP_EQUAL(invitesEnded.size(), 2);
 	for (const auto& event : invitesEnded) {
-		BC_ASSERT_CPP_EQUAL(event.isCancelled(), true);
-		BC_ASSERT_ENUM_EQUAL(event.mForkStatus, ForkStatus::Standard);
+		BC_ASSERT_CPP_EQUAL(event->isCancelled(), true);
+		BC_ASSERT_ENUM_EQUAL(event->mForkStatus, ForkStatus::Standard);
 	}
 	invitesEnded.clear();
 
@@ -215,8 +216,8 @@ void callInviteStatuses() {
 	const auto mikeDesktopUuid = uuidOf(*mikeDesktopCore);
 	unordered_map<string_view, reference_wrapper<const CallLog>> invitesByDeviceUuid{};
 	for (const auto& event : invitesEnded) {
-		BC_ASSERT_TRUE(event.mDevice != nullopt);
-		invitesByDeviceUuid.emplace(uuidFromSipInstance(event.mDevice->mKey.str()), event);
+		BC_ASSERT_TRUE(event->mDevice != nullopt);
+		invitesByDeviceUuid.emplace(uuidFromSipInstance(event->mDevice->mKey.str()), *event);
 	}
 	{
 		const auto mikePhoneInvite = invitesByDeviceUuid.find(mikePhoneUuid);
@@ -250,8 +251,8 @@ void callInviteStatuses() {
 	BC_ASSERT_CPP_EQUAL(invitesEnded.size(), 2);
 	invitesByDeviceUuid.clear();
 	for (const auto& event : invitesEnded) {
-		BC_ASSERT_TRUE(event.mDevice != nullopt);
-		invitesByDeviceUuid.emplace(uuidFromSipInstance(event.mDevice->mKey.str()), event);
+		BC_ASSERT_TRUE(event->mDevice != nullopt);
+		invitesByDeviceUuid.emplace(uuidFromSipInstance(event->mDevice->mKey.str()), *event);
 	}
 	const auto mikePhoneInvite = invitesByDeviceUuid.find(mikePhoneUuid);
 	BC_ASSERT_TRUE(mikePhoneInvite != invitesByDeviceUuid.end());
@@ -268,9 +269,9 @@ void callInviteStatuses() {
 void callError() {
 	const auto proxy = makeAndStartProxy();
 	const auto& agent = proxy->getAgent();
-	vector<CallLog> invitesEnded{};
+	vector<shared_ptr<const CallLog>> invitesEnded{};
 	plugEventCallbacks(*agent, overloaded{
-	                               storeEventsInto(invitesEnded),
+	                               moveEventsInto(invitesEnded),
 	                               Ignore<CallStartedEventLog>(),
 	                               Ignore<CallRingingEventLog>(),
 	                               Ignore<RegistrationLog>(),
@@ -296,8 +297,8 @@ void callError() {
 
 	BC_ASSERT_CPP_EQUAL(invitesEnded.size(), 1);
 	const auto& errorEvent = invitesEnded[0];
-	BC_ASSERT_CPP_EQUAL(errorEvent.getStatusCode(), 488 /* Not acceptable */);
-	BC_ASSERT_CPP_EQUAL(errorEvent.isCancelled(), false);
+	BC_ASSERT_CPP_EQUAL(errorEvent->getStatusCode(), 488 /* Not acceptable */);
+	BC_ASSERT_CPP_EQUAL(errorEvent->isCancelled(), false);
 }
 
 TestSuite _("EventLog Stats",

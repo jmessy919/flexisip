@@ -6,20 +6,19 @@
 
 #include "sofia-sip/sip.h"
 
-#include "eventlogs/event-log-write-dispatcher.hh"
 #include "eventlogs/identified.hh"
+#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/timestamped.hh"
 
 namespace flexisip {
 
 class BranchInfo;
 
-class CallEndedEventLog : public EventLogWriteDispatcher, public Identified, public Timestamped {
+class CallEndedEventLog : public eventlogs::IntoEventLogVariant, public Identified, public Timestamped {
 public:
 	CallEndedEventLog(const sip_t&);
 
-protected:
-	void write(EventLogWriter& writer) const override;
+	eventlogs::EventLogVariant intoVariant() && override;
 };
 
 } // namespace flexisip

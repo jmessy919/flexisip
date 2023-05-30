@@ -53,10 +53,10 @@ add_library(flexisip SHARED
 	eventlogs/call-started-event-log.cc eventlogs/call-started-event-log.hh
 	eventlogs/event-id.cc eventlogs/event-id.hh
 	eventlogs/event-log-utils.cc eventlogs/event-log-utils.hh
-	eventlogs/event-log-write-dispatcher.hh
 	eventlogs/event-log-writer-visitor-adapter.hh
 	eventlogs/event-log-writer.hh
 	eventlogs/eventlogs.cc eventlogs/eventlogs.hh
+	eventlogs/explicit-type-event-log-writer.cc eventlogs/explicit-type-event-log-writer.hh
 	eventlogs/filesystem-event-log-writer.cc eventlogs/filesystem-event-log-writer.hh
 	eventlogs/sip-event-log.cc eventlogs/sip-event-log.hh
 	fork-context/branch-info.hh

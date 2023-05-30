@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "event-log-writer.hh"
+#include "explicit-type-event-log-writer.hh"
 
 #include <string>
 
@@ -14,7 +14,7 @@ namespace flexisip {
 
 class EventLog;
 
-class FilesystemEventLogWriter : public EventLogWriter {
+class FilesystemEventLogWriter : public ExplicitTypeEventLogWriter {
 public:
 	FilesystemEventLogWriter(const std::string& rootpath);
 

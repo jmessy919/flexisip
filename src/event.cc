@@ -25,6 +25,7 @@
 #include "flexisip/module.hh"
 
 #include "agent.hh"
+#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/event-log-writer.hh"
 #include "eventlogs/eventlogs.hh"
 #include "transaction.hh"
@@ -80,9 +81,15 @@ void SipEvent::flushLog() {
 	sendLog(mEventLog);
 }
 
-void SipEvent::sendLog(const std::shared_ptr<const EventLogWriteDispatcher>& log) {
+void SipEvent::sendLog(const std::shared_ptr<const eventlogs::ToEventLogVariant>& log) {
 	if (auto logWriter = mAgent->getEventLogWriter()) {
 		logWriter->write(log);
+	}
+}
+
+void SipEvent::sendLog(eventlogs::IntoEventLogVariant&& log) {
+	if (auto logWriter = mAgent->getEventLogWriter()) {
+		logWriter->write(move(log));
 	}
 }
 

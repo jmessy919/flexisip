@@ -6,19 +6,13 @@
 
 #include <memory>
 
-#include "eventlogs/event-log-write-dispatcher.hh"
-#include "flexisip/logmanager.hh"
-
 namespace flexisip {
+namespace eventlogs {
 
-class RegistrationLog;
-class CallStartedEventLog;
-class CallRingingEventLog;
-class CallLog;
-class CallEndedEventLog;
-class CallQualityStatisticsLog;
-class MessageLog;
-class AuthLog;
+class IntoEventLogVariant;
+class ToEventLogVariant;
+
+} // namespace eventlogs
 
 class EventLogWriter {
 public:
@@ -26,36 +20,8 @@ public:
 	EventLogWriter(const EventLogWriter&) = delete;
 	virtual ~EventLogWriter() = default;
 
-	virtual void write(std::shared_ptr<const EventLogWriteDispatcher> evlog) {
-		evlog->write(*this);
-	}
-
-protected:
-	friend RegistrationLog;
-	friend CallStartedEventLog;
-	friend CallRingingEventLog;
-	friend CallLog;
-	friend CallEndedEventLog;
-	friend CallQualityStatisticsLog;
-	friend MessageLog;
-	friend AuthLog;
-
-	virtual void write(const RegistrationLog& rlog) = 0;
-	virtual void write(const CallLog& clog) = 0;
-	virtual void write(const CallQualityStatisticsLog& mlog) = 0;
-	virtual void write(const MessageLog& mlog) = 0;
-	virtual void write(const AuthLog& alog) = 0;
-
-#define STUB(T)                                                                                                        \
-	virtual void write(const T&) {                                                                                     \
-		SLOGD << typeid(*this).name() << " does not implement " << __PRETTY_FUNCTION__;                                \
-	}
-
-	STUB(CallStartedEventLog)
-	STUB(CallRingingEventLog)
-	STUB(CallEndedEventLog)
-
-#undef STUB
+	virtual void write(eventlogs::IntoEventLogVariant&&) = 0;
+	virtual void write(const std::shared_ptr<const eventlogs::ToEventLogVariant>&) = 0;
 };
 
 } // namespace flexisip

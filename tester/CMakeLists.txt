@@ -73,7 +73,6 @@ add_executable(flexisip_tester
 	sofia-driven-signal-handler-tester.cc
 	tester.cc
 	tests/eventlogs/event-log-stats-tester.cc
-	tests/eventlogs/event-log-writer-visitor-adapter-tester.cc
 	tests/presence/presence-pidf-tester.cc
 	tests/pushnotification/service-tester.cc
 	tests/sofia-wrapper/home-tester.cc
