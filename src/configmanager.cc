@@ -117,7 +117,7 @@ std::string GenericEntry::getCompleteName() const {
 		string&& res = mParent->getCompleteName();
 		if (!res.empty()) res += '/';
 		res += mName;
-		return move(res);
+		return std::move(res);
 	}
 }
 
@@ -520,7 +520,7 @@ void GenericStruct::addChildrenValues(ConfigItemDescriptor* items, bool hashed) 
 				LOGA("Bad ConfigValue type %u for %s!", items->type, items->name);
 				break;
 		}
-		addChild(move(val));
+		addChild(std::move(val));
 		if (!hashed) ++cOid;
 	}
 }
@@ -528,7 +528,7 @@ void GenericStruct::addChildrenValues(ConfigItemDescriptor* items, bool hashed) 
 StatCounter64* GenericStruct::createStat(const string& name, const string& help) {
 	oid cOid = Oid::oidFromHashedString(name);
 	auto val = make_unique<StatCounter64>(name, help, cOid);
-	return addChild(move(val));
+	return addChild(std::move(val));
 }
 pair<StatCounter64*, StatCounter64*> GenericStruct::createStatPair(const string& name, const string& help) {
 	return make_pair(createStat(name, help), createStat(name + "-finished", help + " Finished."));
@@ -1082,18 +1082,18 @@ GenericManager::GenericManager()
 
 	auto uNotifObjs = make_unique<GenericStruct>("notif", "Templates for notifications.", 1);
 	uNotifObjs->setExportable(false);
-	auto notifObjs = mConfigRoot.addChild(move(uNotifObjs));
+	auto notifObjs = mConfigRoot.addChild(std::move(uNotifObjs));
 	auto uNotifier = make_unique<NotificationEntry>("sender", "Send notifications", 1);
-	mNotifier = notifObjs->addChild(move(uNotifier));
+	mNotifier = notifObjs->addChild(std::move(uNotifier));
 	auto nmsg = make_unique<ConfigString>("msg", "Notification message payload.", "", 10);
 	nmsg->setNotifPayload(true);
-	notifObjs->addChild(move(nmsg));
+	notifObjs->addChild(std::move(nmsg));
 	auto nsoid = make_unique<ConfigString>("source", "Notification source payload.", "", 11);
 	nsoid->setNotifPayload(true);
-	notifObjs->addChild(move(nsoid));
+	notifObjs->addChild(std::move(nsoid));
 
 	auto uGlobal = make_unique<GenericStruct>("global", "Some global settings of the flexisip proxy.", 2);
-	auto global = mConfigRoot.addChild(move(uGlobal));
+	auto global = mConfigRoot.addChild(std::move(uGlobal));
 	global->addChildrenValues(global_conf);
 	global->get<ConfigByteSize>("max-log-size")->setDeprecated({"2019-05-17", "2.0.0"});
 	global->get<ConfigBoolean>("use-maddr")
@@ -1110,25 +1110,25 @@ GenericManager::GenericManager()
 	auto version = make_unique<ConfigString>("version-number", "Flexisip version.", FLEXISIP_GIT_VERSION, 999);
 	version->setReadOnly(true);
 	version->setExportable(false);
-	global->addChild(move(version));
+	global->addChild(std::move(version));
 
 	auto runtimeError = make_unique<ConfigRuntimeError>("runtime-error", "Retrieve current runtime error state.", 998);
 	runtimeError->setExportable(false);
 	runtimeError->setReadOnly(true);
-	global->addChild(move(runtimeError));
+	global->addChild(std::move(runtimeError));
 
 	auto uCluster = make_unique<GenericStruct>(
 	    "cluster",
 	    "This section contains some parameters useful when the current proxy is part of a network of proxies (cluster) "
 	    "which serve the same domain.",
 	    0);
-	auto cluster = mConfigRoot.addChild(move(uCluster));
+	auto cluster = mConfigRoot.addChild(std::move(uCluster));
 	cluster->addChildrenValues(cluster_conf);
 	cluster->setReadOnly(true);
 
 	auto uMdns = make_unique<GenericStruct>(
 	    "mdns-register", "Should the server be registered on a local domain, to be accessible via multicast DNS.", 0);
-	auto mdns = mConfigRoot.addChild(move(uMdns));
+	auto mdns = mConfigRoot.addChild(std::move(uMdns));
 	mdns->addChildrenValues(mdns_conf);
 	mdns->setReadOnly(true);
 }

@@ -42,8 +42,8 @@ string Http2Client::BadStateError::formatWhatArg(State state) noexcept {
 }
 
 Http2Client::Http2Client(sofiasip::SuRoot& root, decltype(mConn)&& connection, SessionSettings&& sessionSettings)
-    : mConn(move(connection)), mRoot(root), mIdleTimer(root.getCPtr(), mIdleTimeout),
-      mSessionSettings(move(sessionSettings)) {
+    : mConn(std::move(connection)), mRoot(root), mIdleTimer(root.getCPtr(), mIdleTimeout),
+      mSessionSettings(std::move(sessionSettings)) {
 
 	ostringstream os{};
 	os << "Http2Client[" << this << "]";
@@ -56,7 +56,7 @@ Http2Client::Http2Client(sofiasip::SuRoot& root,
                          const string& host,
                          const string& port,
                          SessionSettings&& sessionSettings)
-    : Http2Client(root, make_unique<TlsConnection>(host, port, true), move(sessionSettings)) {
+    : Http2Client(root, make_unique<TlsConnection>(host, port, true), std::move(sessionSettings)) {
 }
 
 Http2Client::Http2Client(sofiasip::SuRoot& root,
@@ -65,7 +65,7 @@ Http2Client::Http2Client(sofiasip::SuRoot& root,
                          const string& trustStorePath,
                          const string& certPath,
                          SessionSettings&& sessionSettings)
-    : Http2Client(root, make_unique<TlsConnection>(host, port, trustStorePath, certPath, true), move(sessionSettings)) {
+    : Http2Client(root, make_unique<TlsConnection>(host, port, trustStorePath, certPath, true), std::move(sessionSettings)) {
 }
 
 void Http2Client::sendAllPendingRequests() {
@@ -108,7 +108,7 @@ void Http2Client::send(const shared_ptr<HttpRequest>& request, const OnResponseC
 		this->tlsConnect();
 	}
 	if (mState != State::Connected) {
-		mPendingHttpContexts.emplace_back(move(context));
+		mPendingHttpContexts.emplace_back(std::move(context));
 		return;
 	}
 
@@ -126,7 +126,7 @@ void Http2Client::send(const shared_ptr<HttpRequest>& request, const OnResponseC
 	// the emplace MUST be called before nghttp2_session_send for the timeout mechanic to work properly.
 	// In fact if you watch the Http2Client::resetTimeoutTimer the context need to be in map for the timer to be
 	// reset/start properly.
-	mActiveHttpContexts.emplace(streamId, move(context));
+	mActiveHttpContexts.emplace(streamId, std::move(context));
 	auto status = sendAll();
 	if (status < 0) {
 		SLOGE << logPrefix << ": push request sending failed. reason=[" << nghttp2_strerror(status) << "]";
@@ -225,7 +225,7 @@ void Http2Client::http2Setup() {
 		return;
 	}
 
-	mHttpSession = move(httpSession);
+	mHttpSession = std::move(httpSession);
 
 	su_wait_create(&mPollInWait, mConn->getFd(), SU_WAIT_IN);
 	su_root_register(mRoot.getCPtr(), &mPollInWait, onPollInCb, this, su_pri_normal);

@@ -194,7 +194,7 @@ void ConferenceServer::_init() {
 	/* Get additional local domains */
 	auto otherLocalDomains = config->get<ConfigStringList>("local-domains")->read();
 	for (auto& domain : otherLocalDomains)
-		mLocalDomains.emplace_back(move(domain));
+		mLocalDomains.emplace_back(std::move(domain));
 	otherLocalDomains.clear();
 	mLocalDomains.sort();
 	mLocalDomains.unique();
@@ -621,7 +621,7 @@ ConferenceServer::Init::Init() {
 	    "of each participant, which creates an explicit dependency on Flexisip proxy server.\n"
 	    "This dependency is not required for audio/video conferences.",
 	    0);
-	auto s = GenericManager::get()->getRoot()->addChild(move(uS));
+	auto s = GenericManager::get()->getRoot()->addChild(std::move(uS));
 	s->addChildrenValues(items);
 	s->get<ConfigString>("conference-factory-uri")
 	    ->setDeprecated("2020-09-30", "2.1.0",

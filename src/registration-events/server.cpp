@@ -106,7 +106,7 @@ Server::Init::Init() {
 	    "To generate the outgoing NOTIFY, it will rely upon the registrar database, as setup in module::Registrar "
 	    "section.",
 	    0);
-	auto s = GenericManager::get()->getRoot()->addChild(move(uS));
+	auto s = GenericManager::get()->getRoot()->addChild(std::move(uS));
 	s->addChildrenValues(items);
 }
 

@@ -37,7 +37,7 @@ ClientWp::ClientWp(std::unique_ptr<Transport>&& transport,
                    const std::string& packageSID,
                    const std::string& applicationSecret,
                    const Service* service)
-    : LegacyClient{move(transport), name, maxQueueSize, service}, mPackageSID{packageSID}, mApplicationSecret{
+    : LegacyClient{std::move(transport), name, maxQueueSize, service}, mPackageSID{packageSID}, mApplicationSecret{
                                                                                                applicationSecret} {
 }
 

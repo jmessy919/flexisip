@@ -101,7 +101,7 @@ PresenceServer::Init::Init() {
 	    config_item_end};
 
 	auto uS = make_unique<GenericStruct>("presence-server", "Flexisip presence server parameters.", 0);
-	auto s = GenericManager::get()->getRoot()->addChild(move(uS));
+	auto s = GenericManager::get()->getRoot()->addChild(std::move(uS));
 	s->addChildrenValues(items);
 
 	s->get<ConfigString>("bypass-condition")->setExportable(false);

@@ -73,7 +73,7 @@ RedisServer::~RedisServer() {
 			SLOGE << "Failed to send term signal to redis process: " << *err;
 		}
 	}
-	move(mDaemon).wait();
+	std::move(mDaemon).wait();
 }
 
 uint16_t RedisServer::port() {
@@ -91,7 +91,7 @@ uint16_t RedisServer::port() {
 		auto& state = mDaemon.state();
 		auto* running = get_if<process::Running>(&state);
 		if (!running) {
-			SLOGW << "Restarting Redis daemon found in unexpected state: " << StreamableVariant(move(state));
+			SLOGW << "Restarting Redis daemon found in unexpected state: " << StreamableVariant(std::move(state));
 			restart();
 			continue;
 		}

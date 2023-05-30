@@ -259,40 +259,34 @@ configure_file(cmake/flexisip-config.h.in flexisip-config.h)
 set_source_files_properties(${PROJECT_BINARY_DIR}/flexisip-config.h PROPERTIES GENERATED ON)
 add_compile_definitions("HAVE_CONFIG_H")
 
+# Compute and set compilation options
 bc_init_compilation_flags(CPP_BUILD_FLAGS C_BUILD_FLAGS CXX_BUILD_FLAGS ENABLE_STRICT)
-if (ENABLE_STRICT)
-	list(APPEND CXX_BUILD_FLAGS
-		"-Werror=unused-result" # Packaging (on Ubuntu) has this on, so better catch it sooner
-		"-Werror=maybe-uninitialized" # GCC on CentOS 7 treats this as an error
-	)
-endif()
-
-# -Werror=varargs seems to do false positives with GCC 4.9.x
-if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION MATCHES "^4\\.9\\.[0-9]+$")
-	list(APPEND CXX_BUILD_FLAGS "-Wno-error=varargs")
-endif()
-
-# Old compilers (gcc6 and clang3 on Debian 9 Stretch) are giving us some troubles...
-if(CMAKE_CXX_COMPILER_VERSION MATCHES "^[0-6]\\..*$")
-	list(APPEND CXX_BUILD_FLAGS
-		"-Wno-error=unused-variable"
-	)
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	if(ENABLE_STRICT)
 		list(APPEND CXX_BUILD_FLAGS
-			"-Wno-error=unknown-attributes"
+			"-Werror=unused-result" # Packaging (on Ubuntu) has this on, so better catch it sooner
+			"-Werror=maybe-uninitialized" # GCC on CentOS 7 treats this as an error
 		)
 	endif()
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		list(APPEND CXX_BUILD_FLAGS
-			"-Wno-error=attributes"
-		)
+	# -Werror=varargs seems to do false positives with GCC 4.9.x
+	if(CMAKE_CXX_COMPILER_VERSION MATCHES "^4\\.9\\.[0-9]+$")
+		list(APPEND CXX_BUILD_FLAGS "-Wno-error=varargs")
 	endif()
-else()
-	list(APPEND CXX_BUILD_FLAGS
-		"-Werror=format-truncation=1" # GCC on CentOS 7 treats this as an error
-	)
+	if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7)
+		# Old compiler (gcc6 on Debian 9 Stretch) are giving us some toubles...
+		list(APPEND CXX_BUILD_FLAGS "-Wno-error=unused-variable" "-Wno-error=attributes")
+	else()
+		# GCC on CentOS 7 treats this as an error
+		list(APPEND CXX_BUILD_FLAGS "-Werror=format-truncation=1")
+	endif()
+		
 endif()
-
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	# Old compiler (clang3 on Debian 9 Stretch) are giving us some toubles...
+	if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 4)
+		list(APPEND CXX_BUILD_FLAGS "-Wno-error=unused-variable" "-Wno-error=unknown-attributes")
+	endif()
+endif()
 add_compile_options(${CPP_BUILD_FLAGS} ${CXX_BUILD_FLAGS})
 
 add_subdirectory(include)
