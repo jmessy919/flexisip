@@ -34,7 +34,7 @@ public:
 	struct Header {
 		std::string name{};
 		std::string value{};
-		std::uint8_t flags{NGHTTP2_FLAG_NONE};
+		uint8_t flags{NGHTTP2_FLAG_NONE};
 	};
 
 	using HeadersList = std::vector<Header>;
@@ -51,7 +51,7 @@ public:
 		return mHList;
 	}
 
-	void add(const std::string& name, const std::string& value, std::uint8_t flags = NGHTTP2_FLAG_NONE) noexcept;
+	void add(const std::string& name, const std::string& value, uint8_t flags = NGHTTP2_FLAG_NONE) noexcept;
 	std::string toString() const noexcept;
 
 	CHeaderList makeCHeaderList() const noexcept;
