@@ -16,23 +16,25 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <string>
 #include <optional>
+#include <string>
 
+#include "flexiapi/schemas/iso-8601-date.hh"
 #include "flexiapi/schemas/optional-json.hh"
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 
 #pragma once
 
 namespace flexisip {
+namespace flexiapi {
 
 class Conference {
 	friend class FlexiStats;
+
 public:
-	Conference() = default;
 	Conference(const std::string& id,
-	           const std::string& createdAt,
-	           const std::optional<std::string>& endedAt,
+	           const time_t& createdAt,
+	           const std::optional<time_t>& endedAt,
 	           const std::optional<std::string>& schedule)
 	    : id(id), created_at(createdAt), ended_at(endedAt), schedule(schedule) {
 	}
@@ -40,9 +42,10 @@ public:
 
 private:
 	std::string id;
-	std::string created_at;
-	std::optional<std::string> ended_at;
+	ISO8601Date created_at;
+	std::optional<ISO8601Date> ended_at;
 	std::optional<std::string> schedule;
 };
 
+} // namespace flexiapi
 } // namespace flexisip

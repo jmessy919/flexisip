@@ -19,6 +19,7 @@
 #include <optional>
 #include <string>
 
+#include "flexiapi/schemas/iso-8601-date.hh"
 #include "flexiapi/schemas/optional-json.hh"
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 #include "terminated.hh"
@@ -26,14 +27,16 @@
 #pragma once
 
 namespace flexisip {
+namespace flexiapi {
 
 class CallDeviceState {
 public:
+	// Do not use default constructor, here only for nlohmann json serialization.
 	CallDeviceState() = default;
-	CallDeviceState(const std::optional<std::string>& rangAt, const std::optional<Terminated>& inviteTerminated)
+	CallDeviceState(const std::optional<time_t>& rangAt, const std::optional<Terminated>& inviteTerminated)
 	    : rang_at(rangAt), invite_terminated(inviteTerminated) {
 	}
-	CallDeviceState(std::string& rangAt) : rang_at(rangAt), invite_terminated(std::nullopt) {
+	CallDeviceState(const time_t& rangAt) : rang_at(rangAt), invite_terminated(std::nullopt) {
 	}
 	CallDeviceState(const Terminated& inviteTerminated) : rang_at(std::nullopt), invite_terminated(inviteTerminated) {
 	}
@@ -55,8 +58,9 @@ public:
 	};
 
 private:
-	std::optional<std::string> rang_at{};
+	std::optional<ISO8601Date> rang_at{};
 	std::optional<Terminated> invite_terminated = std::nullopt;
 };
 
+} // namespace flexiapi
 } // namespace flexisip

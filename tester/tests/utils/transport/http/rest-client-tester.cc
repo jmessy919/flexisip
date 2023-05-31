@@ -19,6 +19,7 @@
 #include "tester.hh"
 
 #include "lib/nlohmann-json-3-11-2/json.hpp"
+#include "utils/asserts.hh"
 #include "utils/http-mock/http-mock.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
@@ -39,24 +40,23 @@ class RestTest : public Test {
 public:
 	void operator()() override {
 		HttpMock httpMock{"/api/test"};
-		BC_HARD_ASSERT_TRUE(httpMock.serveAsync());
+		int port = httpMock.serveAsync();
+		BC_HARD_ASSERT_TRUE(port > -1);
 
 		HttpHeaders httpHeaders{};
 		httpHeaders.add(":authority", "localhost");
 		httpHeaders.add("custom_header", "custom_header_value");
 		httpHeaders.add("custom_header2", "custom_header_value2");
-		RestClient restClient{Http2Client::make(mRoot, "localhost", "3000"), httpHeaders};
+		RestClient restClient{Http2Client::make(mRoot, "localhost", to_string(port)), httpHeaders};
 
 		sendRequest(restClient);
 
-		auto beforePlus2 = system_clock::now() + 2s;
-		while (!mRequestReceived && beforePlus2 >= system_clock::now()) {
-			mRoot.step(10ms);
-		}
+		BcAssert asserter{[this] { mRoot.step(1ms); }};
+		BC_HARD_ASSERT_TRUE(asserter.iterateUpTo(10, [this] { return mRequestReceived; }));
+
 		httpMock.forceCloseServer();
 		mRoot.step(10ms); // needed to acknowledge mock server closing
 
-		BC_HARD_ASSERT_TRUE(mRequestReceived);
 		const auto actualRequest = httpMock.popRequestReceived();
 		BC_HARD_ASSERT(actualRequest != nullptr);
 
@@ -124,9 +124,8 @@ protected:
 	};
 	void sendRequest(RestClient& restClient) override {
 		JsonObject jsonObject{"42", 42};
-		json json = jsonObject;
 		restClient.patch(
-		    "/api/test", json, [this](const auto&, const auto&) { mRequestReceived = true; },
+		    "/api/test", jsonObject, [this](const auto&, const auto&) { mRequestReceived = true; },
 		    [](const auto&) { BC_HARD_FAIL("Request must succeed"); });
 	}
 

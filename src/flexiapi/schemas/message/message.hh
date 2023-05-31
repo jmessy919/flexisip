@@ -20,6 +20,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "flexiapi/schemas/api-formatted-uri.hh"
+#include "flexiapi/schemas/iso-8601-date.hh"
 #include "flexiapi/schemas/optional-json.hh"
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 #include "message-device-response.hh"
@@ -27,32 +29,38 @@
 #pragma once
 
 namespace flexisip {
+namespace flexiapi {
 
 using MessageDevices = std::unordered_map<std::string, std::optional<MessageDeviceResponse>>;
 using To = std::unordered_map<std::string, MessageDevices>;
+using ToParam = std::unordered_map<ApiFormattedUri, MessageDevices>;
 
 class Message {
 	friend class FlexiStats;
+
 public:
-	Message() = default;
 	Message(const std::string& id,
-	        const std::string& from,
-	        const To& to,
-	        const std::string& sentAt,
+	        const url_t& from,
+	        const ToParam& toParam,
+	        const time_t& sentAt,
 	        bool encrypted,
 	        const std::optional<std::string>& conferenceId)
-	    : id(id), from(from), to(to), sent_at(sentAt), encrypted(encrypted), conference_id(conferenceId) {
+	    : id(id), from(from), sent_at(sentAt), encrypted(encrypted), conference_id(conferenceId) {
+		for (const auto& entry : toParam) {
+			to.insert(std::make_pair(entry.first, entry.second));
+		}
 	}
 
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(Message, id, from, to, sent_at, encrypted, conference_id);
 
 private:
 	std::string id;
-	std::string from;
-	To to;
-	std::string sent_at;
+	ApiFormattedUri from;
+	To to{};
+	ISO8601Date sent_at;
 	bool encrypted;
 	std::optional<std::string> conference_id;
 };
 
+} // namespace flexiapi
 } // namespace flexisip

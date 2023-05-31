@@ -42,13 +42,12 @@ public:
  */
 class HttpMock {
 public:
-	HttpMock(const std::initializer_list<std::string> handles,
-	         std::optional<std::atomic_int*> requestReceivedCount = std::nullopt);
+	HttpMock(const std::initializer_list<std::string> endpoints, std::atomic_int* requestReceivedCount = nullptr);
 	~HttpMock() {
 		forceCloseServer();
 	}
 
-	bool serveAsync(const std::string& port = "3000");
+	int serveAsync(const std::string& port = "0");
 	void forceCloseServer();
 	std::shared_ptr<Request> popRequestReceived();
 
@@ -59,7 +58,7 @@ private:
 	ssl::context mCtx;
 	mutable std::recursive_mutex mMutex{};
 	std::queue<std::shared_ptr<Request>> mRequestsReceived{};
-	std::optional<std::atomic<int>*> mRequestReceivedCount{std::nullopt};
+	std::atomic<int>* mRequestReceivedCount{nullptr};
 };
 
 } // namespace flexisip

@@ -19,12 +19,14 @@
 #include <optional>
 #include <string>
 
+#include "flexiapi/schemas/iso-8601-date.hh"
 #include "flexiapi/schemas/optional-json.hh"
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 
 #pragma once
 
 namespace flexisip {
+namespace flexiapi {
 
 enum class ParticipantDeviceEventType {
 	INVITED,
@@ -43,13 +45,14 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ParticipantDeviceEventType,
 
 class ParticipantDeviceEvent {
 public:
-	ParticipantDeviceEvent(ParticipantDeviceEventType type, const std::string& at) : type(type), at(at) {
+	ParticipantDeviceEvent(ParticipantDeviceEventType type, const time_t& at) : type(type), at(at) {
 	}
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(ParticipantDeviceEvent, type, at);
 
 private:
 	ParticipantDeviceEventType type;
-	std::string at;
+	ISO8601Date at;
 };
 
+} // namespace flexiapi
 } // namespace flexisip

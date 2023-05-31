@@ -15,29 +15,55 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
-
-#include <string>
-
-#include "flexiapi/schemas/iso-8601-date.hh"
-#include "lib/nlohmann-json-3-11-2/json.hpp"
-
 #pragma once
+
+#include "flexisip/logmanager.hh"
+
+#include "lib/nlohmann-json-3-11-2/json.hpp"
 
 namespace flexisip {
 namespace flexiapi {
 
-class MessageDeviceResponse {
+class ApiFormattedUri {
 public:
 	// Do not use default constructor, here only for nlohmann json serialization.
-	MessageDeviceResponse() = default;
-	MessageDeviceResponse(int lastStatus, const time_t& receivedAt) : last_status(lastStatus), received_at(receivedAt) {
+	ApiFormattedUri();
+	ApiFormattedUri(const url_t& url) {
+		std::ostringstream concatenated{};
+		concatenated << url.url_user << "@" << url.url_host;
+		apiFormattedUri = concatenated.str();
 	}
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(MessageDeviceResponse, last_status, received_at)
+
+	operator std::string() {
+		return apiFormattedUri;
+	};
+
+	friend void to_json(nlohmann::json& j, const ApiFormattedUri& date) {
+		j = date.apiFormattedUri;
+	};
+	friend void from_json(const nlohmann::json& j, ApiFormattedUri& date) {
+		SLOGE << "ApiFormattedUri::apiFormattedUri used, this function is not safe (no checks)";
+		date.apiFormattedUri = j.get<std::string>();
+	}
+
+	bool operator==(const ApiFormattedUri& other) const {
+		return apiFormattedUri == other.apiFormattedUri;
+	}
 
 private:
-	int last_status = 0;
-	ISO8601Date received_at{};
+	friend std::hash<flexisip::flexiapi::ApiFormattedUri>;
+
+	std::string apiFormattedUri;
 };
 
 } // namespace flexiapi
 } // namespace flexisip
+
+namespace std {
+template <>
+struct hash<flexisip::flexiapi::ApiFormattedUri> {
+	size_t operator()(const flexisip::flexiapi::ApiFormattedUri& apiUri) const {
+		return hash<string>()(apiUri.apiFormattedUri);
+	}
+};
+} // namespace std

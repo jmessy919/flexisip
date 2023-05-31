@@ -18,11 +18,13 @@
 
 #include <string>
 
+#include "flexiapi/schemas/iso-8601-date.hh"
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 
 #pragma once
 
 namespace flexisip {
+namespace flexiapi {
 
 enum class TerminatedState {
 	ERROR,
@@ -44,13 +46,15 @@ NLOHMANN_JSON_SERIALIZE_ENUM(TerminatedState,
                              })
 class Terminated {
 public:
+	// Do not use default constructor, here only for nlohmann json serialization.
 	Terminated() = default;
-	Terminated(const std::string& at, const TerminatedState state) : at(at), state(state) {
+	Terminated(const time_t& at, const TerminatedState state) : at(at), state(state) {
 	}
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(Terminated, at, state)
 private:
-	std::string at{};
+	ISO8601Date at{};
 	TerminatedState state;
 };
 
+} // namespace flexiapi
 } // namespace flexisip

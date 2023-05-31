@@ -26,24 +26,26 @@
 #include "utils/transport/http/rest-client.hh"
 
 namespace flexisip {
+namespace flexiapi {
+
 class FlexiStats {
 public:
 	FlexiStats(sofiasip::SuRoot& root, const std::string& host, const std::string& port, const std::string& token);
 
 	/********** MESSAGES **********/
-	void addMessage(const Message& message);
+	void postMessage(const Message& message);
 	void notifyMessageDeviceResponse(const std::string& messageId,
 	                                 const std::string& sipUri,
 	                                 const std::string deviceId,
 	                                 const MessageDeviceResponse& messageDeviceResponse);
 
 	/********** CALLS **********/
-	void addCall(const Call& call);
+	void postCall(const Call& call);
 	void updateCallDeviceState(const std::string& callId, const std::string& deviceId, const CallDeviceState& call);
 	void updateCallState(const std::string& callId, const std::string& endedAt);
 
 	/********** CONFERENCES **********/
-	void addConference(const Conference& conference);
+	void postConference(const Conference& conference);
 	void notifyConferenceEnded(const std::string& conferenceId, const std::string& endedAt);
 	void conferenceAddParticipantEvent(const std::string& conferenceId,
 	                                   const std::string& sipUri,
@@ -56,4 +58,6 @@ public:
 private:
 	RestClient mRestClient;
 };
+
+} // namespace flexiapi
 } // namespace flexisip

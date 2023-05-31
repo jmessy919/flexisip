@@ -35,14 +35,13 @@ using namespace boost::asio::ssl;
 
 namespace flexisip {
 
-HttpMock::HttpMock(const std::initializer_list<std::string> handles,
-                   std::optional<std::atomic_int*> requestReceivedCount)
+HttpMock::HttpMock(const std::initializer_list<std::string> endpoints, std::atomic_int* requestReceivedCount)
     : mCtx(ssl::context::tls), mRequestReceivedCount(requestReceivedCount) {
 	mCtx.use_private_key_file(bcTesterRes("cert/self.signed.key.test.pem"), context::pem);
 	mCtx.use_certificate_chain_file(bcTesterRes("cert/self.signed.cert.test.pem"));
 
-	for (const auto& handle : handles) {
-		mServer.handle(handle, bind(&HttpMock::handleRequest, this, placeholders::_1, placeholders::_2));
+	for (const auto& handle : endpoints) {
+		mServer.handle(handle, [this](const request& req, const response& res) { handleRequest(req, res); });
 	}
 }
 
@@ -56,7 +55,7 @@ void HttpMock::handleRequest(const request& req, const response& res) {
 			string body{reinterpret_cast<const char*>(data), len};
 			requestReceived->body += body;
 			if (mRequestReceivedCount) {
-				(*(mRequestReceivedCount.value()))++;
+				(*mRequestReceivedCount)++;
 			}
 		}
 	});
@@ -69,16 +68,16 @@ void HttpMock::handleRequest(const request& req, const response& res) {
 	res.end("200 OK");
 }
 
-bool HttpMock::serveAsync(const std::string& port) {
+int HttpMock::serveAsync(const std::string& port) {
 	boost::system::error_code ec{};
 
 	configure_tls_context_easy(ec, mCtx);
 
 	if (mServer.listen_and_serve(ec, mCtx, "localhost", port, true)) {
 		SLOGE << "error: " << ec.message() << std::endl;
-		return false;
+		return -1;
 	}
-	return true;
+	return mServer.ports().size() != 0 ? mServer.ports().front() : -1;
 }
 
 void HttpMock::forceCloseServer() {

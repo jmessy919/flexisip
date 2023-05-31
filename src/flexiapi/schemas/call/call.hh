@@ -21,6 +21,8 @@
 #include <unordered_map>
 
 #include "call-device-state.hh"
+#include "flexiapi/schemas/api-formatted-uri.hh"
+#include "flexiapi/schemas/iso-8601-date.hh"
 #include "flexiapi/schemas/optional-json.hh"
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 #include "terminated.hh"
@@ -28,6 +30,7 @@
 #pragma once
 
 namespace flexisip {
+namespace flexiapi {
 
 using CallDevices = std::unordered_map<std::string, std::optional<CallDeviceState>>;
 
@@ -35,28 +38,28 @@ class Call {
 	friend class FlexiStats;
 
 public:
-	Call() = default;
 	Call(const std::string& id,
-	     const std::string& from,
-	     const std::string& to,
+	     const url_t& from,
+	     const url_t& to,
 	     const CallDevices& devices,
-	     const std::string& initiatedAt,
-	     const std::optional<std::string>& endedAt,
+	     time_t initiatedAt,
+	     const std::optional<time_t> endedAt,
 	     const std::optional<std::string>& conferenceId)
 	    : id(id), from(from), to(to), devices(devices), initiated_at(initiatedAt), ended_at(endedAt),
 	      conference_id(conferenceId) {
 	}
 
-	NLOHMANN_DEFINE_TYPE_INTRUSIVE(Call, id, from, to,devices, initiated_at, ended_at, conference_id);
+	NLOHMANN_DEFINE_TYPE_INTRUSIVE(Call, id, from, to, devices, initiated_at, ended_at, conference_id);
 
 private:
 	std::string id;
-	std::string from;
-	std::string to;
+	ApiFormattedUri from;
+	ApiFormattedUri to;
 	CallDevices devices;
-	std::string initiated_at;
-	std::optional<std::string> ended_at;
+	ISO8601Date initiated_at;
+	std::optional<ISO8601Date> ended_at;
 	std::optional<std::string> conference_id;
 };
 
+} // namespace flexiapi
 } // namespace flexisip
