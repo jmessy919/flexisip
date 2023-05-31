@@ -155,15 +155,16 @@ void callInviteStatuses() {
 	const auto proxy = makeAndStartProxy();
 	const auto& agent = proxy->getAgent();
 	vector<shared_ptr<const CallLog>> invitesEnded{};
-	plugEventCallbacks(
-	    *agent, overloaded{
-	                moveEventsInto(invitesEnded),
-	                [&invitesEnded](CallLog&& owned) { invitesEnded.emplace_back(make_shared<CallLog>(std::move(owned))); },
-	                Ignore<CallStartedEventLog>(),
-	                Ignore<CallRingingEventLog>(),
-	                Ignore<CallEndedEventLog>(),
-	                Ignore<RegistrationLog>(),
-	            });
+	plugEventCallbacks(*agent, overloaded{
+	                               moveEventsInto(invitesEnded),
+	                               [&invitesEnded](CallLog&& owned) {
+		                               invitesEnded.emplace_back(make_shared<CallLog>(std::move(owned)));
+	                               },
+	                               Ignore<CallStartedEventLog>(),
+	                               Ignore<CallRingingEventLog>(),
+	                               Ignore<CallEndedEventLog>(),
+	                               Ignore<RegistrationLog>(),
+	                           });
 	const string mike = "sip:mike@sip.example.org";
 	auto tony = ClientBuilder("sip:tony@sip.example.org").registerTo(proxy);
 	auto mikePhone = ClientBuilder(mike).registerTo(proxy);
@@ -301,10 +302,48 @@ void callError() {
 	BC_ASSERT_CPP_EQUAL(errorEvent->isCancelled(), false);
 }
 
+void doubleForkContextStart() {
+	const auto proxy = makeAndStartProxy();
+	const auto& agent = proxy->getAgent();
+	vector<CallStartedEventLog> callsStarted{};
+	plugEventCallbacks(*agent, overloaded{
+	                               moveEventsInto(callsStarted),
+	                               Ignore<CallLog>(),
+	                               Ignore<CallRingingEventLog>(),
+	                               Ignore<CallEndedEventLog>(),
+	                               Ignore<RegistrationLog>(),
+	                           });
+	const string paul = "sip:paulvasquez@sip.example.org";
+	// Registering a secondary contact with higher priority than the real one (>1) means a first round of fork(s) will
+	// fire (and fail) for this (unroutable) contact, before a _second_ round of fork(s) manages to reach the
+	// destination. This should trigger two calls to ForkCallContext::start
+	auto paulClient = ClientBuilder(paul).setCustomContact("<sip:bear@127.0.0.1:666>;q=2.0").registerTo(proxy);
+	auto luxClient = ClientBuilder("sip:luxannacrownguard@sip.example.org").registerTo(proxy);
+	const auto& paulCore = paulClient.getCore();
+	const auto& luxCore = luxClient.getCore();
+	CoreAssert asserter{{luxCore, paulCore}, agent};
+
+	auto luxCall = luxCore->invite(paul);
+	paulClient.hasReceivedCallFrom(luxClient).assert_passed();
+	paulCore->getCurrentCall()->decline(linphone::Reason::Declined);
+
+	BC_ASSERT_CPP_EQUAL(callsStarted.size(), 1);
+
+	// Cleanup
+	asserter
+	    .iterateUpTo(4,
+	                 [&luxCall] {
+		                 FAIL_IF(luxCall->getState() != linphone::Call::State::End);
+		                 return ASSERTION_PASSED();
+	                 })
+	    .assert_passed();
+}
+
 TestSuite _("EventLog Stats",
             {
                 CLASSY_TEST(callStartedAndEnded),
                 CLASSY_TEST(callInviteStatuses),
                 CLASSY_TEST(callError),
+                CLASSY_TEST(doubleForkContextStart),
             });
 } // namespace

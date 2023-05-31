@@ -292,9 +292,12 @@ void ForkCallContext::processInternalError(int status, const char* phrase) {
 void ForkCallContext::start() {
 	if (isCompleted()) return;
 
-	// SOUNDNESS: getBranches() returns the waiting branches. We want all branches in the event, so that presumes there
-	// are no branches answered yet. We also presume all branches have been added by now.
-	mEvent->sendLog(CallStartedEventLog(*mEvent->getMsgSip()->getSip(), getBranches()));
+	bool firstStart = mCurrentPriority == -1;
+	if (firstStart) {
+		// SOUNDNESS: getBranches() returns the waiting branches. We want all the branches in the event, so that presumes
+		// there are no branches answered yet. We also presume all branches have been added by now.
+		mEvent->sendLog(CallStartedEventLog(*mEvent->getMsgSip()->getSip(), getBranches()));
+	}
 
 	ForkContextBase::start();
 }
