@@ -46,7 +46,7 @@ Url::Url(const Url& src) noexcept {
 	_urlAsStr = src._urlAsStr;
 }
 
-Url::Url(Url&& src) noexcept : _home(move(src._home)), _url(src._url), _urlAsStr(move(src._urlAsStr)) {
+Url::Url(Url&& src) noexcept : _home(std::move(src._home)), _url(src._url), _urlAsStr(std::move(src._urlAsStr)) {
 	src._url = nullptr;
 }
 
@@ -58,9 +58,9 @@ Url& Url::operator=(const Url& src) noexcept {
 }
 
 Url& Url::operator=(Url&& src) noexcept {
-	_home = move(src._home);
+	_home = std::move(src._home);
 	_url = src._url, src._url = nullptr;
-	_urlAsStr = move(src._urlAsStr);
+	_urlAsStr = std::move(src._urlAsStr);
 	return *this;
 }
 
@@ -178,12 +178,12 @@ SipUri::SipUri(const sofiasip::Url& src) : SipUri(src.get()) {
 
 SipUri::SipUri(sofiasip::Url&& src) {
 	checkUrl(src);
-	static_cast<sofiasip::Url*>(this)->operator=(move(src));
+	static_cast<sofiasip::Url*>(this)->operator=(std::move(src));
 }
 
 SipUri SipUri::replaceUser(const std::string& newUser) const {
 	Url url = sofiasip::Url::replaceUser(newUser);
-	return SipUri(move(url));
+	return SipUri(std::move(url));
 }
 
 void SipUri::checkUrl(const sofiasip::Url& url) {

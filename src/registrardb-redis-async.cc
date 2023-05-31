@@ -663,9 +663,9 @@ void RegistrarDbRedisAsync::sHandleBindStart(redisAsyncContext*, redisReply* rep
 	// Parse the fetched reply into the Record object (context->mRecord)
 	for (auto&& maybeExpired : parseContacts(reply)) {
 		if (maybeExpired->isExpired()) {
-			changeset.mDelete.emplace_back(move(maybeExpired));
+			changeset.mDelete.emplace_back(std::move(maybeExpired));
 		} else {
-			contacts.emplace(move(maybeExpired));
+			contacts.emplace(std::move(maybeExpired));
 		}
 	}
 
@@ -886,7 +886,7 @@ vector<unique_ptr<ExtendedContact>> RegistrarDbRedisAsync::parseContacts(redisRe
 		LOGD("Parsing contact %s => %s", key, contact);
 		auto maybeContact = make_unique<ExtendedContact>(key, contact);
 		if (maybeContact->mSipContact) {
-			contacts.push_back(move(maybeContact));
+			contacts.push_back(std::move(maybeContact));
 		} else {
 			LOGE("This contact could not be parsed.");
 		}
@@ -924,7 +924,7 @@ void RegistrarDbRedisAsync::handleFetch(redisReply* reply, RedisRegisterContext*
 	const char* key = context->mRecord->getKey().c_str();
 	const auto insertIfActive = [&record = context->mRecord](auto&& contact) {
 		if (!contact->isExpired()) {
-			record->insertOrUpdateBinding(move(contact), nullptr);
+			record->insertOrUpdateBinding(std::move(contact), nullptr);
 		}
 	};
 
@@ -1061,7 +1061,7 @@ void RegistrarDbRedisAsync::handleMigration(redisReply* reply, RedisRegisterCont
 			redisReply* element = reply->element[i];
 			try {
 				SipUri url(element->str);
-				RedisRegisterContext* new_context = new RedisRegisterContext(this, move(url), nullptr);
+				RedisRegisterContext* new_context = new RedisRegisterContext(this, std::move(url), nullptr);
 				LOGD("Fetching previous record: %s", element->str);
 				check_redis_command(
 				    redisAsyncCommand(mContext, (void (*)(redisAsyncContext*, void*, void*))sHandleRecordMigration,

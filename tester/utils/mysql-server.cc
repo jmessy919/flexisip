@@ -51,7 +51,7 @@ MysqlServer::MysqlServer()
 				          return visit(
 				              [](auto&& pipe) -> pipe::WriteOnly {
 					              if constexpr (is_same_v<decay_t<decltype(pipe)>, pipe::WriteOnly>) {
-						              return move(pipe);
+						              return std::move(pipe);
 					              } else {
 						              cerr << "Stdin pipe to mysql setup process in unexpected state: " << pipe << endl;
 						              ::exit(EXIT_FAILURE);
@@ -95,7 +95,7 @@ MysqlServer::MysqlServer()
 			          ::exit(EXIT_FAILURE);
 		          }
 	          },
-	          move(setup).wait());
+	          std::move(setup).wait());
 
 	      ::execl(MYSQL_SERVER_EXEC, MYSQL_SERVER_EXEC, "--no-defaults",
 	              // Avoid port opening conflicts altogether. Everything will go through the unix socket
@@ -129,7 +129,7 @@ MysqlServer::MysqlServer()
 		      auto chunk = visit(
 		          [&fullLog](auto&& result) -> string {
 			          using T = decay_t<decltype(result)>;
-			          if constexpr (is_same_v<T, string>) return move(result);
+			          if constexpr (is_same_v<T, string>) return std::move(result);
 			          else if constexpr (is_same_v<T, SysErr>)
 				          throw system_error{result.number(), generic_category(),
 				                             "Error reading from mysql daemon stderr. read: \n" + fullLog};
@@ -153,7 +153,7 @@ MysqlServer::~MysqlServer() {
 			SLOGE << "Failed to send quit signal to mysql process: " << *err;
 		}
 	}
-	move(mDaemon).wait();
+	std::move(mDaemon).wait();
 }
 
 void MysqlServer::waitReady() {

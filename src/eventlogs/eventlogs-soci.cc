@@ -400,7 +400,7 @@ void DataBaseEventLogWriter::write(std::shared_ptr<const EventLog> evlog) {
 	mMutex.lock();
 
 	if (mListLogs.size() < mMaxQueueSize) {
-		mListLogs.push(move(evlog));
+		mListLogs.push(std::move(evlog));
 		mMutex.unlock();
 
 		// Save event in database.

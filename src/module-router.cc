@@ -784,7 +784,7 @@ public:
 				for (const auto& uri : mUriList) {
 					shared_ptr<ExtendedContact> alias = make_shared<ExtendedContact>(uri, "");
 					alias->mAlias = true;
-					contacts.emplace(move(alias));
+					contacts.emplace(std::move(alias));
 				}
 			}
 			mListener->onRecordFound(mRecord);

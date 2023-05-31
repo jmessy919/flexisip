@@ -186,7 +186,7 @@ string PresentityPresenceInformation::setOrUpdate(Xsd::Pidf::Presence::TupleSequ
 	);
 
 	// set expiration timer
-	informationElement->setExpiresTimer(move(timer));
+	informationElement->setExpiresTimer(std::move(timer));
 
 	// modify global etag list
 	if (eTag && eTag->size() > 0) {
@@ -288,7 +288,7 @@ void PresentityPresenceInformation::addOrUpdateListener(const shared_ptr<Present
 		);
 
 		// set expiration timer
-		listener->setExpiresTimer(mBelleSipMainloop, move(timer));
+		listener->setExpiresTimer(mBelleSipMainloop, std::move(timer));
 	} else {
 		listener->setExpiresTimer(mBelleSipMainloop, nullptr);
 	}
