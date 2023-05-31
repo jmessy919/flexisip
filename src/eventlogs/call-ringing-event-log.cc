@@ -16,11 +16,11 @@ CallRingingEventLog::CallRingingEventLog(const sip_t& sip, const BranchInfo* bra
     : Identified(sip), mDevice(*branch->mContact) {
 }
 
-eventlogs::EventLogVariant CallRingingEventLog::intoVariant() && {
+eventlogs::Variant::Owned CallRingingEventLog::intoVariant() && {
 	return move(*this);
 }
 
-eventlogs::EventLogRefVariant CallRingingEventLog::toRefVariant() const {
+eventlogs::Variant::Ref CallRingingEventLog::toRefVariant() const {
 	return *this;
 }
 

@@ -20,34 +20,30 @@ class AuthLog;
 
 namespace eventlogs {
 
-using EventLogVariant = std::variant<RegistrationLog,
-                                     CallStartedEventLog,
-                                     CallRingingEventLog,
-                                     CallLog,
-                                     CallEndedEventLog,
-                                     CallQualityStatisticsLog,
-                                     MessageLog,
-                                     AuthLog>;
+template <typename... Events>
+struct EventLogTypes {
+	using Owned = std::variant<Events...>;
+	using Ref = std::variant<std::reference_wrapper<const Events>...>;
+};
 
+using Variant = EventLogTypes<RegistrationLog,
+                              CallStartedEventLog,
+                              CallRingingEventLog,
+                              CallLog,
+                              CallEndedEventLog,
+                              CallQualityStatisticsLog,
+                              MessageLog,
+                              AuthLog>;
 class IntoEventLogVariant {
 public:
 	virtual ~IntoEventLogVariant() = default;
-	virtual EventLogVariant intoVariant() && = 0;
+	virtual Variant::Owned intoVariant() && = 0;
 };
-
-using EventLogRefVariant = std::variant<std::reference_wrapper<const RegistrationLog>,
-                                        std::reference_wrapper<const CallStartedEventLog>,
-                                        std::reference_wrapper<const CallRingingEventLog>,
-                                        std::reference_wrapper<const CallLog>,
-                                        std::reference_wrapper<const CallEndedEventLog>,
-                                        std::reference_wrapper<const CallQualityStatisticsLog>,
-                                        std::reference_wrapper<const MessageLog>,
-                                        std::reference_wrapper<const AuthLog>>;
 
 class ToEventLogVariant {
 public:
 	virtual ~ToEventLogVariant() = default;
-	virtual EventLogRefVariant toRefVariant() const = 0;
+	virtual Variant::Ref toRefVariant() const = 0;
 };
 
 } // namespace eventlogs

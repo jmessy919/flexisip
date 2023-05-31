@@ -18,7 +18,7 @@ class CallEndedEventLog : public eventlogs::IntoEventLogVariant, public Identifi
 public:
 	CallEndedEventLog(const sip_t&);
 
-	eventlogs::EventLogVariant intoVariant() && override;
+	eventlogs::Variant::Owned intoVariant() && override;
 };
 
 } // namespace flexisip

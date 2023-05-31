@@ -30,7 +30,7 @@ public:
 
 	std::vector<ExtendedContact> mDevices;
 
-	eventlogs::EventLogVariant intoVariant() && override;
+	eventlogs::Variant::Owned intoVariant() && override;
 };
 
 } // namespace flexisip

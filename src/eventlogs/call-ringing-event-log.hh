@@ -24,8 +24,8 @@ public:
 
 	const ExtendedContact mDevice;
 
-	eventlogs::EventLogVariant intoVariant() && override;
-	eventlogs::EventLogRefVariant toRefVariant() const override;
+	eventlogs::Variant::Owned intoVariant() && override;
+	eventlogs::Variant::Ref toRefVariant() const override;
 };
 
 } // namespace flexisip

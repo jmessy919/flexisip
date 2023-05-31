@@ -90,21 +90,21 @@ RegistrationLog::RegistrationLog(const sip_t* sip, const sip_contact_t* contacts
 	mContacts = sip_contact_dup(mHome.home(), contacts);
 }
 
-eventlogs::EventLogRefVariant RegistrationLog::toRefVariant() const {
+eventlogs::Variant::Ref RegistrationLog::toRefVariant() const {
 	return *this;
 }
 
-eventlogs::EventLogRefVariant CallLog::toRefVariant() const {
+eventlogs::Variant::Ref CallLog::toRefVariant() const {
 	return *this;
 }
-eventlogs::EventLogVariant CallLog::intoVariant() && {
+eventlogs::Variant::Owned CallLog::intoVariant() && {
 	return move(*this);
 }
 
-eventlogs::EventLogRefVariant MessageLog::toRefVariant() const {
+eventlogs::Variant::Ref MessageLog::toRefVariant() const {
 	return *this;
 }
-eventlogs::EventLogVariant MessageLog::intoVariant() && {
+eventlogs::Variant::Owned MessageLog::intoVariant() && {
 	return move(*this);
 }
 
@@ -133,7 +133,7 @@ void AuthLog::setOrigin(const sip_via_t* via) {
 	}
 }
 
-eventlogs::EventLogRefVariant AuthLog::toRefVariant() const {
+eventlogs::Variant::Ref AuthLog::toRefVariant() const {
 	return *this;
 }
 
@@ -141,7 +141,7 @@ CallQualityStatisticsLog::CallQualityStatisticsLog(const sip_t* sip)
     : EventLog(sip), mReport{sip->sip_payload && sip->sip_payload->pl_data ? sip->sip_payload->pl_data : nullptr} {
 }
 
-eventlogs::EventLogRefVariant CallQualityStatisticsLog::toRefVariant() const {
+eventlogs::Variant::Ref CallQualityStatisticsLog::toRefVariant() const {
 	return *this;
 }
 

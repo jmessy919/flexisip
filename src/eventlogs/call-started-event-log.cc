@@ -23,7 +23,7 @@ CallStartedEventLog::CallStartedEventLog(const sip_t& sip, const std::list<std::
 	      }
 }
 
-eventlogs::EventLogVariant CallStartedEventLog::intoVariant() && {
+eventlogs::Variant::Owned CallStartedEventLog::intoVariant() && {
 	return move(*this);
 }
 

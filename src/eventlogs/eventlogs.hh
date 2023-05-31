@@ -113,7 +113,7 @@ public:
 		return mContacts;
 	}
 
-	eventlogs::EventLogRefVariant toRefVariant() const override;
+	eventlogs::Variant::Ref toRefVariant() const override;
 
 private:
 	Type mType{Type::Register};
@@ -132,8 +132,8 @@ public:
 		mCancelled = true;
 	}
 
-	eventlogs::EventLogVariant intoVariant() && override;
-	eventlogs::EventLogRefVariant toRefVariant() const override;
+	eventlogs::Variant::Owned intoVariant() && override;
+	eventlogs::Variant::Ref toRefVariant() const override;
 
 	ForkStatus mForkStatus = ForkStatus::Standard;
 	std::optional<ExtendedContact> mDevice = std::nullopt;
@@ -161,8 +161,8 @@ public:
 		mUri = url_hdup(mHome.home(), dest);
 	}
 
-	eventlogs::EventLogRefVariant toRefVariant() const override;
-	eventlogs::EventLogVariant intoVariant() && override;
+	eventlogs::Variant::Ref toRefVariant() const override;
+	eventlogs::Variant::Owned intoVariant() && override;
 
 private:
 	ReportType mReportType{ReportType::ReceivedFromUser};
@@ -184,7 +184,7 @@ public:
 		return mUserExists;
 	}
 
-	eventlogs::EventLogRefVariant toRefVariant() const override;
+	eventlogs::Variant::Ref toRefVariant() const override;
 
 private:
 	void setOrigin(const sip_via_t* via);
@@ -202,7 +202,7 @@ public:
 		return mReport;
 	}
 
-	eventlogs::EventLogRefVariant toRefVariant() const override;
+	eventlogs::Variant::Ref toRefVariant() const override;
 
 private:
 	// Note on `soci`: The `char *` support is dead since 2008...

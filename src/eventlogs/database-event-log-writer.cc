@@ -419,12 +419,12 @@ public:
 	WrappedVariant(eventlogs::IntoEventLogVariant&& evlog) : mVariant(std::move(evlog).intoVariant()) {
 	}
 
-	eventlogs::EventLogRefVariant toRefVariant() const override {
-		return std::visit([](const auto& evlog) -> eventlogs::EventLogRefVariant { return evlog; }, mVariant);
+	eventlogs::Variant::Ref toRefVariant() const override {
+		return std::visit([](const auto& evlog) -> eventlogs::Variant::Ref { return evlog; }, mVariant);
 	}
 
 private:
-	eventlogs::EventLogVariant mVariant;
+	eventlogs::Variant::Owned mVariant;
 };
 
 } // namespace
