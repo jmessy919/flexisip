@@ -45,7 +45,7 @@ class ClientBuilder {
 
 	std::shared_ptr<linphone::Factory> mFactory;
 	std::shared_ptr<linphone::Core> mCore;
-	std::shared_ptr<const linphone::Address> mMe;
+	std::shared_ptr<linphone::Address> mMe;
 	std::shared_ptr<linphone::AccountParams> mAccountParams;
 
 public:

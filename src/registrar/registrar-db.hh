@@ -11,6 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <vector>
+#include <string>
 
 #include "sofia-sip/sip.h"
 
