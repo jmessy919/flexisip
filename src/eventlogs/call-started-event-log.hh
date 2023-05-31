@@ -28,7 +28,7 @@ class CallStartedEventLog : public eventlogs::IntoEventLogVariant,
 public:
 	CallStartedEventLog(const sip_t&, const std::list<std::shared_ptr<BranchInfo>>&);
 
-	const std::vector<ExtendedContact> mDevices;
+	std::vector<ExtendedContact> mDevices;
 
 	eventlogs::EventLogVariant intoVariant() && override;
 };

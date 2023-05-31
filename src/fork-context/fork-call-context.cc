@@ -273,6 +273,7 @@ void ForkCallContext::onLateTimeout() {
 		auto br = findBestBranch(mCfg->mForkLate);
 
 		if (!br || br->getStatus() == 0 || br->getStatus() == 503) {
+			// Forward then log _custom_ response
 			logResponse(forwardCustomResponse(SIP_408_REQUEST_TIMEOUT), br.get());
 		} else {
 			forwardThenLogResponse(br);

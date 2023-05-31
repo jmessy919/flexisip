@@ -36,7 +36,7 @@ void logMessage() {
 	eventlogs::IntoEventLogVariant&& messageLog = MessageLog(msg.getSip(), MessageLog::ReportType::DeliveredToUser);
 	db.waitReady();
 	DataBaseEventLogWriter logWriter{"mysql", db.connectionString(), 1, 1};
-	BC_ASSERT_CPP_EQUAL(logWriter.isReady(), true);
+	BC_HARD_ASSERT_CPP_EQUAL(logWriter.isReady(), true);
 
 	logWriter.write(move(messageLog));
 

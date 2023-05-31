@@ -57,7 +57,7 @@ shared_ptr<Server> makeAndStartProxy() {
 template <typename... Callbacks>
 void plugEventCallbacks(Agent& agent, overloaded<Callbacks...>&& callbacks) {
 	agent.setEventLogWriter(unique_ptr<EventLogWriter>(new EventLogWriterVisitorAdapter{overloaded{
-	    forward<overloaded<Callbacks...>>(callbacks),
+	    std::forward<overloaded<Callbacks...>>(callbacks),
 	    [](const auto& log) {
 		    ostringstream msg{};
 		    msg << "This test is not supposed to write a " << typeid(log).name();
@@ -72,7 +72,7 @@ string toString(const sip_from_t* from) {
 
 template <typename Event>
 auto moveEventsInto(vector<Event>& container) {
-	return [&container](Event&& event) { container.emplace_back(move(event)); };
+	return [&container](Event&& event) { container.emplace_back(std::move(event)); };
 }
 
 template <typename Event>
@@ -158,7 +158,7 @@ void callInviteStatuses() {
 	plugEventCallbacks(
 	    *agent, overloaded{
 	                moveEventsInto(invitesEnded),
-	                [&invitesEnded](CallLog&& owned) { invitesEnded.emplace_back(make_shared<CallLog>(move(owned))); },
+	                [&invitesEnded](CallLog&& owned) { invitesEnded.emplace_back(make_shared<CallLog>(std::move(owned))); },
 	                Ignore<CallStartedEventLog>(),
 	                Ignore<CallRingingEventLog>(),
 	                Ignore<CallEndedEventLog>(),

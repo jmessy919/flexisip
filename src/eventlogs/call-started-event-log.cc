@@ -16,14 +16,11 @@ namespace flexisip {
 using namespace std;
 
 CallStartedEventLog::CallStartedEventLog(const sip_t& sip, const std::list<std::shared_ptr<BranchInfo>>& branchInfoList)
-    : SipEventLog(sip), Identified(sip), mDevices([&branchInfoList] {
-	      std::remove_const_t<decltype(mDevices)> devices{};
-	      devices.reserve(branchInfoList.size());
+    : SipEventLog(sip), Identified(sip)  {
+		mDevices.reserve(branchInfoList.size());
 	      for (const auto& branchInfo : branchInfoList) {
-		      devices.emplace_back(*branchInfo->mContact);
+		      mDevices.emplace_back(*branchInfo->mContact);
 	      }
-	      return devices;
-      }()) {
 }
 
 eventlogs::EventLogVariant CallStartedEventLog::intoVariant() && {

@@ -26,8 +26,8 @@ void movingHomesDoesNotInvalidatePointers() {
 	{
 		Home oldHome{};
 		inhabitant = ::sip_from_make(oldHome.home(), "sip:couch-surfer@sip.example.org");
-		BC_ASSERT_CPP_EQUAL(string_view(inhabitant->a_url->url_user), "couch-surfer"sv);
-		newHome = move(oldHome);
+		BC_HARD_ASSERT_CPP_EQUAL(string_view(inhabitant->a_url->url_user), "couch-surfer"sv);
+		newHome = std::move(oldHome);
 	}
 
 	BC_ASSERT_CPP_EQUAL(string_view(inhabitant->a_url->url_user), "couch-surfer"sv);
