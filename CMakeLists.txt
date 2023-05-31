@@ -44,7 +44,7 @@ set(CMAKE_C_FLAGS_SANITIZER_INIT "-g -O1 -fsanitize=address,undefined -fno-omit-
 set(CMAKE_CXX_FLAGS_SANITIZER_INIT "-g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer")
 
 # Set project version by using the Git describe
-include("./linphone-sdk/bctoolbox/cmake/BcToolboxCMakeUtils.cmake")
+include("./linphone-sdk/bctoolbox/cmake/BCToolboxCMakeUtils.cmake")
 bc_compute_full_version(FLEXISIP_FULL_VERSION)
 bc_parse_full_version("${FLEXISIP_FULL_VERSION}" major minor patch)
 project(flexisip VERSION "${major}.${minor}.${patch}" LANGUAGES C CXX)

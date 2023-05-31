@@ -345,7 +345,6 @@ void ConferenceServer::onChatRoomStateChanged([[maybe_unused]] const shared_ptr<
 }
 
 void ConferenceServer::onConferenceAddressGeneration(const shared_ptr<ChatRoom>& cr) {
-	shared_ptr<Config> config = mCore->getConfig();
 	shared_ptr<Address> confAddr = cr->getConferenceAddress()->clone();
 	LOGI("Conference address is %s", confAddr->asString().c_str());
 	shared_ptr<ConferenceAddressGenerator> generator =
