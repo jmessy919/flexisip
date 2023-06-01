@@ -48,7 +48,7 @@ class Terminated {
 public:
 	// Do not use default constructor, here only for nlohmann json serialization.
 	Terminated() = default;
-	Terminated(const time_t& at, const TerminatedState state) : at(at), state(state) {
+	Terminated(const ISO8601Date& at, const TerminatedState state) : at(at), state(state) {
 	}
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(Terminated, at, state)
 private:

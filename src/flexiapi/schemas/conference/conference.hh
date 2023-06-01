@@ -33,9 +33,9 @@ class Conference {
 
 public:
 	Conference(const std::string& id,
-	           const time_t& createdAt,
-	           const std::optional<time_t>& endedAt,
-	           const std::optional<std::string>& schedule)
+	           const ISO8601Date& createdAt,
+	           const std::optional<std::string>& schedule = std::nullopt,
+	           const std::optional<ISO8601Date>& endedAt = std::nullopt)
 	    : id(id), created_at(createdAt), ended_at(endedAt), schedule(schedule) {
 	}
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(Conference, id, created_at, ended_at, schedule);
@@ -43,8 +43,8 @@ public:
 private:
 	std::string id;
 	ISO8601Date created_at;
-	std::optional<ISO8601Date> ended_at = std::nullopt;
-	std::optional<std::string> schedule = std::nullopt;
+	std::optional<ISO8601Date> ended_at;
+	std::optional<std::string> schedule;
 };
 
 } // namespace flexiapi

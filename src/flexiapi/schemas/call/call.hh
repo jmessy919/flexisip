@@ -39,12 +39,12 @@ class Call {
 
 public:
 	Call(const std::string& id,
-	     const url_t& from,
-	     const url_t& to,
+	     const ApiFormattedUri& from,
+	     const ApiFormattedUri& to,
 	     const CallDevices& devices,
-	     time_t initiatedAt,
-	     const std::optional<time_t> endedAt,
-	     const std::optional<std::string>& conferenceId)
+	     const ISO8601Date& initiatedAt,
+	     const std::optional<std::string>& conferenceId = std::nullopt,
+	     const std::optional<ISO8601Date> endedAt = std::nullopt)
 	    : id(id), from(from), to(to), devices(devices), initiated_at(initiatedAt), ended_at(endedAt),
 	      conference_id(conferenceId) {
 	}

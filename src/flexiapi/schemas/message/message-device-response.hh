@@ -30,7 +30,8 @@ class MessageDeviceResponse {
 public:
 	// Do not use default constructor, here only for nlohmann json serialization.
 	MessageDeviceResponse() = default;
-	MessageDeviceResponse(int lastStatus, const time_t& receivedAt) : last_status(lastStatus), received_at(receivedAt) {
+	MessageDeviceResponse(int lastStatus, const ISO8601Date& receivedAt)
+	    : last_status(lastStatus), received_at(receivedAt) {
 	}
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(MessageDeviceResponse, last_status, received_at)
 

@@ -35,23 +35,23 @@ public:
 	/********** MESSAGES **********/
 	void postMessage(const Message& message);
 	void notifyMessageDeviceResponse(const std::string& messageId,
-	                                 const std::string& sipUri,
+	                                 const ApiFormattedUri& sipUri,
 	                                 const std::string deviceId,
 	                                 const MessageDeviceResponse& messageDeviceResponse);
 
 	/********** CALLS **********/
 	void postCall(const Call& call);
 	void updateCallDeviceState(const std::string& callId, const std::string& deviceId, const CallDeviceState& call);
-	void updateCallState(const std::string& callId, const std::string& endedAt);
+	void updateCallState(const std::string& callId, const ISO8601Date& endedAt);
 
 	/********** CONFERENCES **********/
 	void postConference(const Conference& conference);
-	void notifyConferenceEnded(const std::string& conferenceId, const std::string& endedAt);
+	void notifyConferenceEnded(const std::string& conferenceId, const ISO8601Date& endedAt);
 	void conferenceAddParticipantEvent(const std::string& conferenceId,
-	                                   const std::string& sipUri,
+	                                   const ApiFormattedUri& sipUri,
 	                                   const ParticipantEvent& participantEvent);
 	void conferenceAddParticipantDeviceEvent(const std::string& conferenceId,
-	                                         const std::string& sipUri,
+	                                         const ApiFormattedUri& sipUri,
 	                                         const std::string& deviceId,
 	                                         const ParticipantDeviceEvent& participantDeviceEvent);
 

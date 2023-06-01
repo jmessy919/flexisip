@@ -40,9 +40,9 @@ class Message {
 
 public:
 	Message(const std::string& id,
-	        const url_t& from,
+	        const ApiFormattedUri& from,
 	        const ToParam& toParam,
-	        const time_t& sentAt,
+	        const ISO8601Date& sentAt,
 	        bool encrypted,
 	        const std::optional<std::string>& conferenceId)
 	    : id(id), from(from), sent_at(sentAt), encrypted(encrypted), conference_id(conferenceId) {

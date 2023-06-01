@@ -33,10 +33,10 @@ class CallDeviceState {
 public:
 	// Do not use default constructor, here only for nlohmann json serialization.
 	CallDeviceState() = default;
-	CallDeviceState(const std::optional<time_t>& rangAt, const std::optional<Terminated>& inviteTerminated)
+	CallDeviceState(const std::optional<ISO8601Date>& rangAt, const std::optional<Terminated>& inviteTerminated)
 	    : rang_at(rangAt), invite_terminated(inviteTerminated) {
 	}
-	CallDeviceState(const time_t& rangAt) : rang_at(rangAt), invite_terminated(std::nullopt) {
+	CallDeviceState(const ISO8601Date& rangAt) : rang_at(rangAt), invite_terminated(std::nullopt) {
 	}
 	CallDeviceState(const Terminated& inviteTerminated) : rang_at(std::nullopt), invite_terminated(inviteTerminated) {
 	}

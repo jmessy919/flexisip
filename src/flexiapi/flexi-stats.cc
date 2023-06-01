@@ -40,10 +40,10 @@ void FlexiStats::postMessage(const Message& message) {
 	                 "FlexiStats::postMessage request error for id["s + message.id + "]");
 }
 void FlexiStats::notifyMessageDeviceResponse(const string& messageId,
-                                             const string& sipUri,
+                                             const ApiFormattedUri& sipUri,
                                              const std::string deviceId,
                                              const MessageDeviceResponse& messageDeviceResponse) {
-	mRestClient.patch("/api/stats/messages/"s + messageId + "/to/" + sipUri + "/devices/" + deviceId,
+	mRestClient.patch("/api/stats/messages/"s + messageId + "/to/" + string(sipUri) + "/devices/" + deviceId,
 	                  messageDeviceResponse,
 	                  "FlexiStats::notifyMessageDeviceResponse request successful for id["s + messageId + "]",
 	                  "FlexiStats::notifyMessageDeviceResponse request error for id["s + messageId + "]");
@@ -60,7 +60,7 @@ void FlexiStats::updateCallDeviceState(const string& callId,
 	                  "FlexiStats::updateCallDeviceState request successful for id["s + callId + "]",
 	                  "FlexiStats::updateCallDeviceState request error for id["s + callId + "]");
 }
-void FlexiStats::updateCallState(const string& callId, const string& endedAt) {
+void FlexiStats::updateCallState(const string& callId, const ISO8601Date& endedAt) {
 	mRestClient.patch("/api/stats/calls/"s + callId, optional<json>{json{{"ended_at", endedAt}}},
 	                  "FlexiStats::updateCallState request successful for id["s + callId + "]",
 	                  "FlexiStats::updateCallState request error for id["s + callId + "]");
@@ -71,25 +71,25 @@ void FlexiStats::postConference(const Conference& conference) {
 	                 "FlexiStats::postConference request successful for id["s + conference.id + "]",
 	                 "FlexiStats::postConference request error for id["s + conference.id + "]");
 }
-void FlexiStats::notifyConferenceEnded(const string& conferenceId, const string& endedAt) {
+void FlexiStats::notifyConferenceEnded(const string& conferenceId, const ISO8601Date& endedAt) {
 	mRestClient.patch("/api/stats/conferences/"s + conferenceId, optional<json>{json{{"ended_at", endedAt}}},
 	                  "FlexiStats::notifyConferenceEnded request successful for id["s + conferenceId + "]",
 	                  "FlexiStats::notifyConferenceEnded request error for id["s + conferenceId + "]");
 }
 void FlexiStats::conferenceAddParticipantEvent(const string& conferenceId,
-                                               const string& sipUri,
+                                               const ApiFormattedUri& sipUri,
                                                const ParticipantEvent& participantEvent) {
-	mRestClient.post("/api/stats/conferences/"s + conferenceId + "/participants/" + sipUri + "/events",
+	mRestClient.post("/api/stats/conferences/"s + conferenceId + "/participants/" + string(sipUri) + "/events",
 	                 participantEvent,
 	                 "FlexiStats::conferenceAddParticipantEvent request successful for id["s + conferenceId + "]",
 	                 "FlexiStats::conferenceAddParticipantEvent request error for id["s + conferenceId + "]");
 }
 void FlexiStats::conferenceAddParticipantDeviceEvent(const string& conferenceId,
-                                                     const string& sipUri,
+                                                     const ApiFormattedUri& sipUri,
                                                      const string& deviceId,
                                                      const ParticipantDeviceEvent& participantDeviceEvent) {
-	mRestClient.post("/api/stats/conferences/"s + conferenceId + "/participants/" + sipUri + "/devices/" + deviceId +
-	                     "/events",
+	mRestClient.post("/api/stats/conferences/"s + conferenceId + "/participants/" + string(sipUri) + "/devices/" +
+	                     deviceId + "/events",
 	                 participantDeviceEvent,
 	                 "FlexiStats::conferenceAddParticipantDeviceEvent request successful for id["s + conferenceId + "]",
 	                 "FlexiStats::conferenceAddParticipantDeviceEvent request error for id["s + conferenceId + "]");

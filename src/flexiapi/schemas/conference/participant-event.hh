@@ -43,7 +43,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(ParticipantEventType,
 
 class ParticipantEvent {
 public:
-	ParticipantEvent(ParticipantEventType type, const time_t& at) : type(type), at(at) {
+	ParticipantEvent(ParticipantEventType type, const ISO8601Date& at) : type(type), at(at) {
 	}
 	NLOHMANN_DEFINE_TYPE_INTRUSIVE(ParticipantEvent, type, at);
 

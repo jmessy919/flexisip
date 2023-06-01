@@ -214,7 +214,8 @@ protected:
 	void sendRequest(FlexiStats& flexiStats) override {
 		MessageDeviceResponse messageDeviceResponse{200, getTestDate()};
 
-		flexiStats.notifyMessageDeviceResponse("84c937d1", "user1@domain.org", "device_id", messageDeviceResponse);
+		flexiStats.notifyMessageDeviceResponse("84c937d1", *SipUri("sip:user1@domain.org").get(), "device_id",
+		                                       messageDeviceResponse);
 	}
 
 	void customAssert(const shared_ptr<Request>& actualRequest) override {
@@ -251,8 +252,8 @@ protected:
 		          *SipUri("sip:user@sip.linphone.org").get(),
 		          callDevices,
 		          getTestDate(),
-		          getTestDateAfter(),
-		          "iHVDMq6MxSKp60bT"};
+		          "iHVDMq6MxSKp60bT",
+		          getTestDateAfter()};
 
 		flexiStats.postCall(call);
 	}
@@ -445,7 +446,7 @@ protected:
 class UpdateCallStateTest : public FlexiStatsTest {
 protected:
 	void sendRequest(FlexiStats& flexiStats) override {
-		flexiStats.updateCallState("4722b0233", "2017-07-21T19:42:26Z");
+		flexiStats.updateCallState("4722b0233", getTestDateAfter());
 	}
 
 	void customAssert(const shared_ptr<Request>& actualRequest) override {
@@ -459,7 +460,7 @@ protected:
 		}
 		auto expectedJson = R"(
 		{
-			"ended_at": "2017-07-21T19:42:26Z"
+			"ended_at": "2017-07-21T18:32:28Z"
 		}
 		)"_json;
 		BC_ASSERT_CPP_EQUAL(actualJson, expectedJson);
@@ -469,7 +470,7 @@ protected:
 class PostConferenceFullTest : public FlexiStatsTest {
 protected:
 	void sendRequest(FlexiStats& flexiStats) override {
-		Conference conference{"iHVDMq6MxSKp60bT", getTestDate(), getTestDateAfter(), "string"};
+		Conference conference{"iHVDMq6MxSKp60bT", getTestDate(), "string", getTestDateAfter()};
 
 		flexiStats.postConference(conference);
 	}
@@ -527,7 +528,7 @@ protected:
 class NotifyConferenceEndedTest : public FlexiStatsTest {
 protected:
 	void sendRequest(FlexiStats& flexiStats) override {
-		flexiStats.notifyConferenceEnded("iHVDMq6MxSKp60bT", "2017-07-21T17:32:28Z");
+		flexiStats.notifyConferenceEnded("iHVDMq6MxSKp60bT", getTestDate());
 	}
 
 	void customAssert(const shared_ptr<Request>& actualRequest) override {
@@ -552,7 +553,8 @@ class ConferenceAddParticipantEventTest : public FlexiStatsTest {
 protected:
 	void sendRequest(FlexiStats& flexiStats) override {
 		ParticipantEvent participantEvent{ParticipantEventType::ADDED, getTestDate()};
-		flexiStats.conferenceAddParticipantEvent("iHVDMq6MxSKp60bT", "user1@domain.org", participantEvent);
+		flexiStats.conferenceAddParticipantEvent("iHVDMq6MxSKp60bT", *SipUri("sip:user1@domain.org").get(),
+		                                         participantEvent);
 	}
 
 	void customAssert(const shared_ptr<Request>& actualRequest) override {
@@ -579,8 +581,8 @@ class ConferenceAddParticipantDeviceEventTest : public FlexiStatsTest {
 protected:
 	void sendRequest(FlexiStats& flexiStats) override {
 		ParticipantDeviceEvent participantDeviceEvent{ParticipantDeviceEventType::INVITED, getTestDate()};
-		flexiStats.conferenceAddParticipantDeviceEvent("iHVDMq6MxSKp60bT", "user1@domain.org", "device_id",
-		                                               participantDeviceEvent);
+		flexiStats.conferenceAddParticipantDeviceEvent("iHVDMq6MxSKp60bT", *SipUri("sip:user1@domain.org").get(),
+		                                               "device_id", participantDeviceEvent);
 	}
 
 	void customAssert(const shared_ptr<Request>& actualRequest) override {
