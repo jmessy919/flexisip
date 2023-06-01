@@ -16,7 +16,6 @@
 
 #include "bctoolbox/tester.h"
 #include "flexisip/module-router.hh"
-#include "linphone++/enums.hh"
 #include "sofia-sip/sip.h"
 
 #include "eventlogs/events/calls/call-ended-event-log.hh"
@@ -30,8 +29,9 @@
 #include "utils/asserts.hh"
 #include "utils/client-core.hh"
 #include "utils/core-assert.hh"
+#include "utils/eventlogs/event-logs.hh"
 #include "utils/eventlogs/writers/event-log-writer-visitor-adapter.hh"
-#include "utils/proxy-server.hh"
+#include "utils/http-mock/http-mock.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
 #include "utils/variant-utils.hh"
@@ -39,20 +39,8 @@
 namespace {
 using namespace flexisip;
 using namespace flexisip::tester;
+using namespace flexisip::tester::eventlogs;
 using namespace std;
-
-shared_ptr<Server> makeAndStartProxy() {
-	const auto proxy = make_shared<Server>(map<string, string>{
-	    // Requesting bind on port 0 to let the kernel find any available port
-	    {"global/transports", "sip:127.0.0.1:0;transport=tcp"},
-	    {"module::Registrar/enabled", "true"},
-	    {"module::Registrar/reg-domains", "sip.example.org"},
-	    {"module::MediaRelay/enabled", "true"},
-	    {"module::MediaRelay/prevent-loops", "false"}, // Allow loopback to localnetwork
-	});
-	proxy->start();
-	return proxy;
-}
 
 template <typename... Callbacks>
 void plugEventCallbacks(Agent& agent, overloaded<Callbacks...>&& callbacks) {
@@ -84,10 +72,6 @@ public:
 	void operator()(const Event&) {
 	}
 };
-
-string uuidOf(const linphone::Core& core) {
-	return core.getConfig()->getString("misc", "uuid", "UNSET!");
-}
 
 string_view uuidFromSipInstance(const string_view& deviceKey) {
 	return deviceKey.substr(sizeof("\"<urn:uuid:") - 1, sizeof("00000000-0000-0000-0000-000000000000") - 1);

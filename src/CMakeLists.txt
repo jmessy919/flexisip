@@ -57,6 +57,7 @@ add_library(flexisip SHARED
 	eventlogs/events/sip-event-log.cc eventlogs/events/sip-event-log.hh
 	eventlogs/writers/event-log-writer.hh
 	eventlogs/writers/filesystem-event-log-writer.cc eventlogs/writers/filesystem-event-log-writer.hh
+	eventlogs/writers/flexi-stats-event-log-writer.cc eventlogs/writers/flexi-stats-event-log-writer.hh
 	fork-context/branch-info.hh
 	fork-context/branch-info-db.hh
 	fork-context/fork-basic-context.cc fork-context/fork-basic-context.hh

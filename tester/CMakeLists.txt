@@ -73,6 +73,7 @@ add_executable(flexisip_tester
 	sofia-driven-signal-handler-tester.cc
 	tester.cc
 	tests/eventlogs/events/event-log-stats-tester.cc
+	tests/eventlogs/writers/flexi-stats-event-log-writer-tester.cc
 	tests/flexiapi/flexi-stats-tester.cc
 	tests/presence/presence-pidf-tester.cc
 	tests/pushnotification/service-tester.cc
@@ -85,6 +86,7 @@ add_executable(flexisip_tester
 	utils/asserts.hh
 	utils/bellesip-utils.cc utils/bellesip-utils.hh
 	utils/client-core.cc utils/client-core.hh
+	utils/eventlogs/event-logs.cc utils/eventlogs/event-logs.hh
 	utils/eventlogs/writers/event-log-writer-visitor-adapter.hh
 	utils/listening-socket.cc utils/listening-socket.hh
 	utils/mysql-server.cc utils/mysql-server.hh
