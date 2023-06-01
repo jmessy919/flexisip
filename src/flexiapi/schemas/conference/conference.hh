@@ -43,8 +43,8 @@ public:
 private:
 	std::string id;
 	ISO8601Date created_at;
-	std::optional<ISO8601Date> ended_at;
-	std::optional<std::string> schedule;
+	std::optional<ISO8601Date> ended_at = std::nullopt;
+	std::optional<std::string> schedule = std::nullopt;
 };
 
 } // namespace flexiapi

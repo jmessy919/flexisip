@@ -47,7 +47,7 @@ public:
 	        const std::optional<std::string>& conferenceId)
 	    : id(id), from(from), sent_at(sentAt), encrypted(encrypted), conference_id(conferenceId) {
 		for (const auto& entry : toParam) {
-			to.insert(std::make_pair(entry.first, entry.second));
+			to.emplace(entry.first, entry.second);
 		}
 	}
 

@@ -28,10 +28,8 @@ class ISO8601Date {
 public:
 	// Do not use default constructor, here only for nlohmann json serialization.
 	ISO8601Date() = default;
-	ISO8601Date(const time_t& t) {
-		char buf[sizeof("1993-06-19T10:10:09Z")];
-		strftime(buf, sizeof buf, "%FT%TZ", gmtime(&t));
-		isoFormattedDate = buf;
+	ISO8601Date(const time_t& t) : isoFormattedDate("1993-06-19T10:10:09Z") {
+		strftime(isoFormattedDate.data(), isoFormattedDate.size() + 1, "%FT%TZ", gmtime(&t)), isoFormattedDate.size();
 	}
 
 	friend void to_json(nlohmann::json& j, const ISO8601Date& date) {

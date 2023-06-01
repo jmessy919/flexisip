@@ -34,7 +34,7 @@ public:
 		apiFormattedUri = concatenated.str();
 	}
 
-	operator std::string() {
+	operator std::string_view() const {
 		return apiFormattedUri;
 	};
 
