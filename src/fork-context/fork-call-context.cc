@@ -52,7 +52,7 @@ ForkCallContext::ForkCallContext(const shared_ptr<ModuleRouter>& router,
                       router,
                       router->mStats.mCountCallForks,
                       priority),
-      mLog{event->getEventLog<CallLog>()} {
+      mLog{/*event->getEventLog<CallLog>() TODO*/} {
 	SLOGD << "New ForkCallContext " << this;
 }
 
@@ -66,7 +66,7 @@ void ForkCallContext::onCancel(const shared_ptr<RequestSipEvent>& ev) {
 	mCancelled = true;
 	cancelOthers(nullptr, ev->getSip());
 	// The event log must be placed in a sip event in order to be written into DB.
-	ev->setEventLog(mLog);
+	// ev->setEventLog(mLog); TODO
 
 	if (shouldFinish()) {
 		setFinished();
@@ -108,7 +108,7 @@ void ForkCallContext::cancelOthersWithStatus(const shared_ptr<BranchInfo>& br, F
 			eventLog.mDevice.emplace(*brit->mContact);
 			eventLog.setCancelled();
 			eventLog.mForkStatus = status;
-			mEvent->sendLog(move(eventLog));
+			mEvent->sendLog(make_shared<eventlogs::EventVariant>(std::move(eventLog)));
 		}
 	}
 	mNextBranchesTimer.reset();
@@ -194,7 +194,7 @@ void ForkCallContext::logResponse(const shared_ptr<ResponseSipEvent>& ev, const 
 
 		if (sip->sip_status->st_status >= 200) mLog->setCompleted();
 
-		ev->setEventLog(mLog);
+		// ev->setEventLog(mLog); TODO
 	}
 }
 

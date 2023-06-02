@@ -23,8 +23,8 @@ CallStartedEventLog::CallStartedEventLog(const sip_t& sip, const std::list<std::
 	}
 }
 
-eventlogs::Variant::Owned CallStartedEventLog::intoVariant() && {
-	return move(*this);
-}
+// eventlogs::Variant::Owned CallStartedEventLog::intoVariant() && {
+//	return move(*this);
+// }
 
 } // namespace flexisip

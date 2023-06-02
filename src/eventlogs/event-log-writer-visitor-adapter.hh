@@ -21,16 +21,17 @@ public:
 	EventLogWriterVisitorAdapter(TVisitor&& visitor) : mVisitor(std::move(visitor)) {
 	}
 
-	void write(eventlogs::IntoEventLogVariant&& event) override {
-		std::visit(mVisitor, std::move(event).intoVariant());
+	void write(eventlogs::EventVariant&& event) override {
+		std::visit(mVisitor, std::move(event));
 	}
-	void write(const std::shared_ptr<const eventlogs::ToEventLogVariant>& event) override {
-		std::visit(
-		    [this, &event](const auto& ref) {
-			    using TEvent = typename std::decay_t<decltype(ref)>::type;
-			    mVisitor(std::dynamic_pointer_cast<TEvent>(event));
-		    },
-		    event->toRefVariant());
+	void write(const std::shared_ptr<const eventlogs::EventVariant>& event) override {
+		std::visit(mVisitor, event);
+		//		std::visit(
+		//		    [this, &event](const auto& ref) {
+		//			    using TEvent = typename std::decay_t<decltype(ref)>::type;
+		//			    mVisitor(std::dynamic_pointer_cast<TEvent>(event));
+		//		    },
+		//		    event);
 	}
 
 private:

@@ -14,8 +14,8 @@ using namespace std;
 CallEndedEventLog::CallEndedEventLog(const sip_t& sip) : Identified(sip) {
 }
 
-eventlogs::Variant::Owned CallEndedEventLog::intoVariant() && {
-	return move(*this);
-}
+// eventlogs::Variant::Owned CallEndedEventLog::intoVariant() && {
+//	return move(*this);
+// }
 
 } // namespace flexisip

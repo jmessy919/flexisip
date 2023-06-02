@@ -7,44 +7,40 @@
 #include <functional>
 #include <variant>
 
-namespace flexisip {
+#include "call-ended-event-log.hh"
+#include "call-ringing-event-log.hh"
+#include "call-started-event-log.hh"
+#include "eventlogs.hh"
 
-class RegistrationLog;
-class CallStartedEventLog;
-class CallRingingEventLog;
-class CallLog;
-class CallEndedEventLog;
-class CallQualityStatisticsLog;
-class MessageLog;
-class AuthLog;
+namespace flexisip {
 
 namespace eventlogs {
 
-template <typename... Events>
-struct EventLogTypes {
-	using Owned = std::variant<Events...>;
-	using Ref = std::variant<std::reference_wrapper<const Events>...>;
-};
+// template <typename... Events>
+// struct EventLogTypes {
+//	using Owned = std::variant<Events...>;
+//	using Ref = std::variant<std::reference_wrapper<const Events>...>;
+// };
 
-using Variant = EventLogTypes<RegistrationLog,
-                              CallStartedEventLog,
-                              CallRingingEventLog,
-                              CallLog,
-                              CallEndedEventLog,
-                              CallQualityStatisticsLog,
-                              MessageLog,
-                              AuthLog>;
-class IntoEventLogVariant {
-public:
-	virtual ~IntoEventLogVariant() = default;
-	virtual Variant::Owned intoVariant() && = 0;
-};
-
-class ToEventLogVariant {
-public:
-	virtual ~ToEventLogVariant() = default;
-	virtual Variant::Ref toRefVariant() const = 0;
-};
+using EventVariant = std::variant<RegistrationLog,
+                                  CallStartedEventLog,
+                                  CallRingingEventLog,
+                                  CallLog,
+                                  CallEndedEventLog,
+                                  CallQualityStatisticsLog,
+                                  MessageLog,
+                                  AuthLog>;
+// class IntoEventLogVariant {
+// public:
+//	virtual ~IntoEventLogVariant() = default;
+//	virtual Variant::Owned intoVariant() && = 0;
+// };
+//
+// class ToEventLogVariant {
+// public:
+//	virtual ~ToEventLogVariant() = default;
+//	virtual Variant::Ref toRefVariant() const = 0;
+// };
 
 } // namespace eventlogs
 

@@ -31,14 +31,15 @@
 #include <sofia-sip/sip.h>
 #include <sofia-sip/tport.h>
 
+#include "eventlogs/event-log-variant.hh"
 #include "flexisip/sofia-wrapper/msg-sip.hh"
 
 namespace flexisip {
 
-namespace eventlogs {
-class IntoEventLogVariant;
-class ToEventLogVariant;
-}
+// namespace eventlogs {
+// class IntoEventLogVariant;
+// class ToEventLogVariant;
+// }
 
 class Agent;
 class Module;
@@ -46,7 +47,6 @@ class IncomingAgent;
 class OutgoingAgent;
 class IncomingTransaction;
 class OutgoingTransaction;
-class EventLog;
 class EventLogWriteDispatcher;
 
 using MsgSip = sofiasip::MsgSip;
@@ -124,23 +124,25 @@ public:
 	std::shared_ptr<_eventLogT> getEventLog() {
 		return std::dynamic_pointer_cast<_eventLogT>(mEventLog);
 	}
-	void setEventLog(const std::shared_ptr<EventLog>& log);
+	void setEventLog(const std::shared_ptr<eventlogs::EventVariant>& log);
 	void flushLog(); /*to be used exceptionally when an event log needs to be flushed immediately, for example because
 	                    you need to submit a new one.*/
 	// Write given EventLog immediately
-	void sendLog(const std::shared_ptr<const eventlogs::ToEventLogVariant>&);
-	void sendLog(eventlogs::IntoEventLogVariant&&);
+	void sendLog(const std::shared_ptr<const eventlogs::EventVariant>& sharedEventVariant);
+	void sendLog(eventlogs::EventVariant&& eventVariant);
 	std::shared_ptr<IncomingTransaction> getIncomingTransaction();
 	std::shared_ptr<OutgoingTransaction> getOutgoingTransaction();
 
 	const std::shared_ptr<tport_t>& getIncomingTport() const;
 
 protected:
+	bool isCompleted(std::shared_ptr<const eventlogs::EventVariant> eventLog);
+
 	std::weak_ptr<Module> mCurrModule;
 	std::shared_ptr<MsgSip> mMsgSip;
 	std::shared_ptr<IncomingAgent> mIncomingAgent;
 	std::shared_ptr<OutgoingAgent> mOutgoingAgent;
-	std::shared_ptr<EventLog> mEventLog;
+	std::shared_ptr<const eventlogs::EventVariant> mEventLog;
 	Agent* mAgent;
 
 	enum State {

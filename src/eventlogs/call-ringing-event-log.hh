@@ -6,7 +6,6 @@
 
 #include "sofia-sip/sip.h"
 
-#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/identified.hh"
 #include "eventlogs/timestamped.hh"
 #include "registrar/extended-contact.hh"
@@ -15,8 +14,8 @@ namespace flexisip {
 
 class BranchInfo;
 
-class CallRingingEventLog : public eventlogs::IntoEventLogVariant,
-                            public eventlogs::ToEventLogVariant,
+class CallRingingEventLog : /*public eventlogs::IntoEventLogVariant,
+                            public eventlogs::ToEventLogVariant,*/
                             public Identified,
                             public Timestamped {
 public:
@@ -24,8 +23,11 @@ public:
 
 	const ExtendedContact mDevice;
 
-	eventlogs::Variant::Owned intoVariant() && override;
-	eventlogs::Variant::Ref toRefVariant() const override;
+	bool isCompleted() const {
+		return true;
+	}
+	//	eventlogs::Variant::Owned intoVariant() && override;
+	//	eventlogs::Variant::Ref toRefVariant() const override;
 };
 
 } // namespace flexisip

@@ -16,12 +16,12 @@ CallRingingEventLog::CallRingingEventLog(const sip_t& sip, const BranchInfo* bra
     : Identified(sip), mDevice(*branch->mContact) {
 }
 
-eventlogs::Variant::Owned CallRingingEventLog::intoVariant() && {
-	return move(*this);
-}
-
-eventlogs::Variant::Ref CallRingingEventLog::toRefVariant() const {
-	return *this;
-}
+// eventlogs::Variant::Owned CallRingingEventLog::intoVariant() && {
+//	return move(*this);
+// }
+//
+// eventlogs::Variant::Ref CallRingingEventLog::toRefVariant() const {
+//	return *this;
+// }
 
 } // namespace flexisip

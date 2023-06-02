@@ -90,23 +90,23 @@ RegistrationLog::RegistrationLog(const sip_t* sip, const sip_contact_t* contacts
 	mContacts = sip_contact_dup(mHome.home(), contacts);
 }
 
-eventlogs::Variant::Ref RegistrationLog::toRefVariant() const {
-	return *this;
-}
-
-eventlogs::Variant::Ref CallLog::toRefVariant() const {
-	return *this;
-}
-eventlogs::Variant::Owned CallLog::intoVariant() && {
-	return move(*this);
-}
-
-eventlogs::Variant::Ref MessageLog::toRefVariant() const {
-	return *this;
-}
-eventlogs::Variant::Owned MessageLog::intoVariant() && {
-	return move(*this);
-}
+// eventlogs::Variant::Ref RegistrationLog::toRefVariant() const {
+//	return *this;
+// }
+//
+// eventlogs::Variant::Ref CallLog::toRefVariant() const {
+//	return *this;
+// }
+// eventlogs::Variant::Owned CallLog::intoVariant() && {
+//	return move(*this);
+// }
+//
+// eventlogs::Variant::Ref MessageLog::toRefVariant() const {
+//	return *this;
+// }
+// eventlogs::Variant::Owned MessageLog::intoVariant() && {
+//	return move(*this);
+// }
 
 AuthLog::AuthLog(const sip_t* sip, bool userExists)
     : EventLog(sip), mMethod{sip->sip_request->rq_method_name}, mUserExists{userExists} {
@@ -133,16 +133,16 @@ void AuthLog::setOrigin(const sip_via_t* via) {
 	}
 }
 
-eventlogs::Variant::Ref AuthLog::toRefVariant() const {
-	return *this;
-}
+// eventlogs::Variant::Ref AuthLog::toRefVariant() const {
+//	return *this;
+// }
 
 CallQualityStatisticsLog::CallQualityStatisticsLog(const sip_t* sip)
     : EventLog(sip), mReport{sip->sip_payload && sip->sip_payload->pl_data ? sip->sip_payload->pl_data : nullptr} {
 }
 
-eventlogs::Variant::Ref CallQualityStatisticsLog::toRefVariant() const {
-	return *this;
-}
+// eventlogs::Variant::Ref CallQualityStatisticsLog::toRefVariant() const {
+//	return *this;
+// }
 
 } // namespace flexisip

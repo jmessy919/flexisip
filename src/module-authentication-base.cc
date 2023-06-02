@@ -21,6 +21,7 @@
 #include <sofia-sip/sip_status.h>
 
 #include "agent.hh"
+#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/event-log-writer.hh"
 #include "eventlogs/eventlogs.hh"
 
@@ -316,10 +317,10 @@ void ModuleAuthenticationBase::processAuthModuleResponse(AuthStatus& as) {
 		return;
 	} else if (as.status() >= 400) {
 		if (as.status() == 401 || as.status() == 407) {
-			auto log = make_shared<AuthLog>(ev->getMsgSip()->getSip(), fAs.passwordFound());
-			log->setStatusCode(as.status(), as.phrase());
-			log->setCompleted();
-			ev->setEventLog(log);
+			AuthLog authLog{ev->getMsgSip()->getSip(), fAs.passwordFound()};
+			authLog.setStatusCode(as.status(), as.phrase());
+			authLog.setCompleted();
+			ev->setEventLog(make_shared<eventlogs::EventVariant>(std::move(authLog)));
 		}
 		errorReply(fAs);
 	} else {

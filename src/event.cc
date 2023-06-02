@@ -29,6 +29,7 @@
 #include "eventlogs/event-log-writer.hh"
 #include "eventlogs/eventlogs.hh"
 #include "transaction.hh"
+#include "utils/variant-utils.hh"
 
 using namespace std;
 
@@ -76,24 +77,28 @@ SipEvent::~SipEvent() {
 	LOGD("Destroy SipEvent %p", this);
 }
 
+bool SipEvent::isCompleted(std::shared_ptr<const eventlogs::EventVariant>) {
+	return true; // Match(*eventLog).against([](auto evenLog) { return evenLog.isCompleted(); }); TODO
+	             // https://stackoverflow.com/questions/72434897/enforcing-a-common-interface-with-stdvariant-without-inheritance
+}
 void SipEvent::flushLog() {
-	if (!mEventLog || !mEventLog->isCompleted()) return;
+	if (!mEventLog || !isCompleted(mEventLog)) return;
 	sendLog(mEventLog);
 }
 
-void SipEvent::sendLog(const std::shared_ptr<const eventlogs::ToEventLogVariant>& log) {
+void SipEvent::sendLog(const std::shared_ptr<const eventlogs::EventVariant>& sharedEventVariant) {
 	if (auto logWriter = mAgent->getEventLogWriter()) {
-		logWriter->write(log);
+		logWriter->write(sharedEventVariant);
 	}
 }
 
-void SipEvent::sendLog(eventlogs::IntoEventLogVariant&& log) {
+void SipEvent::sendLog(eventlogs::EventVariant&& eventVariant) {
 	if (auto logWriter = mAgent->getEventLogWriter()) {
-		logWriter->write(move(log));
+		logWriter->write(std::move(eventVariant));
 	}
 }
 
-void SipEvent::setEventLog(const std::shared_ptr<EventLog>& log) {
+void SipEvent::setEventLog(const std::shared_ptr<eventlogs::EventVariant>& log) {
 	mEventLog = log;
 	if (mState == TERMINATED) {
 		flushLog();

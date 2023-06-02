@@ -45,11 +45,11 @@ template <typename SipEventT>
 static void addEventLogRecordFound(shared_ptr<SipEventT> ev, const sip_contact_t* contacts) {
 	const shared_ptr<MsgSip>& ms = ev->getMsgSip();
 	string id(contacts ? Record::extractUniqueId(contacts) : "");
-	auto evlog = make_shared<RegistrationLog>(ms->getSip(), contacts);
+	auto evlog = RegistrationLog(ms->getSip(), contacts);
 
-	evlog->setStatusCode(200, "Ok");
-	evlog->setCompleted();
-	ev->setEventLog(evlog);
+	evlog.setStatusCode(200, "Ok");
+	evlog.setCompleted();
+	ev->setEventLog(make_shared<eventlogs::EventVariant>(std::move(evlog)));
 }
 
 static void _onContactUpdated(ModuleRegistrar* module, tport_t* new_tport, const shared_ptr<ExtendedContact>& ec) {

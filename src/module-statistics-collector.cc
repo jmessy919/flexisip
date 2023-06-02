@@ -189,10 +189,10 @@ int StatisticsCollector::managePublishContent(const shared_ptr<RequestSipEvent> 
 		statusPhrase = "One or several mandatory fields missing";
 	}
 
-	auto log = make_shared<CallQualityStatisticsLog>(sip);
-	log->setStatusCode(err, statusPhrase.c_str());
-	log->setCompleted();
-	ev->setEventLog(log);
+	auto log = CallQualityStatisticsLog(sip);
+	log.setStatusCode(err, statusPhrase.c_str());
+	log.setCompleted();
+	ev->setEventLog(make_shared<eventlogs::EventVariant>(std::move(log)));
 
 	return err;
 }

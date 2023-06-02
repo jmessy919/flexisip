@@ -22,8 +22,8 @@ class ExplicitTypeEventLogWriter : public EventLogWriter {
 public:
 	virtual ~ExplicitTypeEventLogWriter() = default;
 
-	void write(eventlogs::IntoEventLogVariant&&) override;
-	void write(const std::shared_ptr<const eventlogs::ToEventLogVariant>&) override;
+	void write(eventlogs::EventVariant&& event) override;
+	void write(const std::shared_ptr<const eventlogs::EventVariant>& sharedVariant) override;
 
 protected:
 	virtual void write(const RegistrationLog& rlog) = 0;

@@ -12,7 +12,6 @@
 #include "eventlogs/identified.hh"
 #include "sofia-sip/sip.h"
 
-#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/sip-event-log.hh"
 #include "eventlogs/timestamped.hh"
 
@@ -21,7 +20,7 @@ namespace flexisip {
 class BranchInfo;
 struct ExtendedContact;
 
-class CallStartedEventLog : public eventlogs::IntoEventLogVariant,
+class CallStartedEventLog : // public eventlogs::IntoEventLogVariant,
                             public SipEventLog,
                             public Identified,
                             public Timestamped {
@@ -30,7 +29,11 @@ public:
 
 	std::vector<ExtendedContact> mDevices;
 
-	eventlogs::Variant::Owned intoVariant() && override;
+	bool isCompleted() const {
+		return true;
+	}
+
+	//	eventlogs::Variant::Owned intoVariant() && override;
 };
 
 } // namespace flexisip

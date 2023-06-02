@@ -4,15 +4,16 @@
 
 #pragma once
 
+#include "event-log-variant.hh"
 #include <memory>
 
 namespace flexisip {
-namespace eventlogs {
-
-class IntoEventLogVariant;
-class ToEventLogVariant;
-
-} // namespace eventlogs
+// namespace eventlogs {
+//
+// class IntoEventLogVariant;
+// class ToEventLogVariant;
+//
+// } // namespace eventlogs
 
 class EventLogWriter {
 public:
@@ -20,8 +21,8 @@ public:
 	EventLogWriter(const EventLogWriter&) = delete;
 	virtual ~EventLogWriter() = default;
 
-	virtual void write(eventlogs::IntoEventLogVariant&&) = 0;
-	virtual void write(const std::shared_ptr<const eventlogs::ToEventLogVariant>&) = 0;
+	virtual void write(eventlogs::EventVariant&& event) = 0;
+	virtual void write(const std::shared_ptr<const eventlogs::EventVariant>& sharedVariant) = 0;
 };
 
 } // namespace flexisip

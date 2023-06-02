@@ -12,11 +12,11 @@ using namespace std;
 
 namespace flexisip {
 
-void ExplicitTypeEventLogWriter::write(eventlogs::IntoEventLogVariant&& event) {
-	std::visit([this](auto&& variant) { write(variant); }, move(event).intoVariant());
+void ExplicitTypeEventLogWriter::write(eventlogs::EventVariant&& event) {
+	std::visit([this](auto&& variant) { write(variant); }, std::move(event));
 }
-void ExplicitTypeEventLogWriter::write(const std::shared_ptr<const eventlogs::ToEventLogVariant>& event) {
-	std::visit([this](const auto& variant) { write(variant.get()); }, event->toRefVariant());
+void ExplicitTypeEventLogWriter::write(const std::shared_ptr<const eventlogs::EventVariant>&) {
+	//	std::visit([this](const auto& variant) { write(variant.get()); }, event); TODO ?
 }
 
 } // namespace flexisip

@@ -117,14 +117,14 @@ void ForkMessageContext::logDeliveredToUserEvent(const shared_ptr<RequestSipEven
                                                  const shared_ptr<ResponseSipEvent>& respEv) {
 	sip_t* sip = respEv->getMsgSip()->getSip();
 	const sip_t* sipRequest = reqEv->getMsgSip()->getSip();
-	auto log = make_shared<MessageLog>(sip, MessageLog::ReportType::DeliveredToUser);
-	log->setDestination(sipRequest->sip_request->rq_url);
-	log->setStatusCode(sip->sip_status->st_status, sip->sip_status->st_phrase);
+	auto log = MessageLog(sip, MessageLog::ReportType::DeliveredToUser);
+	log.setDestination(sipRequest->sip_request->rq_url);
+	log.setStatusCode(sip->sip_status->st_status, sip->sip_status->st_phrase);
 	if (sipRequest->sip_priority && sipRequest->sip_priority->g_string) {
-		log->setPriority(sipRequest->sip_priority->g_string);
+		log.setPriority(sipRequest->sip_priority->g_string);
 	}
-	log->setCompleted();
-	respEv->setEventLog(log);
+	log.setCompleted();
+	respEv->setEventLog(make_shared<eventlogs::EventVariant>(std::move(log)));
 	respEv->flushLog();
 }
 
@@ -165,13 +165,13 @@ void ForkMessageContext::logReceivedFromUserEvent(const shared_ptr<RequestSipEve
                                                   const shared_ptr<ResponseSipEvent>& respEv) {
 	sip_t* sip = respEv->getMsgSip()->getSip();
 	const sip_t* sipRequest = reqEv->getMsgSip()->getSip();
-	auto log = make_shared<MessageLog>(sip, MessageLog::ReportType::ReceivedFromUser);
-	log->setStatusCode(sip->sip_status->st_status, sip->sip_status->st_phrase);
+	auto log = MessageLog(sip, MessageLog::ReportType::ReceivedFromUser);
+	log.setStatusCode(sip->sip_status->st_status, sip->sip_status->st_phrase);
 	if (sipRequest->sip_priority && sipRequest->sip_priority->g_string) {
-		log->setPriority(sipRequest->sip_priority->g_string);
+		log.setPriority(sipRequest->sip_priority->g_string);
 	}
-	log->setCompleted();
-	respEv->setEventLog(log);
+	log.setCompleted();
+	respEv->setEventLog(make_shared<eventlogs::EventVariant>(std::move(log)));
 	respEv->flushLog();
 }
 

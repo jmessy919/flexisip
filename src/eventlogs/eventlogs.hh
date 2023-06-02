@@ -25,7 +25,6 @@
 #include <sofia-sip/sip_protos.h>
 
 #include "eventlogs/event-id.hh"
-#include "eventlogs/event-log-variant.hh"
 #include "eventlogs/identified.hh"
 #include "eventlogs/sip-event-log.hh"
 #include "fork-context/fork-status.hh"
@@ -33,7 +32,7 @@
 
 namespace flexisip {
 
-class EventLog : public eventlogs::ToEventLogVariant, public SipEventLog {
+class EventLog : /*public eventlogs::ToEventLogVariant,*/ public SipEventLog {
 public:
 	EventLog(const sip_t* sip);
 	EventLog(const EventLog&) = delete;
@@ -113,14 +112,14 @@ public:
 		return mContacts;
 	}
 
-	eventlogs::Variant::Ref toRefVariant() const override;
+	//	eventlogs::Variant::Ref toRefVariant() const override;
 
 private:
 	Type mType{Type::Register};
 	sip_contact_t* mContacts{nullptr};
 };
 
-class CallLog : public eventlogs::IntoEventLogVariant, public EventLog, public Identified {
+class CallLog : /*public eventlogs::IntoEventLogVariant,*/ public EventLog, public Identified {
 public:
 	CallLog(const sip_t* sip) : EventLog(sip), Identified(*sip) {
 	}
@@ -132,8 +131,8 @@ public:
 		mCancelled = true;
 	}
 
-	eventlogs::Variant::Owned intoVariant() && override;
-	eventlogs::Variant::Ref toRefVariant() const override;
+	//	eventlogs::Variant::Owned intoVariant() && override;
+	//	eventlogs::Variant::Ref toRefVariant() const override;
 
 	ForkStatus mForkStatus = ForkStatus::Standard;
 	std::optional<ExtendedContact> mDevice = std::nullopt;
@@ -142,7 +141,7 @@ private:
 	bool mCancelled{false};
 };
 
-class MessageLog : public eventlogs::IntoEventLogVariant, public EventLog {
+class MessageLog : /*public eventlogs::IntoEventLogVariant,*/ public EventLog {
 public:
 	// Explicit values is necessary for soci. Do not change this.
 	enum class ReportType { ReceivedFromUser = 0, DeliveredToUser = 1 };
@@ -161,8 +160,8 @@ public:
 		mUri = url_hdup(mHome.home(), dest);
 	}
 
-	eventlogs::Variant::Ref toRefVariant() const override;
-	eventlogs::Variant::Owned intoVariant() && override;
+	//	eventlogs::Variant::Ref toRefVariant() const override;
+	//	eventlogs::Variant::Owned intoVariant() && override;
 
 private:
 	ReportType mReportType{ReportType::ReceivedFromUser};
@@ -184,7 +183,7 @@ public:
 		return mUserExists;
 	}
 
-	eventlogs::Variant::Ref toRefVariant() const override;
+	//	eventlogs::Variant::Ref toRefVariant() const override;
 
 private:
 	void setOrigin(const sip_via_t* via);
@@ -202,7 +201,7 @@ public:
 		return mReport;
 	}
 
-	eventlogs::Variant::Ref toRefVariant() const override;
+	//	eventlogs::Variant::Ref toRefVariant() const override;
 
 private:
 	// Note on `soci`: The `char *` support is dead since 2008...

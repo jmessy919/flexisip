@@ -395,11 +395,11 @@ void DataBaseEventLogWriter::writeEventFromQueue() {
 	ExplicitTypeEventLogWriter::write(evlog);
 }
 
-void DataBaseEventLogWriter::write(const std::shared_ptr<const eventlogs::ToEventLogVariant>& evlog) {
+void DataBaseEventLogWriter::write(const std::shared_ptr<const eventlogs::EventVariant>& evlog) {
 	mMutex.lock();
 
 	if (mListLogs.size() < mMaxQueueSize) {
-		mListLogs.push(move(evlog));
+		mListLogs.push(evlog);
 		mMutex.unlock();
 
 		// Save event in database.
@@ -414,23 +414,23 @@ void DataBaseEventLogWriter::write(const std::shared_ptr<const eventlogs::ToEven
 
 namespace {
 
-class WrappedVariant : public eventlogs::ToEventLogVariant {
-public:
-	WrappedVariant(eventlogs::IntoEventLogVariant&& evlog) : mVariant(std::move(evlog).intoVariant()) {
-	}
-
-	eventlogs::Variant::Ref toRefVariant() const override {
-		return std::visit([](const auto& evlog) -> eventlogs::Variant::Ref { return evlog; }, mVariant);
-	}
-
-private:
-	eventlogs::Variant::Owned mVariant;
-};
+// class WrappedVariant : public eventlogs::ToEventLogVariant {
+// public:
+//	WrappedVariant(eventlogs::IntoEventLogVariant&& evlog) : mVariant(std::move(evlog).intoVariant()) {
+//	}
+//
+//	eventlogs::Variant::Ref toRefVariant() const override {
+//		return std::visit([](const auto& evlog) -> eventlogs::Variant::Ref { return evlog; }, mVariant);
+//	}
+//
+// private:
+//	eventlogs::Variant::Owned mVariant;
+// };
 
 } // namespace
 
-void DataBaseEventLogWriter::write(eventlogs::IntoEventLogVariant&& evlog) {
-	write(make_shared<WrappedVariant>(move(evlog)));
+void DataBaseEventLogWriter::write(eventlogs::EventVariant&& evlog) {
+	write(make_shared<EventVariant>(std::move(evlog)));
 }
 
 } // namespace flexisip

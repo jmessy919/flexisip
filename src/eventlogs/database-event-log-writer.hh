@@ -11,6 +11,7 @@
 
 #include <soci/soci.h>
 
+#include "event-log-variant.hh"
 #include "utils/thread/thread-pool.hh"
 
 namespace flexisip {
@@ -24,8 +25,8 @@ public:
 	                       unsigned int maxQueueSize,
 	                       unsigned int nbThreadsMax);
 
-	void write(eventlogs::IntoEventLogVariant&&) override;
-	void write(const std::shared_ptr<const eventlogs::ToEventLogVariant>&) override;
+	void write(eventlogs::EventVariant&& event) override;
+	void write(const std::shared_ptr<const eventlogs::EventVariant>& sharedVariant) override;
 	bool isReady() const {
 		return mIsReady;
 	}
@@ -99,7 +100,25 @@ private:
 
 	bool mIsReady{false};
 	std::mutex mMutex{};
-	std::queue<std::shared_ptr<const eventlogs::ToEventLogVariant>> mListLogs{};
+
+	// TODO ?!
+	using EventVariant = std::variant<RegistrationLog,
+	                                  CallStartedEventLog,
+	                                  CallRingingEventLog,
+	                                  CallLog,
+	                                  CallEndedEventLog,
+	                                  CallQualityStatisticsLog,
+	                                  MessageLog,
+	                                  AuthLog>;
+	std::queue<std::shared_ptr<const std::variant<RegistrationLog,
+	                                              CallStartedEventLog,
+	                                              CallRingingEventLog,
+	                                              CallLog,
+	                                              CallEndedEventLog,
+	                                              CallQualityStatisticsLog,
+	                                              MessageLog,
+	                                              AuthLog>>>
+	    mListLogs{};
 
 	std::unique_ptr<soci::connection_pool> mConnectionPool{};
 	std::unique_ptr<ThreadPool> mThreadPool{};
