@@ -26,8 +26,8 @@ public:
 	EventLogWriter(const EventLogWriter&) = delete;
 	virtual ~EventLogWriter() = default;
 
-	virtual void write(std::shared_ptr<const EventLogWriteDispatcher> evlog) {
-		evlog->write(*this);
+	virtual void write(const std::shared_ptr<const EventLogWriteDispatcher>& evLog) {
+		evLog->write(*this);
 	}
 
 protected:

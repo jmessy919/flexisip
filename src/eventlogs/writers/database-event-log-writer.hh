@@ -25,7 +25,7 @@ public:
 	                       unsigned int maxQueueSize,
 	                       unsigned int nbThreadsMax);
 
-	void write(std::shared_ptr<const EventLogWriteDispatcher> evlog) override;
+	void write(const std::shared_ptr<const EventLogWriteDispatcher>&) override;
 	bool isReady() const {
 		return mIsReady;
 	}
@@ -87,13 +87,13 @@ private:
 		PostgresqlInfo() noexcept;
 	};
 
-	static void writeEventLog(soci::session& session, const EventLog& evlog, int typeId);
+	static void writeEventLog(soci::session& session, const EventLog&, int typeId);
 
-	void write(const RegistrationLog& evlog) override;
-	void write(const CallLog& evlog) override;
-	void write(const MessageLog& evlog) override;
-	void write(const AuthLog& evlog) override;
-	void write(const CallQualityStatisticsLog& evlog) override;
+	void write(const RegistrationLog&) override;
+	void write(const CallLog&) override;
+	void write(const MessageLog&) override;
+	void write(const AuthLog&) override;
+	void write(const CallQualityStatisticsLog&) override;
 
 	void writeEventFromQueue();
 

@@ -4,7 +4,6 @@
 
 #include <flexisip/sofia-wrapper/home.hh>
 
-#include <algorithm>
 #include <string_view>
 
 #include "bctoolbox/tester.h"

@@ -13,7 +13,7 @@ namespace flexisip {
 
 class EventId {
 public:
-	EventId(const sip_t&);
+	explicit EventId(const sip_t&);
 
 	operator std::string() const {
 		return std::to_string(mHash);

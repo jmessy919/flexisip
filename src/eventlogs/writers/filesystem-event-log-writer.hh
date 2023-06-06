@@ -25,11 +25,11 @@ public:
 private:
 	int openPath(const url_t* uri, const char* kind, time_t curtime, int errorcode = 0);
 
-	void write(const RegistrationLog& evlog) override;
-	void write(const CallLog& clog) override;
-	void write(const CallQualityStatisticsLog& mlog) override;
-	void write(const MessageLog& mlog) override;
-	void write(const AuthLog& alog) override;
+	void write(const RegistrationLog&) override;
+	void write(const CallLog&) override;
+	void write(const CallQualityStatisticsLog&) override;
+	void write(const MessageLog&) override;
+	void write(const AuthLog&) override;
 
 	void writeErrorLog(const EventLog& log, const char* kind, const std::string& logstr);
 

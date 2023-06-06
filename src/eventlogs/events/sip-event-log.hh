@@ -11,7 +11,7 @@ namespace flexisip {
 
 class SipEventLog {
 public:
-	SipEventLog(const sip_t&);
+	explicit SipEventLog(const sip_t&);
 	SipEventLog(SipEventLog&&) = default;
 	virtual ~SipEventLog() = default;
 

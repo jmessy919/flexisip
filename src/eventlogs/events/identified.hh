@@ -12,7 +12,7 @@ namespace flexisip {
 
 class Identified {
 public:
-	Identified(const sip_t& sip) : mId(sip) {
+	explicit Identified(const sip_t& sip) : mId(sip) {
 	}
 
 	const EventId mId;
