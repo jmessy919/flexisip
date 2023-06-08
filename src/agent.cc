@@ -38,8 +38,14 @@
 #include "agent.hh"
 #include "domain-registrations.hh"
 #include "etchosts.hh"
+#include "eventlogs/writers/filesystem-event-log-writer.hh"
+#include "eventlogs/writers/flexi-stats-event-log-writer.hh"
 #include "plugin/plugin-loader.hh"
 #include "utils/uri-utils.hh"
+
+#if ENABLE_SOCI
+#include "eventlogs/writers/database-event-log-writer.hh"
+#endif
 
 #define IPADDR_SIZE 64
 
@@ -142,6 +148,12 @@ void Agent::startLogWriter() {
 #else
 			LOGF("DataBaseEventLogWriter: unable to use database (`ENABLE_SOCI` is not defined).");
 #endif
+		} else if (cr->get<ConfigString>("logger")->read() == "flexiapi") {
+			const auto& host = cr->get<ConfigString>("flexiapi-host")->read();
+			auto port = cr->get<ConfigInt>("flexiapi-port")->read();
+			const auto& prefix = cr->get<ConfigString>("flexiapi-prefix")->read();
+			const auto& token = cr->get<ConfigString>("flexiapi-token")->read();
+			mLogWriter = make_unique<FlexiStatsEventLogWriter>(*mRoot, host, to_string(port), prefix, token);
 		} else {
 			const auto& logdir = cr->get<ConfigString>("filesystem-directory")->read();
 			unique_ptr<FilesystemEventLogWriter> lw(new FilesystemEventLogWriter(logdir));
@@ -889,15 +901,6 @@ bool Agent::isUs(const url_t* url, bool check_aliases) const {
 	return isUs(url->url_host, url->url_port, check_aliases);
 }
 
-void Agent::logEvent(const shared_ptr<SipEvent>& ev) {
-	if (mLogWriter) {
-		shared_ptr<EventLog> evlog;
-		if ((evlog = ev->getEventLog<EventLog>())) {
-			if (evlog->isCompleted()) mLogWriter->write(evlog);
-		}
-	}
-}
-
 shared_ptr<Module> Agent::findModule(const string& moduleName) const {
 	auto it = find_if(mModules.cbegin(), mModules.cend(),
 	                  [&moduleName](const auto& m) { return m->getModuleName() == moduleName; });
@@ -1055,15 +1058,15 @@ void Agent::injectResponseEvent(const shared_ptr<ResponseSipEvent>& ev) {
  * So we prefer an early abort with a stack trace.
  * Indeed, incoming tport is global in sofia and will be overwritten
  */
-tport_t *Agent::getIncomingTport(const msg_t *orig) {
-	tport_t *primaries = nta_agent_tports(getSofiaAgent());
-	tport_t *tport = tport_delivered_by(primaries, orig);
-	if (!tport){
+tport_t* Agent::getIncomingTport(const msg_t* orig) {
+	tport_t* primaries = nta_agent_tports(getSofiaAgent());
+	tport_t* tport = tport_delivered_by(primaries, orig);
+	if (!tport) {
 		/* tport shall never be null for a request, but it may be null for a response, for example
 		 * for self-generated 503 responses following a connection refused.
 		 */
-		const sip_t *sip = (const sip_t*)msg_object(orig);
-		if (sip && sip->sip_request != nullptr){
+		const sip_t* sip = (const sip_t*)msg_object(orig);
+		if (sip && sip->sip_request != nullptr) {
 			LOGA("tport not found");
 		}
 	}
@@ -1082,7 +1085,7 @@ int Agent::onIncomingMessage(msg_t* msg, const sip_t* sip) {
 		auto ev = make_shared<RequestSipEvent>(shared_from_this(), ms, getIncomingTport(ms->getMsg()));
 		sendRequestEvent(ev);
 	} else {
-		auto ev = make_shared<ResponseSipEvent>(shared_from_this(), ms,getIncomingTport(msg));
+		auto ev = make_shared<ResponseSipEvent>(shared_from_this(), ms, getIncomingTport(msg));
 		sendResponseEvent(ev);
 	}
 	printEventTailSeparator();
