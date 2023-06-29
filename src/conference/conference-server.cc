@@ -139,7 +139,7 @@ void ConferenceServer::_init() {
 	 * Let the conference server work with all liblinphone's default audio codec s(opus, speex, pcmu, pcma).
 	 * enableSelectedCodecs(mCore->getAudioPayloadTypes(), {"opus", "speex"});
 	 * We have to restrict for video because as of today only VP8 is supported.
-	*/
+	 */
 	enableSelectedCodecs(mCore->getVideoPayloadTypes(), {"VP8"});
 
 	string encryption = config->get<ConfigString>("encryption")->read();
@@ -291,8 +291,13 @@ void ConferenceServer::_run() {
 }
 
 void ConferenceServer::_stop() {
-	mCore->removeListener(shared_from_this());
-	RegistrarDb::get()->removeStateListener(shared_from_this());
+	const auto sharedThis = shared_from_this();
+	mCore->removeListener(sharedThis);
+	RegistrarDb::get()->removeStateListener(sharedThis);
+	for (const auto& chatroom : mChatRooms) {
+		chatroom->removeListener(sharedThis);
+	}
+	mSubscriptionHandler.unsubscribeAll();
 }
 
 void ConferenceServer::loadFactoryUris() {
@@ -605,11 +610,11 @@ ConferenceServer::Init::Init() {
 	    ->setDeprecated("2022-09-21", "2.2.0", "This parameter will be forced to 'true' in further versions.");
 }
 
-string ConferenceServer::getStateDir(const std::string &subdir) const {
+string ConferenceServer::getStateDir(const std::string& subdir) const {
 	return string(DEFAULT_LIB_DIR) + std::string("/") + subdir + (subdir.empty() ? "" : "/");
 }
 
-void ConferenceServer::ensureDirectoryCreated(const std::string & directory){
+void ConferenceServer::ensureDirectoryCreated(const std::string& directory) {
 	struct stat st;
 	if (stat(directory.c_str(), &st) != 0 && errno == ENOENT) {
 		LOGD("Creating flexisip's state directory: %s", directory.c_str());
