@@ -305,6 +305,18 @@ void B2buaServer::_init() {
 	                        true); // do not automatically accept update: we might want to update peer call before
 	configLinphone->setBool("misc", "conference_event_log_enabled", 0);
 	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::ActiveSpeaker));
+	configLinphone->setBool("video", "dont_check_codecs", true); // we may want to use unsupported codecs (h264) in the conference
+
+	// Do we have a video-codec setting, if yes add it to the linphone config
+	// so it will be enabled even if not actually supported(thanks to dont_check_codecs)
+	std::string cVideoCodec = config->get<ConfigString>("video-codec")->read();
+	if (cVideoCodec.length() > 0) {
+		BCTBX_SLOGI << "B2bua core enable " << cVideoCodec << " video codec";
+		configLinphone->setString("video_codec_0", "mime", cVideoCodec);
+		configLinphone->setBool("video_codec_0", "enabled", true);
+		configLinphone->setInt("video_codec_0", "rate", 90000);
+	}
+
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
@@ -324,6 +336,21 @@ void B2buaServer::_init() {
 	                                      // from legB is checked before accepting legA
 	policy->setAutomaticallyInitiate(false);
 	mCore->setVideoActivationPolicy(policy);
+	
+	// if a video codec is set in config enable only that one
+	if (cVideoCodec.length() > 0) {
+		// disable all video codecs
+		for (const auto& pt : mCore->getVideoPayloadTypes()) {
+			pt->enable(false);
+		}
+		// enable the given one
+		auto enabledCodec = mCore->getPayloadType(cVideoCodec, -1, -1);
+		if (enabledCodec) {
+			enabledCodec->enable(true);
+		} else {
+			BCTBX_SLOGW << "B2bua core failed to enable " << cVideoCodec << " video codec";
+		}
+	}
 
 	// random port for UDP audio and video stream
 	mCore->setAudioPort(-1);
