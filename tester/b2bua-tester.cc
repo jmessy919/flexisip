@@ -737,7 +737,8 @@ static bool mixedEncryption(const std::string& marieName,
 	marieCallParams->setMediaEncryption(marieEncryption);
 	marieCallParams->enableVideo(video);
 	if (!BC_ASSERT_PTR_NOT_NULL(marie.call(pauline, marieCallParams))) return false;
-	BC_ASSERT_TRUE(marie.getCurrentCall()->getCurrentParams()->getMediaEncryption() == marieEncryption);
+	BC_ASSERT_TRUE(marie.getCurrentCall()->getCurrentParams()->getMediaEncryption()  {
+	}== marieEncryption);
 	BC_ASSERT_TRUE(pauline.getCurrentCall()->getCurrentParams()->getMediaEncryption() == paulineEncryption);
 	// we're going through a back-2-back user agent, so the callIds are not the same
 	BC_ASSERT_TRUE(marie.getCurrentCall()->getCallLog()->getCallId() !=
@@ -902,6 +903,48 @@ static void sdes2sdes256() {
 	sdes2sdes256(true);
 }
 
+static void disableAllVideoCodecs(std::shared_ptr<linphone::Core> core) {
+	auto payloadTypes = core->getVideoPayloadTypes();
+	for (const auto& pt : payloadTypes) {
+		pt->enable(false);
+	}
+}
+
+static bool videoCall(std::string codec) {
+	// initialize and start the proxy and B2bua server
+	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
+	{
+		// Create and register clients
+		auto builder = server->clientBuilder();
+		builder.setVideoDevice(VideoDevice::Mire);
+		auto pauline = builder.build("sip:pauline@sip.example.org");
+		auto marie = builder.build("sip:marie@sip.example.org");
+
+		// Check we have the requested codec
+		auto payloadTypeMarie = marie.getCore()->getPayloadType(codec, -1, -1);
+		auto payloadTypePauline = pauline.getCore()->getPayloadType(codec, -1, -1);
+		if (payloadTypeMarie == nullptr || payloadTypePauline == nullptr) {
+			SLOGW << "Video codec " << codec << " not available, skip test";
+			return true;
+		}
+		// Force usage the requested codec
+		disableAllVideoCodecs(marie.getCore());
+		disableAllVideoCodecs(pauline.getCore());
+		payloadTypeMarie->enable(true);
+		payloadTypePauline->enable(true);
+
+		// Place a video call
+		if (!BC_ASSERT_PTR_NOT_NULL(marie.callVideo(pauline))) return false;
+		pauline.endCurrentCall(marie);
+	}
+	return true;
+}
+
+static void videoCall() {
+	BC_ASSERT_TRUE(videoCall("vp8"));
+	BC_ASSERT_TRUE(videoCall("h264"));
+}
+
 static void videoRejected() {
 	// initialize and start the proxy and B2bua server
 	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
@@ -970,6 +1013,7 @@ TestSuite _("B2bua",
                 TEST_NO_TAG("SDES to DTLS call", sdes2dtls),
                 TEST_NO_TAG("ZRTP to DTLS call", zrtp2dtls),
                 TEST_NO_TAG("SDES to SDES256 call", sdes2sdes256),
+                TEST_NO_TAG("Video call codecs", videoCall),
                 TEST_NO_TAG("Video rejected by callee", videoRejected),
             });
 }
