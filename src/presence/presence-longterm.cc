@@ -89,10 +89,14 @@ private:
 				void onRecordFound(const std::shared_ptr<Record>& record) {
 					if (!record) return;
 
+					mInfo->clearCapabilities(false);
+					std::list<std::string> capabilities;
 					for (const auto& extendedContact : record->getExtendedContacts()) {
 						const string specs = extendedContact->getOrgLinphoneSpecs();
-						if (!specs.empty()) mInfo->addCapability(specs);
+						if (!specs.empty()) capabilities.push_back(specs);
 					}
+					if( capabilities.size() > 0)
+						mInfo->addCapabilities(StringUtils::join(capabilities, 0, ","));
 				}
 				void onError() {
 				}
