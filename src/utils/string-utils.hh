@@ -183,12 +183,20 @@ public:
 
 		auto iter = args.begin();
 		std::advance(iter, fromIndex);
+		// Reserve size to avoid multiple allocations on appends.
+		auto sizeIter = iter;
+		size_t maxSize = (args.size() - fromIndex) * separator.capacity();	// Take account of last separator
+		for (; sizeIter != args.end(); ++sizeIter) {
+			maxSize += sizeIter->capacity();
+		}
+		ret.reserve(maxSize);
 		for (; iter != args.end(); iter++) {
 			ret.append(*iter).append(" ");
 		}
 
+		// Clean memory and remove last separator.
 		if (!ret.empty()) {
-			ret.resize(ret.size() - 1);
+			ret.resize(ret.size() - separator.size());
 		}
 
 		return ret;
