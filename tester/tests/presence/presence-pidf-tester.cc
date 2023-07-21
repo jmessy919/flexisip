@@ -77,10 +77,30 @@ protected:
 
 class PidfOneDevicesTest : public SubscribeNotifyTest {
 protected:
+	typedef enum{
+		ALL_CAPABILITY=0,
+		REMOVE_CAPABILITY=1
+	} STEP;
+	STEP mStep = ALL_CAPABILITY;
+	void testExec() override {
+		SubscribeNotifyTest::testExec();
+		BC_ASSERT_TRUE(this->waitFor([this] { return mInserter->finished(); }, 1s));
+		mStep = REMOVE_CAPABILITY;
+		mInserter->resetCount();
+		SubscribeNotifyTest::testExec();
+	}
 	void insertRegistrarContact() override {
-		mInserter->insert("sip:test@127.0.0.1", 100s, "sip:test@127.0.0.1:9999;transport=tcp;",
+		switch(mStep){
+		case ALL_CAPABILITY :  mInserter->insert("sip:test@127.0.0.1", 100s, "sip:test@127.0.0.1:9999;transport=tcp;",
 		                  "+org.linphone.specs=\"conference/2.4,ephemeral\"");
+		break;
+		case REMOVE_CAPABILITY :  mInserter->insert("sip:test@127.0.0.1", 101s, "sip:test@127.0.0.1:9999;transport=tcp;",
+		                  "+org.linphone.specs=\"conference/2.4,lime\"");
+		break;
+		}
 	};
+	
+	
 
 	string getSubscribeHeaders() override {
 		return "SUBSCRIBE sip:rls@sip.linphone.org SIP/2.0\r\n"
@@ -108,12 +128,23 @@ protected:
 	}
 
 	void assert() override {
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("conference") != string::npos);
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("2.4") != string::npos);
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("ephemeral") != string::npos);
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("1.0") != string::npos);
+		switch(mStep){
+		case ALL_CAPABILITY:
+			BC_ASSERT_TRUE(mNotifiesBodyConcat.find("conference") != string::npos);
+			BC_ASSERT_TRUE(mNotifiesBodyConcat.find("2.4") != string::npos);
+			BC_ASSERT_TRUE(mNotifiesBodyConcat.find("ephemeral") != string::npos);
+			BC_ASSERT_TRUE(mNotifiesBodyConcat.find("1.0") != string::npos);
+		break;
+		case REMOVE_CAPABILITY:
+			BC_ASSERT_TRUE(mNotifiesBodyConcat.find("conference") != string::npos);
+			BC_ASSERT_TRUE(mNotifiesBodyConcat.find("2.4") != string::npos);
+			BC_ASSERT_TRUE(mNotifiesBodyConcat.find("ephemeral") == string::npos);
+			BC_ASSERT_TRUE(mNotifiesBodyConcat.find("1.0") == string::npos);
+			break;
+		}
 	}
 };
+
 
 class PidfMultipleDevicesTest : public SubscribeNotifyTest {
 protected:

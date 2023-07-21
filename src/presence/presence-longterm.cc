@@ -102,7 +102,9 @@ private:
 				}
 				void onInvalid() {
 				}
-				void onContactUpdated(const std::shared_ptr<ExtendedContact>&) {
+				void onContactUpdated(const std::shared_ptr<ExtendedContact>& contact) {
+					const string specs = contact->getOrgLinphoneSpecs();
+					if (!specs.empty()) mInfo->addCapabilities(specs);
 				}
 
 				su_home_t* getHome() {
