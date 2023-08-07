@@ -79,7 +79,6 @@ add_executable(flexisip_tester
 	sofia-tester.cc
 	sofia-driven-signal-handler-tester.cc
 	tester.cc
-	tests/callcontext-mediarelay-tester.cc
 	tests/eventlogs/events/auth-log-tester.cc
 	tests/eventlogs/events/event-log-stats-tester.cc
 	tests/flexiapi/schemas/iso-8601-date-tester.cc
@@ -94,10 +93,8 @@ add_executable(flexisip_tester
 	utils-tester.cc
 	utils/asserts.hh
 	utils/bellesip-utils.cc utils/bellesip-utils.hh
-	utils/call-builder.cc utils/call-builder.hh
 	utils/chat-room-builder.cc utils/chat-room-builder.hh
 	utils/client-builder.cc utils/client-builder.hh
-	utils/client-call.cc utils/client-call.hh
 	utils/client-core.cc utils/client-core.hh
 	utils/eventlogs/event-logs.cc utils/eventlogs/event-logs.hh
 	utils/eventlogs/writers/event-log-writer-visitor-adapter.hh
