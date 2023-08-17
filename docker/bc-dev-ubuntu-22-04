@@ -1,5 +1,5 @@
 ###############################################################################
-# Dockerfile used to make gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-ubuntu-22-04:20230529_disable_git_safe_directory_check
+# Dockerfile used to make gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-ubuntu-22-04:20230220_remove_GL_deps
 ###############################################################################
 
 FROM ubuntu:22.04
@@ -9,75 +9,52 @@ MAINTAINER Anthony Gauchy <anthony.gauchy@belledonne-communications.com>
   # Update
 RUN apt-get -y update \
   # Install common tools
- && apt-get -y install \
-	file \
-	rsync \
-	sudo \
-	vim \
-	wget \
-	# Install development tools
-	ccache \
-	clang \
-	cmake \
-	doxygen \
-	elfutils \
-	g++ \
-	gdb \
-	git \
-	graphviz \
-	intltool \
-	libtool \
-	llvm \
-	lsb-release \
-	make \
-	nasm \
-	ninja-build \
-	openssh-client \
-	python3 \
-	python3-pip \
-	rpm \
-	# Install all dependencies needed for linphone-sdk
-	libasound2-dev \
-	libavcodec-dev \
-	libavutil-dev \
-	libbsd-dev \
-	libegl1-mesa-dev \
-	libglew-dev \
-	libgsm1-dev \
-	libjansson-dev \
-	libmariadb-dev \
-	libmbedtls-dev \
-	libopus-dev \
-	libpq-dev \
-	libpulse-dev \
-	libspeex-dev \
-	libspeexdsp-dev \
-	libsqlite3-dev \
-	libsrtp2-dev \
-	libswscale-dev \
-	libturbojpeg0-dev \
-	libv4l-dev \
-	libvpx-dev \
-	libxerces-c-dev \
-	libxml2-dev \
-	libxv-dev \
-	xsdcxx \
-	yasm \
-	# Install all dependencies needed for Flexisip
-	libboost-dev \
-	libboost-system-dev \
-	libboost-thread-dev \
-	libhiredis-dev \
-	libjsoncpp-dev \
-	libmariadb-dev-compat \
-	libnghttp2-dev \
-	libprotobuf-dev \
-	libsnmp-dev \
-	libssl-dev \
-	protobuf-compiler \
-	redis-server \
-	# Dependencies of the tester
-	mariadb-server \
+ && apt-get -y install sudo \
+                       vim \
+                       wget \
+                       file \
+                     # Install development tools
+                       ccache \
+                       clang \
+                       cmake \
+                       doxygen \
+                       elfutils \
+                       g++ \
+                       gdb \
+                       git \
+                       llvm \
+                       make \
+                       ninja-build \
+                       python3 \
+                       python3-pip \
+                     # Install all dependencies needed for Flexisip
+                       libssl-dev \
+                       libboost-dev \
+                       libboost-system-dev \
+                       libboost-thread-dev \
+                       libhiredis-dev \
+                       libjansson-dev \
+                       libjsoncpp-dev \
+                       libsqlite3-dev \
+                       libpq-dev \
+                       libmariadb-dev \
+                       libmariadb-dev-compat \
+                       mariadb-server \
+                       libnghttp2-dev \
+                       libprotobuf-dev \
+                       libsnmp-dev \
+                       libxerces-c-dev \
+                       libsrtp2-dev \
+                       libgsm1-dev \
+                       libopus-dev \
+                       libmbedtls-dev \
+                       libspeex-dev \
+                       libspeexdsp-dev \
+                       libxml2-dev \
+                       protobuf-compiler \
+                       redis-server \
+                     # Dependencies of the B2BUA
+                       libvpx-dev \
   # Clean
  && apt-get -y autoremove \
  && apt-get -y clean
@@ -103,4 +80,4 @@ RUN python3 -m pip install --user pystache six
 ENV PATH=$PATH:/home/bc/.local/bin
 
 # CVE-2022-24765, from git 2.35.2 onward
-RUN git config --global --add safe.directory *
+RUN git config --global --add safe.directory /builds/BC/public/flexisip

@@ -2,52 +2,72 @@
 # Dockerfile used to make gitlab.linphone.org:4567/bc/public/flexisip/bc-dev-centos7:20230601_update_libnghttp2_asio
 ###############################################################################
 
-FROM gitlab.linphone.org:4567/bc/public/linphone-sdk/bc-dev-centos7:20230420_use_cmake_3.22
+FROM centos:7
 
 MAINTAINER Anthony Gauchy <anthony.gauchy@belledonne-communications.com>
 
 # Install common general tools
-RUN sudo yum install -y vim wget
+RUN yum install -y sudo vim wget
+
+# Configure additional repositories
+RUN yum install -y epel-release && sudo yum install -y centos-release-scl
 
 # Update
-RUN sudo yum makecache && sudo yum -y update
+RUN sudo yum makecache && yum -y update
 
  # Install development tools
-RUN sudo yum -y install \
-	bzip2 \
-	c-ares-devel \
-	libev-devel \
-	zlib-devel \
-	libuv-devel \
-	devtoolset-8-libasan-devel \
-	devtoolset-8-libubsan-devel \
-	llvm \
-	# Install all dependencies needed for Flexisip
-	openssl-devel \
-	boost169-devel \
-	hiredis-devel \
-	jansson-devel \
-	libsqlite3x-devel \
-	mariadb-devel \
-	mariadb-server \
-	postgresql-devel \
-	nghttp2 \
-	libnghttp2-devel \
-	protobuf-devel \
-	net-snmp-devel \
-	xerces-c-devel \
-	gsm-devel \
-	opus-devel \
-	mbedtls-devel \
-	speex-devel \
-	speexdsp-devel \
-	libxml2-devel \
-	protobuf-compiler \
-	redis \
-	# Dependencies of the B2BUA
-	jsoncpp-devel \
-	&& sudo yum -y clean all \
-	&& sudo scl enable devtoolset-8 bash
+RUN sudo yum -y install devtoolset-8 \
+                   ccache \
+                   clang \
+                   cmake3 \
+                   doxygen \
+                   gdb \
+                   git \
+                   make \
+                   ninja-build \
+                   python3 \
+                   python3-pip \
+                   bzip2 \
+                   c-ares-devel \
+                   libev-devel \
+                   zlib-devel \
+                   libuv-devel \
+                   devtoolset-8-libasan-devel \
+                   devtoolset-8-libubsan-devel \
+                   rpm-build \
+                   llvm \
+                 # Install all dependencies needed for Flexisip
+                   openssl-devel \
+                   boost169-devel \
+                   hiredis-devel \
+                   jansson-devel \
+                   libsqlite3x-devel \
+                   mariadb-devel \
+                   mariadb-server \
+                   postgresql-devel \
+                   nghttp2 \
+                   libnghttp2-devel \
+                   protobuf-devel \
+                   net-snmp-devel \
+                   xerces-c-devel \
+                   gsm-devel \
+                   opus-devel \
+                   mbedtls-devel \
+                   speex-devel \
+                   speexdsp-devel \
+                   libxml2-devel \
+                   protobuf-compiler \
+                   redis \
+                 # Dependencies of the B2BUA
+                   libvpx-devel \
+                   jsoncpp-devel \
+               &&  yum -y clean all \
+               && scl enable devtoolset-8 bash \
+               && ln -s /usr/bin/ccmake3 /usr/bin/ccmake \
+               && ln -s /usr/bin/cmake3 /usr/bin/cmake \
+               && ln -s /usr/bin/cpack3 /usr/bin/cpack \
+               && ln -s /usr/bin/ctest3 /usr/bin/ctest
+
 
 # Install libnghttp2_asio 1.39.2
 COPY libnghttp2_asio_install.sh .
