@@ -98,6 +98,7 @@ RUN apt-mirror-updater --auto-change-mirror \
  && sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 \
  && sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-10 100
 
+
 # Configure user bc
 RUN useradd -ms /bin/bash bc && \
     echo 'bc:cotcot' | chpasswd && \
