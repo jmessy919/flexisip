@@ -177,13 +177,4 @@ function(add_linphonesdk)
 
 	add_subdirectory("linphone-sdk")
 endfunction()
-
-# Need to save and restore the ENABLE_UNIT_TESTS variable because it is a cached variable.
-# function() in CMake opens a new scope and the variables that are set in this scope are not
-# present in the calling scope. But apparently if a variable is cached in the calling scope,
-# setting it in the function changes its value in the calling scope.
-set(_BACKUP_ENABLE_UNIT_TESTS ${ENABLE_UNIT_TESTS})
-
 add_linphonesdk()
-
-set(ENABLE_UNIT_TESTS ${_BACKUP_ENABLE_UNIT_TESTS})
