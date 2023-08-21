@@ -27,90 +27,94 @@
 #include "registration-subscription.hh"
 #include "service-server.hh"
 
+#ifndef DEFAULT_LIB_DIR
+#define DEFAULT_LIB_DIR "/var/opt/belledonne-communications/lib/flexisip"
+#endif // DEFAULT_LIB_DIR
+
 namespace flexisip {
+class ConferenceServer : public ServiceServer,
+                         public RegistrarDbStateListener,
+                         public std::enable_shared_from_this<ConferenceServer>,
+                         public linphone::CoreListener,
+                         public linphone::ChatRoomListener {
+public:
+	template <typename StrT, typename SuRootPtr>
+	ConferenceServer(StrT&& path, SuRootPtr&& root)
+	    : ServiceServer{std::forward<SuRootPtr>(root)}, mPath{std::forward<StrT>(path)}, mSubscriptionHandler{*this} {
+	}
 
-	class ConferenceServer
-		: public ServiceServer
-		, public RegistrarDbStateListener
-		, public std::enable_shared_from_this<ConferenceServer>
-		, public linphone::CoreListener
-		, public linphone::ChatRoomListener
-	{
+	void bindAddresses();
+
+	void bindChatRoom(const std::string& bindingUrl,
+	                  const std::string& contact,
+	                  const std::string& gruu,
+	                  const std::shared_ptr<ContactUpdateListener>& listener);
+
+	/**
+	 * Bind conference on the registrardb
+	 **/
+	void bindConference();
+
+	bool capabilityCheckEnabled() const {
+		return mCheckCapabilities;
+	}
+	const std::list<std::string>& getLocalDomains() const {
+		return mLocalDomains;
+	}
+	std::shared_ptr<RegistrationEvent::ClientFactory> getRegEventClientFactory() const {
+		return mRegEventClientFactory;
+	}
+
+protected:
+	void _init() override;
+	void _run() override;
+	void _stop() override;
+
+private:
+	void loadFactoryUris();
+	// RegistrarDbStateListener implementation
+	void onRegistrarDbWritable(bool writable) override;
+
+	// CoreListener implementation
+	void onChatRoomStateChanged(const std::shared_ptr<linphone::Core>& lc,
+	                            const std::shared_ptr<linphone::ChatRoom>& cr,
+	                            linphone::ChatRoom::State state) override;
+
+	// ChatRoomListener implementation
+	void onConferenceAddressGeneration(const std::shared_ptr<linphone::ChatRoom>& cr) override;
+
+	void onParticipantRegistrationSubscriptionRequested(
+	    const std::shared_ptr<linphone::ChatRoom>& cr,
+	    const std::shared_ptr<const linphone::Address>& participantAddr) override;
+	void onParticipantRegistrationUnsubscriptionRequested(
+	    const std::shared_ptr<linphone::ChatRoom>& cr,
+	    const std::shared_ptr<const linphone::Address>& participantAddr) override;
+
+	std::string getUuidFilePath() const;
+	std::string getStateDir() const;
+	const std::string& readUuid();
+	void writeUuid(const std::string& uuid);
+	std::string getUuid();
+	std::shared_ptr<linphone::Core> mCore{};
+	std::shared_ptr<RegistrationEvent::ClientFactory> mRegEventClientFactory{};
+	std::string mPath{};
+	SipUri mTransport{};
+	std::list<std::shared_ptr<linphone::ChatRoom>> mChatRooms{};
+	ParticipantRegistrationSubscriptionHandler mSubscriptionHandler;
+	std::list<std::string> mFactoryUris{};
+	std::list<std::string> mLocalDomains{};
+	std::string mUuid;
+	bool mAddressesBound = false;
+	bool mCheckCapabilities = false;
+	static constexpr const char* sUuidFile = "uuid";
+
+	// Used to declare the service configuration
+	class Init {
 	public:
-		template <typename StrT, typename SuRootPtr>
-		ConferenceServer(StrT&& path, SuRootPtr&& root) : ServiceServer{std::forward<SuRootPtr>(root)}, mPath{std::forward<StrT>(path)}, mSubscriptionHandler{*this} {}
-
-		void bindAddresses ();
-
-		void bindChatRoom (
-			const std::string &bindingUrl,
-			const std::string &contact,
-			const std::string &gruu,
-			const std::shared_ptr<ContactUpdateListener> &listener
-		);
-
-		/**
-		 * Bind conference on the registrardb
-		**/
-		void bindConference ();
-
-		bool capabilityCheckEnabled()const{
-			return mCheckCapabilities;
-		}
-		const std::list<std::string> & getLocalDomains()const{
-			return mLocalDomains;
-		}
-		std::shared_ptr<RegistrationEvent::ClientFactory> getRegEventClientFactory()const{
-			return mRegEventClientFactory;
-		}
-
-	protected:
-		void _init () override;
-		void _run () override;
-		void _stop () override;
-
-	private:
-		void loadFactoryUris();
-		// RegistrarDbStateListener implementation
-		void onRegistrarDbWritable (bool writable) override;
-
-		// CoreListener implementation
-		void onChatRoomStateChanged (
-			const std::shared_ptr<linphone::Core> &lc,
-			const std::shared_ptr<linphone::ChatRoom> &cr,
-			linphone::ChatRoom::State state
-		) override;
-
-		// ChatRoomListener implementation
-		void onConferenceAddressGeneration (const std::shared_ptr<linphone::ChatRoom> &cr) override;
-
-		void onParticipantRegistrationSubscriptionRequested (
-			const std::shared_ptr<linphone::ChatRoom> &cr,
-			const std::shared_ptr<const linphone::Address> & participantAddr
-		) override;
-		void onParticipantRegistrationUnsubscriptionRequested (
-			const std::shared_ptr<linphone::ChatRoom> &cr,
-			const std::shared_ptr<const linphone::Address> & participantAddr
-		) override;
-
-		std::shared_ptr<linphone::Core> mCore{};
-		std::shared_ptr<RegistrationEvent::ClientFactory> mRegEventClientFactory{};
-		std::string mPath{};
-		SipUri mTransport{};
-		std::list<std::shared_ptr<linphone::ChatRoom>> mChatRooms{};
-		ParticipantRegistrationSubscriptionHandler mSubscriptionHandler;
-		std::list<std::string> mFactoryUris{};
-		std::list<std::string> mLocalDomains{};
-		bool mAddressesBound = false;
-		bool mCheckCapabilities = false;
-		
-		// Used to declare the service configuration
-		class Init {
-		public:
-			Init();
-		};
-
-		static Init sStaticInit;
-		static sofiasip::Home mHome;
+		Init();
 	};
+
+	static Init sStaticInit;
+	static sofiasip::Home mHome;
+};
 } // namespace flexisip
