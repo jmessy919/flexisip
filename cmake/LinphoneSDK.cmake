@@ -89,7 +89,13 @@ function(add_linphonesdk)
 	set(ENABLE_LDAP OFF)
 	set(ENABLE_LIBYUV OFF)
 	set(ENABLE_LIME OFF)
-	set(ENABLE_MBEDTLS ON)
+	
+	# ENABLE_MBEDTLS must be a cache variable because this option is declared by
+	# libsrtp2 project as cache variable instead of using option() command. That avoid Flexisip
+	# to masquerade this variable by using CMP0077 new behavior.
+	set(ENABLE_MBEDTLS ON CACHE BOOL "Enable MbedTLS support." FORCE)
+	mark_as_advanced(ENABLE_MBEDTLS)
+	
 	set(ENABLE_MKV OFF)
 	set(ENABLE_NON_FREE_FEATURES OFF)
 	set(ENABLE_OPENH264 OFF)
