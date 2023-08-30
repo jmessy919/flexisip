@@ -143,7 +143,7 @@ if (LIBNGHTTP2ASIO_FOUND AND ENABLE_UNIT_TESTS_NGHTTP2ASIO)
 		utils/http-mock/http-mock.cc utils/http-mock/http-mock.hh
 		utils/pns-mock.cc utils/pns-mock.hh
 	)
-	if(HAS_GCC_BUG_105562)
+	if(HAS_GCC_BUG_105616 OR HAS_GCC_BUG_105562)
 		set_source_files_properties(
 			push-notification-tester.cc
 			utils/pns-mock.cc
@@ -157,7 +157,7 @@ if(ENABLE_CONFERENCE AND ENABLE_UNIT_TESTS_NGHTTP2ASIO)
 	target_sources(flexisip_tester PRIVATE
 		tests/eventlogs/writers/flexi-stats-event-log-writer-tester.cc
 	)
-	if(HAS_GCC_BUG_105562)
+	if(HAS_GCC_BUG_105616 OR HAS_GCC_BUG_105562)
 		set_source_files_properties(
 			tests/eventlogs/writers/flexi-stats-event-log-writer-tester.cc
 			PROPERTIES COMPILE_OPTIONS "-Wno-error=maybe-uninitialized"
