@@ -27,7 +27,6 @@
 
 #include "agent.hh"
 #include "eventlogs/writers/event-log-writer.hh"
-#include "injected-module-info.hh"
 
 namespace flexisip {
 namespace tester {
@@ -50,10 +49,8 @@ public:
 	 * @param config Agent configuration as a map. The key is the name of the paramter
 	 * to change (e.g. 'module::Registrar/reg-domains') and the value is the new
 	 * value of the parameter as string.
-	 * @param injectedModule A module to be injected into the Agent's module chain to mangle requests before they reach
-	 * other modules.
 	 */
-	explicit Server(const std::map<std::string, std::string>& config, Module* injectedModule = nullptr);
+	explicit Server(const std::map<std::string, std::string>& config);
 	/**
 	 * @brief Cast an Agent into Server
 	 */
@@ -86,7 +83,6 @@ public:
 	ClientBuilder clientBuilder() const;
 
 private:
-	const std::optional<InjectedModuleInfo> mModule{std::nullopt};
 	std::shared_ptr<flexisip::Agent> mAgent{std::make_shared<Agent>(std::make_shared<sofiasip::SuRoot>())};
 }; // Class Server
 
