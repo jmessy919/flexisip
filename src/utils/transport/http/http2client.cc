@@ -89,11 +89,6 @@ void Http2Client::discardAllActiveRequests() {
 	}
 }
 
-void Http2Client::discardAllRequests() {
-	discardAllPendingRequests();
-	discardAllActiveRequests();
-}
-
 void Http2Client::send(const shared_ptr<HttpRequest>& request,
                        const OnResponseCb& onResponseCb,
                        const OnErrorCb& onErrorCb) {
