@@ -18,14 +18,13 @@
 
 #include <algorithm>
 #include <array>
+#include <nghttp2/nghttp2.h>
 #include <sstream>
 
 #include <nghttp2/nghttp2ver.h>
 
 #include "flexisip/logmanager.hh"
 #include "flexisip/sofia-wrapper/su-root.hh"
-
-#include "ng-data-provider.hh"
 
 #include "http2client.hh"
 
@@ -458,6 +457,9 @@ void Http2Client::onRequestTimeout(int32_t streamId) {
 		auto context = contextMapIterator->second;
 		SLOGD << mLogPrefix << ": closing stream[" << streamId << "] after request timeout.";
 		context->getOnErrorCb()(context->getRequest());
+		// Cancel any unsent frames
+		nghttp2_submit_rst_stream(mHttpSession.get(), nghttp2_flag::NGHTTP2_FLAG_NONE, streamId,
+		                          nghttp2_error_code::NGHTTP2_CANCEL);
 		mActiveHttpContexts.erase(contextMapIterator);
 	}
 }
