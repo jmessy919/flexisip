@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <future>
 #include <optional>
 #include <queue>
@@ -51,12 +52,12 @@ public:
 	void forceCloseServer();
 	std::shared_ptr<Request> popRequestReceived();
 
+	mutable std::recursive_mutex mMutex{};
 private:
 	void handleRequest(const nghttp2::asio_http2::server::request&, const nghttp2::asio_http2::server::response&);
 
 	nghttp2::asio_http2::server::http2 mServer{};
 	ssl::context mCtx;
-	mutable std::recursive_mutex mMutex{};
 	std::queue<std::shared_ptr<Request>> mRequestsReceived{};
 	std::atomic<int>* mRequestReceivedCount{nullptr};
 };

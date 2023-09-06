@@ -44,6 +44,13 @@ class Http2Client : public std::enable_shared_from_this<Http2Client> {
 public:
 	enum class State : uint8_t { Disconnected, Connected, Connecting };
 
+	struct NgHttp2SessionDeleter {
+		void operator()(nghttp2_session* ptr) const noexcept {
+			nghttp2_session_del(ptr);
+		}
+	};
+	using NgHttp2SessionPtr = std::unique_ptr<nghttp2_session, NgHttp2SessionDeleter>;
+
 	class BadStateError : public std::logic_error {
 	public:
 		BadStateError(State state) : logic_error(formatWhatArg(state)) {
@@ -133,12 +140,6 @@ public:
 	}
 
 private:
-	struct NgHttp2SessionDeleter {
-		void operator()(nghttp2_session* ptr) const noexcept {
-			nghttp2_session_del(ptr);
-		}
-	};
-
 	// Constructors must be private because Http2Client extends enable_shared_from_this. Use make instead.
 	Http2Client(sofiasip::SuRoot& root, std::unique_ptr<TlsConnection>&& connection, SessionSettings&& sessionSettings);
 	Http2Client(sofiasip::SuRoot& root,
@@ -199,7 +200,6 @@ private:
 	std::string mLogPrefix{};
 	int32_t mLastSID{-1};
 
-	using NgHttp2SessionPtr = std::unique_ptr<nghttp2_session, NgHttp2SessionDeleter>;
 	NgHttp2SessionPtr mHttpSession{};
 	SessionSettings mSessionSettings{};
 

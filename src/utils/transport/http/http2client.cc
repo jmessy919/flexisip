@@ -131,7 +131,7 @@ void Http2Client::send(const shared_ptr<HttpRequest>& request,
 		return;
 	}
 
-	SLOGD << logPrefix << ": request[" << request << "] sent";
+	SLOGD << logPrefix << ": request[" << request << "] submitted";
 }
 
 void Http2Client::tlsConnect() {
@@ -233,13 +233,18 @@ void Http2Client::http2Setup() {
 }
 
 ssize_t Http2Client::doSend([[maybe_unused]] nghttp2_session& session, const uint8_t* data, size_t length) noexcept {
+	SLOGD << "BEDUG requested write of size " << length;
 	length = min(length, size_t(numeric_limits<int>::max()));
 	auto nwritten = mConn->write(data, int(length));
 	if (nwritten < 0) {
 		SLOGE << mLogPrefix << ": error while writting into socket[" << nwritten << "]";
 		return NGHTTP2_ERR_CALLBACK_FAILURE;
 	}
-	if (nwritten == 0 && length > 0) return NGHTTP2_ERR_WOULDBLOCK;
+	if (nwritten == 0 && length > 0) {
+		SLOGD << "BEDUG WOULD BLOCK";
+		return NGHTTP2_ERR_WOULDBLOCK;
+	}
+	SLOGD << "BEDUG wrote " << nwritten;
 	return nwritten;
 }
 
