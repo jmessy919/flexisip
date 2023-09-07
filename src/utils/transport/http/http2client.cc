@@ -264,6 +264,11 @@ ssize_t Http2Client::doRecv([[maybe_unused]] nghttp2_session& session, uint8_t* 
 void Http2Client::onFrameSent([[maybe_unused]] nghttp2_session& session, const nghttp2_frame& frame) noexcept {
 	SLOGD << mLogPrefix << "[" << frame.hd.stream_id << "]: " << Http2Tools::frameTypeToString(frame.hd.type)
 	      << " frame sent (" << frame.hd.length << "B)";
+	if (frame.hd.type == nghttp2_frame_type::NGHTTP2_DATA && 0 < frame.data.padlen) {
+		SLOGW << mLogPrefix << "[" << frame.hd.stream_id
+		      << "]: Padding detected in this data frame. This is unsupported. The associated request will no longer "
+		         "reliably detect when it has been successfully sent.";
+	}
 	resetTimeoutTimer(frame.hd.stream_id);
 	resetIdleTimer();
 }
