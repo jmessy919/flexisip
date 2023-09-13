@@ -40,6 +40,7 @@ target_sources(flexisip PRIVATE
 	transport/http/http-message.cc transport/http/http-message.hh
 	transport/http/http-response.cc transport/http/http-response.hh
 	transport/http/ng-data-provider.cc transport/http/ng-data-provider.hh
+	transport/http/nghttp2-session.cc transport/http/nghttp2-session.hh
 	transport/http/rest-client.cc transport/http/rest-client.hh
 	transport/tls-connection.cc transport/tls-connection.hh
 	uri-utils.cc uri-utils.hh
