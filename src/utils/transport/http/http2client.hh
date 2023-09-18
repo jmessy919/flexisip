@@ -27,10 +27,12 @@
 #include <sofia-sip/su_wait.h>
 
 #include <flexisip/sofia-wrapper/timer.hh>
+#include <string_view>
 
 #include "http-message-context.hh"
 #include "http-message.hh"
 #include "http-response.hh"
+#include "utils/transport/http/nghttp2-client-session.hh"
 #include "utils/transport/tls-connection.hh"
 
 namespace flexisip {
@@ -42,14 +44,42 @@ namespace flexisip {
  */
 class Http2Client : public std::enable_shared_from_this<Http2Client> {
 public:
+	using HttpRequest = HttpMessage;
+	using OnErrorCb = HttpMessageContext::OnErrorCb;
+	using OnResponseCb = HttpMessageContext::OnResponseCb;
+
 	enum class State : uint8_t { Disconnected, Connected, Connecting };
 
-	struct NgHttp2SessionDeleter {
-		void operator()(nghttp2_session* ptr) const noexcept {
-			nghttp2_session_del(ptr);
+	class Session : public Nghttp2ClientSession {
+	public:
+		friend class Http2Client;
+
+		ssize_t onSend(const uint8_t* data, size_t length) noexcept override;
+		ssize_t onRecv(uint8_t* buf, size_t length) noexcept override;
+		int onFrameSent(const nghttp2_frame& frame) noexcept override;
+		int onFrameRecv(const nghttp2_frame& frame) noexcept override;
+		int onHeaderRecv(const nghttp2_frame& frame,
+		                 std::basic_string_view<uint8_t> name,
+		                 std::basic_string_view<uint8_t> value,
+		                 uint8_t flags) noexcept override;
+		int onDataChunkRecv(uint8_t flags, StreamId, std::basic_string_view<uint8_t> data) noexcept override;
+		int onStreamClosed(std::unique_ptr<StreamDataProvider>&&, uint32_t error_code) noexcept override;
+
+		std::string getHost() const {
+			return mConn->getPort() == "443" ? mConn->getHost() : mConn->getHost() + ":" + mConn->getPort();
 		}
+
+		void enableInsecureTestMode() {
+			mConn->enableInsecureTestMode();
+		}
+
+		const std::unique_ptr<TlsConnection>& getConnection() const {
+			return mConn;
+		}
+
+	private:
+		std::unique_ptr<TlsConnection> mConn{};
 	};
-	using NgHttp2SessionPtr = std::unique_ptr<nghttp2_session, NgHttp2SessionDeleter>;
 
 	class BadStateError : public std::logic_error {
 	public:
@@ -60,20 +90,6 @@ public:
 		static std::string formatWhatArg(State state) noexcept;
 	};
 
-	class SessionSettings {
-	public:
-		SessionSettings(uint32_t maxConcurrentStreams = 1000)
-		    : mSettings{{{NGHTTP2_SETTINGS_MAX_CONCURRENT_STREAMS, maxConcurrentStreams}}} {
-		}
-
-		int submitTo(nghttp2_session* session) {
-			return nghttp2_submit_settings(session, NGHTTP2_FLAG_NONE, mSettings.data(), mSettings.size());
-		}
-
-	private:
-		std::array<nghttp2_settings_entry, 1> mSettings;
-	};
-
 	template <typename... Args>
 	static std::shared_ptr<Http2Client> make(Args&&... args) {
 		// new because make_shared need a public constructor.
@@ -81,9 +97,6 @@ public:
 	};
 	virtual ~Http2Client() = default;
 
-	using HttpRequest = HttpMessage;
-	using OnErrorCb = HttpMessageContext::OnErrorCb;
-	using OnResponseCb = HttpMessageContext::OnResponseCb;
 	/**
 	 * Send a request to the remote server. OnResponseCb is called if the server return a complete answer. OnErrorCb is
 	 * called if any unexpected errors occurred (like connection errors or timeouts).
@@ -98,10 +111,6 @@ public:
 	send(const std::shared_ptr<HttpRequest>& request, const OnResponseCb& onResponseCb, const OnErrorCb& onErrorCb);
 
 	void onTlsConnectCb();
-
-	std::string getHost() const {
-		return mConn->getPort() == "443" ? mConn->getHost() : mConn->getHost() + ":" + mConn->getPort();
-	}
 
 	/**
 	 * Test whether the client is processing an HTTP request.
@@ -123,42 +132,21 @@ public:
 		return *this;
 	}
 
-	void enableInsecureTestMode() {
-		mConn->enableInsecureTestMode();
-	}
-
-	const std::unique_ptr<TlsConnection>& getConnection() const {
-		return mConn;
-	}
-
-	/**
-	 * Number of requests pending to be sent by the nghttp2 session
-	 */
-	size_t getOutboundQueueSize() {
-		if (!mHttpSession) return 0;
-		return nghttp2_session_get_outbound_queue_size(mHttpSession.get());
-	}
-
 private:
 	// Constructors must be private because Http2Client extends enable_shared_from_this. Use make instead.
-	Http2Client(sofiasip::SuRoot& root, std::unique_ptr<TlsConnection>&& connection, SessionSettings&& sessionSettings);
-	Http2Client(sofiasip::SuRoot& root,
-	            const std::string& host,
-	            const std::string& port,
-	            SessionSettings&& sessionSettings = SessionSettings());
+	Http2Client(sofiasip::SuRoot& root, std::unique_ptr<TlsConnection>&& connection);
+	Http2Client(sofiasip::SuRoot& root, const std::string& host, const std::string& port);
 	Http2Client(sofiasip::SuRoot& root,
 	            const std::string& host,
 	            const std::string& port,
 	            const std::string& trustStorePath,
-	            const std::string& certPath,
-	            SessionSettings&& sessionSettings = SessionSettings());
+	            const std::string& certPath);
 
 	/* Private methods */
 	void sendAllPendingRequests();
 	void discardAllPendingRequests();
 	void discardAllActiveRequests();
 
-	ssize_t doSend(nghttp2_session& session, const uint8_t* data, size_t length) noexcept;
 	ssize_t doRecv(nghttp2_session& session, uint8_t* data, size_t length) noexcept;
 	void onFrameSent(nghttp2_session& session, const nghttp2_frame& frame) noexcept;
 	void onFrameRecv(nghttp2_session& session, const nghttp2_frame& frame) noexcept;
@@ -185,23 +173,17 @@ private:
 	void http2Setup();
 	void disconnect();
 
-	int sendAll() {
-		return nghttp2_session_send(mHttpSession.get());
-	}
-
 	void setState(State state) noexcept;
 
 	// Private attributes
 	State mState{State::Disconnected};
-	std::unique_ptr<TlsConnection> mConn{};
 	sofiasip::SuRoot& mRoot;
 	su_wait_t mPollInWait{0};
 	sofiasip::Timer mIdleTimer;
 	std::string mLogPrefix{};
 	int32_t mLastSID{-1};
 
-	NgHttp2SessionPtr mHttpSession{};
-	SessionSettings mSessionSettings{};
+	std::optional<Session> mHttpSession = std::nullopt;
 
 	using HttpContextList = std::vector<std::shared_ptr<HttpMessageContext>>;
 	HttpContextList mPendingHttpContexts{};

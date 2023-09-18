@@ -8,9 +8,8 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <sstream>
+#include <optional>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 
 #include <sys/types.h>
@@ -19,39 +18,41 @@
 
 namespace flexisip {
 
-class Nghttp2Session {
+/**
+ * Memory-safe low-level wrapper for a nghttp2_session in client mode
+ */
+class Nghttp2ClientSession {
 public:
-	class StreamId {
+	using StreamId = int32_t;
+	using StreamIdOrError = int32_t;
+
+	class StreamDataProvider {
 	public:
-		friend class Nghttp2Session;
-
-		class Hash {
-			std::size_t operator()(const StreamId& self) {
-				return std::hash<decltype(mId)>()(self.mId);
-			}
-		};
-
-		bool operator==(StreamId other) {
-			return mId == other.mId;
-		}
-
-	private:
-		explicit StreamId(int32_t id) : mId(id) {
-		}
-
-		operator int32_t() const {
-			return mId;
-		}
-
-		int32_t mId;
+		virtual ~StreamDataProvider() = default;
+		virtual ssize_t read(uint8_t* buf, size_t length, uint32_t& data_flags) = 0;
 	};
 
-	using StreamDataProvider = std::function<ssize_t(uint8_t* buf, size_t length, uint32_t& data_flags)>;
+	struct SessionSettings {
+		std::optional<uint32_t> maxConcurrentStreams = std::nullopt;
+	};
 
-	Nghttp2Session();
-	virtual ~Nghttp2Session() = default;
+	Nghttp2ClientSession();
+	virtual ~Nghttp2ClientSession() = default;
 
-	StreamId submitRequest(const nghttp2_priority_spec*, const std::vector<nghttp2_nv>& headers, StreamDataProvider&&);
+	StreamIdOrError submitRequest(const nghttp2_priority_spec*,
+	                              const std::vector<nghttp2_nv>& headers,
+	                              std::unique_ptr<StreamDataProvider>&&);
+	int submitSettings(const SessionSettings&);
+	StreamDataProvider* getStreamData(StreamId) const;
+	void cancel(StreamId);
+	int sendPendingFrames();
+	int receiveRemoteFrames();
+	/**
+	 * Number of requests pending to be sent by the nghttp2 session
+	 */
+	size_t getOutboundQueueSize() {
+		return nghttp2_session_get_outbound_queue_size(mPtr.get());
+	}
 
 protected:
 	virtual ssize_t onSend(const uint8_t* data, size_t length) noexcept = 0;
@@ -63,7 +64,7 @@ protected:
 	                         std::basic_string_view<uint8_t> value,
 	                         uint8_t flags) noexcept = 0;
 	virtual int onDataChunkRecv(uint8_t flags, StreamId, std::basic_string_view<uint8_t> data) noexcept = 0;
-	virtual int onStreamClosed(StreamId, uint32_t error_code) noexcept = 0;
+	virtual int onStreamClosed(std::unique_ptr<StreamDataProvider>&&, uint32_t error_code) noexcept = 0;
 
 private:
 	struct NgHttp2SessionDeleter {
@@ -74,7 +75,6 @@ private:
 	using NgHttp2SessionPtr = std::unique_ptr<nghttp2_session, NgHttp2SessionDeleter>;
 
 	NgHttp2SessionPtr mPtr;
-	std::unordered_map<StreamId, StreamDataProvider, StreamId::Hash> mStreams{};
 };
 
 } // namespace flexisip

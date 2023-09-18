@@ -97,7 +97,8 @@ void Http2Client::send(const shared_ptr<HttpRequest>& request,
 
 	SLOGD << logPrefix << ": sending request[" << request << "]:\n" << request->toString();
 
-	auto context = make_shared<HttpMessageContext>(request, onResponseCb, onErrorCb, *mRoot.getCPtr(), mRequestTimeout);
+	auto context =
+	    std::make_unique<HttpMessageContext>(request, onResponseCb, onErrorCb, *mRoot.getCPtr(), mRequestTimeout);
 
 	if (mState == State::Disconnected) {
 		SLOGD << logPrefix << ": not connected. Trying to connect...";
@@ -108,9 +109,7 @@ void Http2Client::send(const shared_ptr<HttpRequest>& request,
 		return;
 	}
 
-	auto streamId =
-	    nghttp2_submit_request(mHttpSession.get(), nullptr, request->getHeaders().makeCHeaderList().data(),
-	                           request->getHeaders().getHeadersList().size(), request->getCDataProvider(), nullptr);
+	auto streamId = mHttpSession->submitRequest(nullptr, request->getHeaders().makeCHeaderList(), std::move(context));
 	if (streamId < 0) {
 		SLOGE << logPrefix << ": push request submit failed. reason=[" << nghttp2_strerror(streamId) << "]";
 		onErrorCb(request);
@@ -119,11 +118,7 @@ void Http2Client::send(const shared_ptr<HttpRequest>& request,
 
 	logPrefix = mLogPrefix + "[" + to_string(streamId) + "]";
 
-	// the emplace MUST be called before nghttp2_session_send for the timeout mechanic to work properly.
-	// In fact if you watch the Http2Client::resetTimeoutTimer the context need to be in map for the timer to be
-	// reset/start properly.
-	mActiveHttpContexts.emplace(streamId, std::move(context));
-	auto status = sendAll();
+	auto status = mHttpSession->sendPendingFrames();
 	if (status < 0) {
 		SLOGE << logPrefix << ": push request sending failed. reason=[" << nghttp2_strerror(status) << "]";
 		mActiveHttpContexts.erase(streamId);
@@ -157,74 +152,16 @@ void Http2Client::onTlsConnectCb() {
 }
 
 void Http2Client::http2Setup() {
-	auto sendCb = [](nghttp2_session* session, const uint8_t* data, size_t length, [[maybe_unused]] int flags,
-	                 void* user_data) noexcept {
-		auto thiz = static_cast<Http2Client*>(user_data);
-		return thiz->doSend(*session, data, length);
-	};
-	auto recvCb = [](nghttp2_session* session, uint8_t* buf, size_t length, [[maybe_unused]] int flags,
-	                 void* user_data) noexcept {
-		auto thiz = static_cast<Http2Client*>(user_data);
-		return thiz->doRecv(*session, buf, length);
-	};
-	auto frameSentCb = [](nghttp2_session* session, const nghttp2_frame* frame, void* user_data) noexcept {
-		auto thiz = static_cast<Http2Client*>(user_data);
-		thiz->onFrameSent(*session, *frame);
-		return 0;
-	};
-	auto frameRecvCb = [](nghttp2_session* session, const nghttp2_frame* frame, void* user_data) noexcept {
-		auto thiz = static_cast<Http2Client*>(user_data);
-		thiz->onFrameRecv(*session, *frame);
-		return 0;
-	};
-	auto onHeaderRecvCb = [](nghttp2_session* session, const nghttp2_frame* frame, const uint8_t* name, size_t namelen,
-	                         const uint8_t* value, size_t valuelen, uint8_t flags, void* user_data) noexcept {
-		auto thiz = static_cast<Http2Client*>(user_data);
-		string nameStr{reinterpret_cast<const char*>(name), namelen};
-		string valueStr{reinterpret_cast<const char*>(value), valuelen};
-		thiz->onHeaderRecv(*session, *frame, nameStr, valueStr, flags);
-		return 0;
-	};
-	auto onDataChunkRecvCb = [](nghttp2_session* session, uint8_t flags, int32_t stream_id, const uint8_t* data,
-	                            size_t len, void* user_data) noexcept {
-		auto thiz = static_cast<Http2Client*>(user_data);
-		thiz->onDataReceived(*session, flags, stream_id, data, len);
-		return 0;
-	};
-	auto onStreamClosedCb = [](nghttp2_session* session, int32_t stream_id, uint32_t error_code,
-	                           void* user_data) noexcept {
-		auto thiz = static_cast<Http2Client*>(user_data);
-		thiz->onStreamClosed(*session, stream_id, error_code);
-		return 0;
-	};
-
-	nghttp2_session_callbacks* cbs;
-	nghttp2_session_callbacks_new(&cbs);
-	nghttp2_session_callbacks_set_send_callback(cbs, sendCb);
-	nghttp2_session_callbacks_set_recv_callback(cbs, recvCb);
-	nghttp2_session_callbacks_set_on_frame_send_callback(cbs, frameSentCb);
-	nghttp2_session_callbacks_set_on_frame_recv_callback(cbs, frameRecvCb);
-	nghttp2_session_callbacks_set_on_header_callback(cbs, onHeaderRecvCb);
-	nghttp2_session_callbacks_set_on_data_chunk_recv_callback(cbs, onDataChunkRecvCb);
-	nghttp2_session_callbacks_set_on_stream_close_callback(cbs, onStreamClosedCb);
-
-	unique_ptr<nghttp2_session_callbacks, void (*)(nghttp2_session_callbacks*)> cbsPtr{cbs,
-	                                                                                   nghttp2_session_callbacks_del};
-
-	nghttp2_session* session;
-	nghttp2_session_client_new(&session, cbs, this);
-	NgHttp2SessionPtr httpSession{session};
+	mHttpSession.emplace();
 
 	int status;
-	if ((status = mSessionSettings.submitTo(session)) != 0) {
+	if ((status = mHttpSession->submitSettings({.maxConcurrentStreams = 1000})) != 0) {
 		SLOGE << mLogPrefix << ": submitting settings failed [status=" << to_string(status) << "]";
 		disconnect();
 		return;
 	}
 
-	mHttpSession = std::move(httpSession);
-
-	su_wait_create(&mPollInWait, mConn->getFd(), SU_WAIT_IN);
+	su_wait_create(&mPollInWait, mHttpSession->mConn->getFd(), SU_WAIT_IN);
 	su_root_register(mRoot.getCPtr(), &mPollInWait, onPollInCb, this, su_pri_normal);
 	resetIdleTimer();
 
@@ -232,23 +169,19 @@ void Http2Client::http2Setup() {
 	sendAllPendingRequests();
 }
 
-ssize_t Http2Client::doSend([[maybe_unused]] nghttp2_session& session, const uint8_t* data, size_t length) noexcept {
-	SLOGD << "BEDUG requested write of size " << length;
+ssize_t Http2Client::Session::onSend(const uint8_t* data, size_t length) noexcept {
 	length = min(length, size_t(numeric_limits<int>::max()));
 	auto nwritten = mConn->write(data, int(length));
 	if (nwritten < 0) {
-		SLOGE << mLogPrefix << ": error while writting into socket[" << nwritten << "]";
 		return NGHTTP2_ERR_CALLBACK_FAILURE;
 	}
 	if (nwritten == 0 && length > 0) {
-		SLOGD << "BEDUG WOULD BLOCK";
 		return NGHTTP2_ERR_WOULDBLOCK;
 	}
-	SLOGD << "BEDUG wrote " << nwritten;
 	return nwritten;
 }
 
-ssize_t Http2Client::doRecv([[maybe_unused]] nghttp2_session& session, uint8_t* data, size_t length) noexcept {
+ssize_t Http2Client::Session::onRecv(uint8_t* data, size_t length) noexcept {
 	length = min(length, size_t(numeric_limits<int>::max()));
 	auto nread = mConn->read(data, length);
 	if (nread < 0) {

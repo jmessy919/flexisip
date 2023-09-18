@@ -18,16 +18,21 @@
 
 #pragma once
 
+#include <chrono>
+#include <functional>
 #include <memory>
 
 #include <sofia-sip/su_wait.h>
 
+#include "flexisip/sofia-wrapper/timer.hh"
+
 #include "http-message.hh"
 #include "http-response.hh"
+#include "utils/transport/http/nghttp2-client-session.hh"
 
 namespace flexisip {
 
-class HttpMessageContext {
+class HttpMessageContext : public Nghttp2ClientSession::StreamDataProvider {
 public:
 	using HttpRequest = HttpMessage;
 	using OnResponseCb = std::function<void(const std::shared_ptr<HttpRequest>&, const std::shared_ptr<HttpResponse>&)>;
@@ -63,6 +68,10 @@ public:
 
 	sofiasip::Timer& getTimeoutTimer() {
 		return mTimeoutTimer;
+	}
+
+	ssize_t read(uint8_t* buf, size_t length, uint32_t& data_flags) override {
+		return mRequest->getDataProvider().read(buf, length, data_flags);
 	}
 
 private:

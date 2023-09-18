@@ -66,12 +66,12 @@ public:
 	 * WARNING: if you modify the body after a first call to getCDataProvider, the provider will be the same on the
 	 * next call to getCDataProvider. Only call this when you are ready to send the request.
 	 */
-	const nghttp2_data_provider* getCDataProvider() {
+	NgDataProvider& getDataProvider() {
 		if (!mDataProvider) {
 			mDataProvider = std::make_unique<NgDataProvider>(mBody);
 		}
 
-		return mDataProvider->getCStruct();
+		return *mDataProvider;
 	}
 
 	std::string toString() const noexcept;

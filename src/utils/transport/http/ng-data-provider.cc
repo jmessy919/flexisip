@@ -21,30 +21,18 @@
 namespace flexisip {
 
 NgDataProvider::NgDataProvider(const std::vector<char>& data) noexcept {
-	mDataProv.source.ptr = this;
-	mDataProv.read_callback = []([[maybe_unused]] nghttp2_session* session, [[maybe_unused]] int32_t stream_id, uint8_t* buf, size_t length,
-	                             uint32_t* data_flags, nghttp2_data_source* source, [[maybe_unused]] void* user_data) noexcept {
-		return static_cast<NgDataProvider*>(source->ptr)->read(buf, length, data_flags);
-	};
 	mData.write(data.data(), data.size());
 }
 
 NgDataProvider::NgDataProvider(const std::string& data) noexcept {
-	mDataProv.source.ptr = this;
-	mDataProv.read_callback = []([[maybe_unused]] nghttp2_session* session, [[maybe_unused]] int32_t stream_id, uint8_t* buf, size_t length,
-	                             uint32_t* data_flags, nghttp2_data_source* source, [[maybe_unused]] void* user_data) noexcept {
-		return static_cast<NgDataProvider*>(source->ptr)->read(buf, length, data_flags);
-	};
 	mData.write(data.data(), data.size());
 }
 
-ssize_t NgDataProvider::read(uint8_t* buf, size_t length, uint32_t* data_flags) noexcept {
-	*data_flags = 0;
+ssize_t NgDataProvider::read(uint8_t* buf, size_t length, uint32_t& data_flags) noexcept {
+	data_flags = 0;
 	mData.read(reinterpret_cast<char*>(buf), length);
-	if (mData.eof())
-		*data_flags |= NGHTTP2_DATA_FLAG_EOF;
-	if (!mData.good() && !mData.eof())
-		return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
+	if (mData.eof()) data_flags |= NGHTTP2_DATA_FLAG_EOF;
+	if (!mData.good() && !mData.eof()) return NGHTTP2_ERR_TEMPORAL_CALLBACK_FAILURE;
 	return mData.gcount();
 }
 

@@ -35,14 +35,9 @@ public:
 	NgDataProvider(const std::vector<char>& data) noexcept;
 	NgDataProvider(const std::string& data) noexcept;
 
-	const nghttp2_data_provider* getCStruct() const noexcept {
-		return &mDataProv;
-	}
+	ssize_t read(uint8_t* buf, size_t length, uint32_t& data_flags) noexcept;
 
 private:
-	ssize_t read(uint8_t* buf, size_t length, uint32_t* data_flags) noexcept;
-
-	nghttp2_data_provider mDataProv{{0}};
 	std::stringstream mData{};
 };
 
