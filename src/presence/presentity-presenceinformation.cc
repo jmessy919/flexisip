@@ -331,14 +331,46 @@ void PresentityPresenceInformation::removeListener(const shared_ptr<PresentityPr
 	listener->onInformationChanged(*this, listener->extendedNotifyEnabled());
 }
 
-void PresentityPresenceInformation::addCapability(const std::string& capability) {
+bool PresentityPresenceInformation::addCapability(const std::string& capability, bool notify) {
+	bool haveChanged = false;
 	if (mCapabilities.empty()) {
 		mCapabilities = capability;
+		haveChanged = true;
 	} else if (mCapabilities.find(capability) == mCapabilities.npos) {
 		mCapabilities += ", " + capability;
-		notifyAll();
+		haveChanged = true;
 	}
+	if(notify && haveChanged)
+		notifyAll();
+	return haveChanged;
 }
+
+bool PresentityPresenceInformation::addCapabilities(const std::string& capabilities, bool notify) {
+	bool haveChanged = false;
+	if (mCapabilities.empty()) {
+		mCapabilities = capabilities;
+		haveChanged = true;
+	} else {
+		auto splittedCapabilities = StringUtils::split(capabilities, ",");
+		for(auto capability : splittedCapabilities)
+			haveChanged |= addCapability(capability, false);
+	}
+	if(notify && haveChanged)
+		notifyAll();
+	return haveChanged;
+}
+
+bool PresentityPresenceInformation::clearCapabilities(bool notify) {
+	bool haveChanged = false;
+	if( !mCapabilities.empty()) {
+		mCapabilities.clear();
+		haveChanged = true;
+	}
+	if(notify && haveChanged)
+		notifyAll();
+	return haveChanged;
+}
+
 
 bool PresentityPresenceInformation::hasDefaultElement() {
 	return !!mDefaultInformationElement;

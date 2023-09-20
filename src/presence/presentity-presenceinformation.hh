@@ -179,7 +179,13 @@ public:
 	void setName(const std::string& name) {
 		mName = name;
 	}
-	void addCapability(const std::string& capability);
+
+	/**
+	 * Return true if capabilities have changed. You can use the return value for delaying notifications when all changes are done.
+	 */
+	bool addCapability(const std::string& capability, bool notify = true);
+	bool addCapabilities(const std::string& capability, bool notify = true);
+	bool clearCapabilities(bool notify = true);
 
 	/**
 	 *add notity listener for an entity

@@ -121,6 +121,10 @@ public:
 	bool finished() const {
 		return mListener->contactsToBeInserted.empty();
 	}
+
+	void resetCount(){
+		mCount = 0;
+	}
 };
 
 template <typename TDatabase>

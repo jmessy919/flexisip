@@ -172,10 +172,11 @@ public:
 	 * @param args A container of strings to concat.
 	 * @param fromIndex If you want not to start at the beginning of args. If fromIndex => args.size(), return an empty
 	 * string.
+	 * @param separator to be used if whitespace is not wanted.
 	 * @return A string, can be empty, no trailing whitespace added.
 	 */
 	template <class StringList>
-	static std::string join(const StringList& args, size_t fromIndex = 0) {
+	static std::string join(const StringList& args, size_t fromIndex = 0, const std::string& separator = " ") {
 		std::string ret{""};
 		if (args.size() <= fromIndex) {
 			return ret;
@@ -183,12 +184,20 @@ public:
 
 		auto iter = args.begin();
 		std::advance(iter, fromIndex);
+		// Reserve size to avoid multiple allocations on appends.
+		auto sizeIter = iter;
+		size_t maxSize = (args.size() - fromIndex) * separator.capacity();	// Take account of last separator
+		for (; sizeIter != args.end(); ++sizeIter) {
+			maxSize += sizeIter->capacity();
+		}
+		ret.reserve(maxSize);
 		for (; iter != args.end(); iter++) {
-			ret.append(*iter).append(" ");
+			ret.append(*iter).append(separator);
 		}
 
+		// Clean memory and remove last separator.
 		if (!ret.empty()) {
-			ret.resize(ret.size() - 1);
+			ret.resize(ret.size() - separator.size());
 		}
 
 		return ret;
