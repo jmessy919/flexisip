@@ -51,7 +51,7 @@ public:
 	 *through.
 	 **/
 	virtual linphone::Reason onCallCreate(const linphone::Call& incomingCall,
-	                                      linphone::Address& callee,
+	                                      std::shared_ptr<linphone::Address>& callee,
 	                                      linphone::CallParams& outgoingCallParams) = 0;
 	virtual void onCallEnd([[maybe_unused]] const linphone::Call& call) {
 	}
@@ -71,6 +71,11 @@ class B2buaServer : public ServiceServer,
 public:
 	B2buaServer(const std::shared_ptr<sofiasip::SuRoot>& root);
 	~B2buaServer();
+
+	void useIgnoreHeader(bool value) {
+		mUseIgnoreHeader = value;
+	}
+
 	static constexpr const char* confKey = "b2bua::confData";
 
 	void onCallStateChanged(const std::shared_ptr<linphone::Core>& core,
@@ -90,6 +95,7 @@ private:
 	std::shared_ptr<linphone::Core> mCore;
 	std::unique_ptr<b2bua::BridgedCallApplication> mApplication;
 	CommandLineInterface mCli;
+	bool mUseIgnoreHeader = true;
 };
 
 } // namespace flexisip

@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include <optional>
 #include <regex>
 #include <unordered_map>
 
@@ -57,6 +58,8 @@ public:
 	Account(Account&& other) = default;
 };
 
+enum class MatchTarget { FromUri, ToUri };
+
 class ExternalSipProvider {
 	friend class AccountManager;
 
@@ -66,13 +69,17 @@ public:
 
 private:
 	std::regex pattern;
+	MatchTarget matchTarget;
 	std::vector<Account> accounts;
+	std::shared_ptr<linphone::Address> callbackURI;
 	std::string name;
 	stl_backports::optional<bool> overrideAvpf;
 	stl_backports::optional<linphone::MediaEncryption> overrideEncryption;
 
 	ExternalSipProvider(std::string&& pattern,
+	                    std::optional<MatchTarget> matchTarget,
 	                    std::vector<Account>&& accounts,
+	                    std::shared_ptr<linphone::Address>&& callbackURI,
 	                    std::string&& name,
 	                    const stl_backports::optional<bool>& overrideAvpf,
 	                    const stl_backports::optional<linphone::MediaEncryption>& overrideEncryption);
@@ -91,10 +98,12 @@ struct AccountDesc {
 struct ProviderDesc {
 	std::string name;
 	std::string pattern;
+	std::optional<MatchTarget> matchTarget{};
 	std::string outboundProxy;
 	bool registrationRequired;
 	uint32_t maxCallsPerLine;
 	std::vector<AccountDesc> accounts;
+	std::string callbackURI;
 	stl_backports::optional<bool> overrideAvpf;
 	stl_backports::optional<linphone::MediaEncryption> overrideEncryption;
 };
@@ -108,7 +117,7 @@ public:
 
 	void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) override;
 	linphone::Reason onCallCreate(const linphone::Call& incomingCall,
-	                              linphone::Address& callee,
+	                              std::shared_ptr<linphone::Address>& callee,
 	                              linphone::CallParams& outgoingCallParams) override;
 	void onCallEnd(const linphone::Call& call) override;
 
@@ -121,7 +130,8 @@ private:
 	void initFromDescs(linphone::Core& core, std::vector<ProviderDesc>&& provDescs);
 
 	std::unique_ptr<std::pair<std::reference_wrapper<ExternalSipProvider>, std::reference_wrapper<Account>>>
-	findAccountToCall(const std::string& destinationUri);
+	findAccountToCall(const std::string& fromUri, const std::string& destinationUri);
+	const ExternalSipProvider* findIncomingProvider(const linphone::Address& requestURI) const noexcept;
 };
 
 } // namespace bridge

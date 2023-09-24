@@ -32,11 +32,27 @@ namespace flexisip {
 
 // b2bua namespace to declare internal structures
 namespace b2bua {
+
 struct callsRefs {
 	std::shared_ptr<linphone::Call> legA; /**< legA is the incoming call intercepted by the b2bua */
 	std::shared_ptr<linphone::Call> legB; /**< legB is the call initiated by the b2bua to the original recipient */
 	std::shared_ptr<linphone::Conference> conf; /**< the conference created to connect legA and legB */
 };
+
+void BridgedCallApplication::init(const std::shared_ptr<linphone::Core>& core, const GenericStruct& configRoot) {
+	// create a non registered account to force route outgoing call through the proxy
+	auto route = core->createAddress(
+	    configRoot.get<GenericStruct>(b2bua::configSection)->get<ConfigString>("outbound-proxy")->read());
+	auto accountParams = core->createAccountParams();
+	accountParams->setIdentityAddress(core->createAddress(core->getPrimaryContact()));
+	accountParams->enableRegister(false);
+	accountParams->setServerAddress(route);
+	accountParams->setRoutesAddresses({route});
+	auto account = core->createAccount(accountParams);
+	core->addAccount(account);
+	core->setDefaultAccount(account);
+}
+
 } // namespace b2bua
 
 // unamed namespace for local functions
@@ -79,9 +95,11 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 			// callId
 			auto outgoingCallParams = mCore->createCallParams(call);
 			// add this custom header so this call will not be intercepted by the b2bua
-			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+			if (mUseIgnoreHeader) {
+				outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+			}
 
-			const auto decline = mApplication->onCallCreate(*call, *callee, *outgoingCallParams);
+			const auto decline = mApplication->onCallCreate(*call, callee, *outgoingCallParams);
 			if (decline != linphone::Reason::None) {
 				call->decline(decline);
 				return;
@@ -148,7 +166,9 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 				SLOGD << "b2bua server leg B running -> answer legA";
 				auto incomingCallParams = mCore->createCallParams(peerCall);
 				// add this custom header so this call will not be intercepted by the b2bua
-				incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				if (mUseIgnoreHeader) {
+					incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				}
 				// enforce same video/audio enable to legA than on legB - manage video rejected by legB
 				incomingCallParams->enableAudio(call->getCurrentParams()->audioEnabled());
 				incomingCallParams->enableVideo(call->getCurrentParams()->videoEnabled());
@@ -239,12 +259,14 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 			if (update) {
 				SLOGD << "update peer call";
 				// add this custom header so this call will not be intercepted by the b2bua
-				peerCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				if (mUseIgnoreHeader) {
+					peerCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				}
 				peerCall->update(peerCallParams);
 				call->deferUpdate();
 			} else { // no update on video/audio status, just accept it with requested params
 				SLOGD << "accept update without forwarding it to peer call";
-				call->acceptUpdate(call->getRemoteParams());
+				call->acceptUpdate(peerCallParams);
 			}
 		} break;
 		case linphone::Call::State::IncomingEarlyMedia:
@@ -266,7 +288,8 @@ void B2buaServer::onDtmfReceived([[maybe_unused]] const std::shared_ptr<linphone
                                  const std::shared_ptr<linphone::Call>& call,
                                  int dtmf) {
 	auto otherLeg = getPeerCall(call);
-	SLOGD << "Forwarding DTMF " << dtmf << " from " << call->getCallLog()->getCallId() << " to " << otherLeg->getCallLog()->getCallId();
+	SLOGD << "Forwarding DTMF " << dtmf << " from " << call->getCallLog()->getCallId() << " to "
+	      << otherLeg->getCallLog()->getCallId();
 	otherLeg->sendDtmf(dtmf);
 };
 
@@ -300,7 +323,7 @@ void B2buaServer::_init() {
 	configLinphone->setInt("misc", "media_resources_mode", 1); // share media resources
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
 	configLinphone->setBool("sip", "use_rfc2833", true); // Forward DTMF via out-of-band RTP...
-	configLinphone->setBool("sip", "use_info", true); // ...or via SIP INFO if unsupported by media
+	configLinphone->setBool("sip", "use_info", true);    // ...or via SIP INFO if unsupported by media
 	configLinphone->setBool("sip", "defer_update_default",
 	                        true); // do not automatically accept update: we might want to update peer call before
 	configLinphone->setBool("misc", "conference_event_log_enabled", 0);
@@ -315,7 +338,9 @@ void B2buaServer::_init() {
 	mCore->enableAutoSendRinging(
 	    false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
 	mCore->setZrtpSecretsFile("null");
-	mCore->setInCallTimeout(30 * 60); // Give enough time to the outgoing call (legB) to establish while we leave the incoming one (legA) ringing
+	mCore->setInCallTimeout(
+	    30 *
+	    60); // Give enough time to the outgoing call (legB) to establish while we leave the incoming one (legA) ringing
 
 	// b2bua shall never take the initiative of accepting or starting video calls
 	// stick to incoming call parameters for that
@@ -333,14 +358,37 @@ void B2buaServer::_init() {
 	// Get transport from flexisip configuration
 	std::string mTransport = config->get<ConfigString>("transport")->read();
 	if (mTransport.length() > 0) {
-		sofiasip::Home mHome;
-		url_t* urlTransport = url_make(mHome.home(), mTransport.c_str());
-		if (urlTransport == nullptr || mTransport.at(0) == '<') {
+		try {
+			const auto urlTransport = SipUri{mTransport};
+			const auto scheme = urlTransport.getScheme();
+			const auto transportParam = urlTransport.getParam("transport");
+			const auto listeningPort = stoi(urlTransport.getPort(true));
+			if (scheme == "sip") {
+				if (transportParam.empty() || transportParam == "udp") {
+					b2buaTransport->setUdpPort(listeningPort);
+				} else if (transportParam == "tcp") {
+					b2buaTransport->setTcpPort(listeningPort);
+				} else if (transportParam == "tls") {
+					b2buaTransport->setTlsPort(listeningPort);
+				} else {
+					throw sofiasip::InvalidUrlError{
+					    mTransport, "invalid transport parameter value for 'sip' scheme: "s + transportParam};
+				}
+			} else if (scheme == "sips") {
+				if (transportParam == "udp") {
+					b2buaTransport->setDtlsPort(listeningPort);
+				} else if (transportParam.empty() || transportParam == "tcp") {
+					b2buaTransport->setTlsPort(listeningPort);
+				} else {
+					throw sofiasip::InvalidUrlError{
+					    mTransport, "invalid transport parameter value for 'sips' scheme: "s + transportParam};
+				}
+			}
+		} catch (const sofiasip::InvalidUrlError& e) {
 			LOGF("B2bua server: Your configured conference transport(\"%s\") is not an URI.\n"
-			     "If you have \"<>\" in your transport, remove them.",
-			     mTransport.c_str());
-		}
-		b2buaTransport->setTcpPort(stoi(urlTransport->url_port));
+			     "%s",
+			     mTransport.c_str(), e.what());
+		};
 	}
 
 	mCore->setTransports(b2buaTransport);

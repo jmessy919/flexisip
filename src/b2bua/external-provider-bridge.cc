@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iostream>
 #include <regex>
+#include <stdexcept>
 
 #include <json/json.h>
 
@@ -87,11 +88,14 @@ bool Account::isAvailable() const {
 }
 
 ExternalSipProvider::ExternalSipProvider(string&& pattern,
+                                         std::optional<MatchTarget> matchTarget,
                                          vector<Account>&& accounts,
+                                         std::shared_ptr<linphone::Address>&& callbackURI,
                                          string&& name,
                                          const optional<bool>& overrideAvpf,
                                          const optional<linphone::MediaEncryption>& overrideEncryption)
-    : pattern(move(pattern)), accounts(move(accounts)), name(move(name)), overrideAvpf(overrideAvpf),
+    : pattern(move(pattern)), matchTarget(matchTarget.value_or(MatchTarget::ToUri)), accounts(move(accounts)),
+      callbackURI(move(callbackURI)), name(move(name)), overrideAvpf(overrideAvpf),
       overrideEncryption(overrideEncryption) {
 }
 
@@ -110,7 +114,8 @@ void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& 
 			LOGF("Please provide an `outboundProxy` for provider '%s'", provDesc.name.c_str());
 		}
 		if (provDesc.maxCallsPerLine == 0) {
-			SLOGW << "Provider '" << provDesc.name << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
+			SLOGW << "Provider '" << provDesc.name
+			      << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
 		}
 		if (provDesc.accounts.empty()) {
 			SLOGW << "Provider '" << provDesc.name << "' has no `accounts` and will not be used to bridge calls";
@@ -139,8 +144,18 @@ void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& 
 
 			accounts.emplace_back(Account(move(account), move(provDesc.maxCallsPerLine)));
 		}
-		providers.emplace_back(ExternalSipProvider(move(provDesc.pattern), move(accounts), move(provDesc.name),
-		                                           provDesc.overrideAvpf, provDesc.overrideEncryption));
+
+		auto callbackAddress = std::shared_ptr<linphone::Address>{};
+		if (const auto& callbackURI = provDesc.callbackURI; !callbackURI.empty()) {
+			callbackAddress = core.createAddress(callbackURI);
+			if (callbackAddress == nullptr) {
+				LOGF("Invalid callback URI for provider '%s'", provDesc.name.c_str());
+			}
+		}
+
+		providers.emplace_back(ExternalSipProvider(move(provDesc.pattern), provDesc.matchTarget, move(accounts),
+		                                           move(callbackAddress), move(provDesc.name), provDesc.overrideAvpf,
+		                                           provDesc.overrideEncryption));
 	}
 }
 
@@ -149,6 +164,9 @@ AccountManager::AccountManager(linphone::Core& core, vector<ProviderDesc>&& prov
 }
 
 void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) {
+	// Common initializations
+	BridgedCallApplication::init(core, config);
+
 	auto filePath = config.get<GenericStruct>(configSection)->get<ConfigString>(providersConfigItem)->read();
 	if (filePath[0] != '/') {
 		// Interpret as relative to config file
@@ -190,19 +208,32 @@ void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip
 		if (enableAvpf.isBool()) {
 			overrideAvpf = enableAvpf.asBool();
 		}
-		providers.emplace_back(
-		    ProviderDesc{provider["name"].asString(), provider["pattern"].asString(),
-		                 provider["outboundProxy"].asString(), provider["registrationRequired"].asBool(),
-		                 provider["maxCallsPerLine"].asUInt(), move(accounts), overrideAvpf, overrideEncryption});
+
+		auto matchTarget = std::optional<MatchTarget>{};
+		auto matchTargetStr = provider["matchTarget"].asString();
+		if (matchTargetStr == "from") {
+			matchTarget = MatchTarget::FromUri;
+		} else if (matchTargetStr == "to") {
+			matchTarget = MatchTarget::ToUri;
+		} else if (!matchTargetStr.empty()) {
+			throw invalid_argument{"invalid value for 'matchTarget' parameter: '" + matchTargetStr + "'"};
+		}
+
+		providers.emplace_back(ProviderDesc{provider["name"].asString(), provider["pattern"].asString(), matchTarget,
+		                                    provider["outboundProxy"].asString(),
+		                                    provider["registrationRequired"].asBool(),
+		                                    provider["maxCallsPerLine"].asUInt(), move(accounts),
+		                                    provider["callbackURI"].asString(), overrideAvpf, overrideEncryption});
 	}
 
 	initFromDescs(*core, move(providers));
 }
 
 unique_ptr<pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>>
-AccountManager::findAccountToCall(const string& destinationUri) {
+AccountManager::findAccountToCall(const string& fromUri, const string& destinationUri) {
 	for (auto& provider : providers) {
-		if (!regex_match(destinationUri, provider.pattern)) {
+		const auto& uriToMatch = provider.matchTarget == MatchTarget::FromUri ? fromUri : destinationUri;
+		if (!regex_match(uriToMatch, provider.pattern)) {
 			continue;
 		}
 
@@ -222,10 +253,31 @@ AccountManager::findAccountToCall(const string& destinationUri) {
 	return nullptr;
 }
 
+const ExternalSipProvider* AccountManager::findIncomingProvider(const linphone::Address& requestURI) const noexcept {
+	auto it = find_if(providers.cbegin(), providers.cend(), [&requestURI](const auto& provider) {
+		const auto& accounts = provider.accounts;
+		return accounts.cend() != find_if(accounts.cbegin(), accounts.cend(), [&requestURI](const auto& account) {
+			       const auto& contactAddress = account.account->getContactAddress();
+			       return contactAddress && requestURI.weakEqual(contactAddress);
+		       });
+	});
+	return it != providers.cend() ? it.base() : nullptr;
+}
+
 linphone::Reason AccountManager::onCallCreate(const linphone::Call& incomingCall,
-                                              linphone::Address& callee,
+                                              std::shared_ptr<linphone::Address>& callee,
                                               linphone::CallParams& outgoingCallParams) {
-	const auto pair = findAccountToCall(callee.asStringUriOnly());
+	const auto fromUri = incomingCall.getRemoteAddress()->asString();
+	const auto& requestUri = incomingCall.getRequestAddress();
+
+	const auto* incomingSipProvider = findIncomingProvider(*requestUri);
+	if (incomingSipProvider) {
+		outgoingCallParams.setFromHeader(incomingCall.getRemoteAddress()->asString());
+		callee = incomingSipProvider->callbackURI->clone();
+		return linphone::Reason::None;
+	}
+
+	const auto pair = findAccountToCall(fromUri, callee->asStringUriOnly());
 	if (!pair) {
 		SLOGD << "No external accounts available to bridge the call";
 		return linphone::Reason::NotAcceptable;
@@ -235,7 +287,7 @@ linphone::Reason AccountManager::onCallCreate(const linphone::Call& incomingCall
 	occupiedSlots[incomingCall.getCallLog()->getCallId()] = &extAccount;
 	extAccount.freeSlots--;
 	const auto& linAccount = extAccount.account;
-	callee.setDomain(linAccount->getParams()->getIdentityAddress()->getDomain());
+	callee->setDomain(linAccount->getParams()->getIdentityAddress()->getDomain());
 	outgoingCallParams.setAccount(linAccount);
 	const auto& provider = pair->first.get();
 	if (const auto& mediaEncryption = provider.overrideEncryption) {
