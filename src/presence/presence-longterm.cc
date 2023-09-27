@@ -17,6 +17,7 @@
 */
 
 #include <belle-sip/belle-sip.h>
+#include <belle-sip/sip-uri.h>
 
 #include "flexisip/registrar/registar-listeners.hh"
 
@@ -59,11 +60,12 @@ private:
 
 		const char* cuser = belle_sip_uri_get_user(info->getEntity());
 		if (result == AuthDbResult::PASSWORD_FOUND) {
+			auto isPhone = strcmp(belle_sip_uri_get_user_param(info->getEntity()), "phone") == 0;
 			// result is a phone alias if (and only if) user is not the same as the entity user
-			bool isPhone = (strcmp(user.c_str(), cuser) != 0);
+			auto isAlias = strcmp(user.c_str(), cuser) != 0;
 			belle_sip_uri_t* uri = BELLE_SIP_URI(belle_sip_object_clone(BELLE_SIP_OBJECT(info->getEntity())));
 			char* contact_as_string = belle_sip_uri_to_string(uri);
-			if (isPhone) {
+			if (isAlias || isPhone) {
 				// change contact accordingly
 				belle_sip_free(contact_as_string);
 				belle_sip_parameters_t* params = BELLE_SIP_PARAMETERS(uri);
@@ -71,7 +73,7 @@ private:
 				belle_sip_uri_set_user(uri, user.c_str());
 				contact_as_string = belle_sip_uri_to_string(uri);
 				SLOGD << __FILE__ << ": "
-				      << "Found user " << user << " for phone " << belle_sip_uri_get_user(info->getEntity())
+				      << "Found user " << user << " for alias/phone " << belle_sip_uri_get_user(info->getEntity())
 				      << ", adding contact " << contact_as_string << " presence information";
 				info->setDefaultElement(contact_as_string);
 			} else {
