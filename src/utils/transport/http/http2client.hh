@@ -1,6 +1,6 @@
 /*
  Flexisip, a flexible SIP proxy server with media capabilities.
- Copyright (C) 2010-2021  Belledonne Communications SARL, All rights reserved.
+ Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
 
  This program is free software: you can redistribute it and/or modify
  it under the terms of the GNU Affero General Public License as
@@ -9,21 +9,23 @@
 
  This program is distributed in the hope that it will be useful,
  but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  GNU Affero General Public License for more details.
 
  You should have received a copy of the GNU Affero General Public License
- along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
 #pragma once
 
+#include <cstdint>
 #include <functional>
 #include <list>
 #include <map>
 
 #include <nghttp2/nghttp2.h>
 #include <openssl/ssl.h>
+#include <optional>
 #include <sofia-sip/su_wait.h>
 
 #include <flexisip/sofia-wrapper/timer.hh>
@@ -87,8 +89,8 @@ public:
 	 * @param onResponseCb The callback called when a complete answer is received.
 	 * @param onErrorCb The callback called when an unexpected error occurred.
 	 */
-	void send(const std::shared_ptr<HttpRequest>& request, const OnResponseCb& onResponseCb,
-	          const OnErrorCb& onErrorCb);
+	void
+	send(const std::shared_ptr<HttpRequest>& request, const OnResponseCb& onResponseCb, const OnErrorCb& onErrorCb);
 
 	void onTlsConnectCb();
 
@@ -127,9 +129,13 @@ public:
 	/**
 	 * Number of requests pending to be sent by the nghttp2 session
 	 */
-	size_t getOutboundQueueSize() {
+	size_t getOutboundQueueSize() const {
 		if (!mHttpSession) return 0;
 		return nghttp2_session_get_outbound_queue_size(mHttpSession.get());
+	}
+	std::optional<int32_t> getRemoteWindowSize() const {
+		if (!mHttpSession) return std::nullopt;
+		return nghttp2_session_get_remote_window_size(mHttpSession.get());
 	}
 
 private:
@@ -156,16 +162,18 @@ private:
 	void sendAllPendingRequests();
 	void discardAllPendingRequests();
 	void discardAllActiveRequests();
-	void discardAllRequests();
 
 	ssize_t doSend(nghttp2_session& session, const uint8_t* data, size_t length) noexcept;
 	ssize_t doRecv(nghttp2_session& session, uint8_t* data, size_t length) noexcept;
 	void onFrameSent(nghttp2_session& session, const nghttp2_frame& frame) noexcept;
 	void onFrameRecv(nghttp2_session& session, const nghttp2_frame& frame) noexcept;
-	void onHeaderRecv(nghttp2_session& session, const nghttp2_frame& frame, const std::string& name,
-	                  const std::string& value, uint8_t flags) noexcept;
-	void onDataReceived(nghttp2_session& session, uint8_t flags, int32_t streamId, const uint8_t* data,
-	                    size_t datalen) noexcept;
+	void onHeaderRecv(nghttp2_session& session,
+	                  const nghttp2_frame& frame,
+	                  const std::string& name,
+	                  const std::string& value,
+	                  uint8_t flags) noexcept;
+	void onDataReceived(
+	    nghttp2_session& session, uint8_t flags, int32_t streamId, const uint8_t* data, size_t datalen) noexcept;
 	void onStreamClosed(nghttp2_session& session, int32_t stream_id, uint32_t error_code) noexcept;
 
 	static int onPollInCb(su_root_magic_t*, su_wait_t*, su_wakeup_arg_t* arg) noexcept;
@@ -185,6 +193,8 @@ private:
 	int sendAll() {
 		return nghttp2_session_send(mHttpSession.get());
 	}
+	// Send pending frames for all streams, if any. Log on error
+	void resumeSending(const std::string& logPrefix);
 
 	void setState(State state) noexcept;
 
