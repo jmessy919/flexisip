@@ -83,6 +83,8 @@ public:
 	void _stop() override;
 	belle_sip_main_loop_t* getBelleSipMainLoop();
 	void addPresenceInfoObserver(const std::shared_ptr<PresenceInfoObserver>& observer);
+	void addPresenceInfoUri(const std::shared_ptr<PresentityPresenceInformation>& presentity,
+	                        const belle_sip_uri_t* uri) override;
 	void removePresenceInfoObserver(const std::shared_ptr<PresenceInfoObserver>& observer);
 
 	static unsigned int sLastActivityRetentionMs;

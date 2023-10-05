@@ -143,7 +143,10 @@ void PresenceSubscription::onInformationChanged(PresentityPresenceInformation &p
 	belle_sip_header_content_type_t *content_type = NULL;
 	try {
 		if (getState() == active) {
-			body += presenceInformation.getPidf(extended);
+			char* watchedPresentityUri = belle_sip_uri_to_string(mPresentity.get());
+			body += presenceInformation.getPidf(extended, watchedPresentityUri);
+			belle_sip_free(watchedPresentityUri);
+
 			content_type = belle_sip_header_content_type_create("application", "pidf+xml");
 		}
 	} catch (FlexisipException &e) {

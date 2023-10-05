@@ -23,6 +23,7 @@
 #include <map>
 
 #include <flexisip/flexisip-exception.hh>
+#include <string>
 
 #include "xml/pidf+xml.hh"
 
@@ -139,7 +140,7 @@ public:
 	 * */
 	std::string putTuples(Xsd::Pidf::Presence::TupleSequence& tuples, Xsd::DataModel::Person& person, int expires);
 
-	void setDefaultElement(const char* contact = NULL);
+	void setDefaultElement(const belle_sip_uri_t* contact = NULL);
 
 	/*
 	 *
@@ -171,7 +172,8 @@ public:
 	 * */
 	void removeTuplesForEtag(const std::string& eTag);
 
-	const belle_sip_uri_t* getEntity() const;
+	const belle_sip_uri_t* getMainEntity() const;
+	const std::vector<const belle_sip_uri_t*>& getEntities() const;
 
 	const std::string& getName() {
 		return mName;
@@ -199,7 +201,7 @@ public:
 	/*
 	 * return the presence information for this entity in a pidf serilized format
 	 */
-	std::string getPidf(bool extended);
+	std::string getPidf(bool extended, const std::string& presenceEntity);
 
 	/*
 	 * return true if a presence info is already known from a publish
@@ -252,7 +254,8 @@ private:
 	void
 	forEachSubscriber(std::function<void(const std::shared_ptr<PresentityPresenceInformationListener>&)> doFunc) const;
 
-	const belle_sip_uri_t* mEntity;
+	std::vector<const belle_sip_uri_t*> mEntities;
+	const belle_sip_uri_t* mMainEntity;
 	PresentityManager& mPresentityManager;
 	belle_sip_main_loop_t* mBelleSipMainloop;
 	// Tuples ordered by Etag.

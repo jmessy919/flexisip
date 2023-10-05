@@ -871,10 +871,10 @@ const std::shared_ptr<PresentityPresenceInformation> PresenceServer::getPresence
 }
 
 void PresenceServer::addPresenceInfo(const shared_ptr<PresentityPresenceInformation>& presenceInfo) {
-	if (getPresenceInfo(presenceInfo->getEntity()))
+	if (getPresenceInfo(presenceInfo->getMainEntity()))
 		throw FLEXISIP_EXCEPTION << "Presence information element already exist for" << presenceInfo;
 
-	mPresenceInformations[presenceInfo->getEntity()] = presenceInfo;
+	mPresenceInformations[presenceInfo->getMainEntity()] = presenceInfo;
 }
 
 void PresenceServer::addPresenceInfoObserver(const shared_ptr<PresenceInfoObserver>& observer) {
@@ -902,7 +902,9 @@ void PresenceServer::invalidateETag(const string& eTag) {
 		if (presenceInfo->getNumberOfListeners() == 0 && presenceInfo->getNumberOfInformationElements() == 0) {
 			SLOGD << "Presentity [" << *presenceInfo
 			      << "] no longuer referenced by any SUBSCRIBE nor PUBLISH, removing";
-			mPresenceInformations.erase(presenceInfo->getEntity());
+			for (const auto entity : presenceInfo->getEntities()) {
+				mPresenceInformations.erase(entity);
+			}
 		}
 		mPresenceInformationsByEtag.erase(eTag);
 		SLOGD << "Etag manager size [" << mPresenceInformationsByEtag.size() << "]";
@@ -1011,7 +1013,9 @@ void PresenceServer::removeListener(const shared_ptr<PresentityPresenceInformati
 		presenceInfo->removeListener(listener);
 		if (presenceInfo->getNumberOfListeners() == 0 && presenceInfo->getNumberOfInformationElements() == 0) {
 			SLOGD << "Presentity [" << *presenceInfo << "] no longer referenced by any SUBSCRIBE nor PUBLISH, removing";
-			mPresenceInformations.erase(presenceInfo->getEntity());
+			for (const auto entity : presenceInfo->getEntities()) {
+				mPresenceInformations.erase(entity);
+			}
 		}
 	} else
 		SLOGI << "No presence info for this entity [" << listener->getPresentityUri() << "]/[" << hex << (long)&listener
@@ -1036,4 +1040,9 @@ void PresenceServer::removeSubscription(shared_ptr<Subscription>& subscription) 
 
 belle_sip_main_loop_t* PresenceServer::getBelleSipMainLoop() {
 	return belle_sip_stack_get_main_loop(mStack);
+}
+
+void PresenceServer::addPresenceInfoUri(const shared_ptr<PresentityPresenceInformation>& presentity,
+                                        const belle_sip_uri_t* uri) {
+	mPresenceInformations.emplace(uri, presentity);
 }

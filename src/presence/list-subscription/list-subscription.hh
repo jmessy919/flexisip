@@ -104,8 +104,11 @@ protected:
 private:
 	// return true if a real notify can be sent.
 	bool isTimeToNotify();
-	void addInstanceToResource(Xsd::Rlmi::Resource &resource, std::list<belle_sip_body_handler_t *> &multipartList,
-							   PresentityPresenceInformation &presentityInformation, bool extended);
+	void addInstanceToResource(Xsd::Rlmi::Resource& resource,
+	                           std::list<belle_sip_body_handler_t*>& multipartList,
+	                           PresentityPresenceInformation& presentityInformation,
+	                           bool extended,
+	                           const std::string& presenceEntity);
 
 	using PendingStateType = std::unordered_map<const belle_sip_uri_t *, std::pair<std::shared_ptr<PresentityPresenceInformation>,bool>>;
 	PendingStateType mPendingStates; // map of Presentity to be notified by uri
