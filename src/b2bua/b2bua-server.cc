@@ -16,11 +16,13 @@
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <mediastreamer2/ms_srtp.h>
 #include <memory>
 
+#include "linphone/misc.h"
+#include <mediastreamer2/ms_srtp.h>
+
 #include "flexisip/logmanager.hh"
-#include "flexisip/utils/sip-uri.hh"
+#include "flexisip/sofia-wrapper/home.hh"
 
 #include "b2bua-server.hh"
 #include "external-provider-bridge.hh"
@@ -82,13 +84,12 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 			// add this custom header so this call will not be intercepted by the b2bua
 			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
 
-			const auto callee =
-			    Match(mApplication->onCallCreate(*call, *outgoingCallParams))
-.against([](std::shared_ptr<const linphone::Address> callee) { return callee; },
-			                 [&call](linphone::Reason&& reason) {
-				                 call->decline(reason);
-				                 return std::shared_ptr<const linphone::Address>{};
-			                 });
+			const auto callee = Match(mApplication->onCallCreate(*call, *outgoingCallParams))
+			                        .against([](std::shared_ptr<const linphone::Address> callee) { return callee; },
+			                                 [&call](linphone::Reason&& reason) {
+				                                 call->decline(reason);
+				                                 return std::shared_ptr<const linphone::Address>{};
+			                                 });
 			if (callee == nullptr) return;
 
 			// create a conference and attach it
@@ -270,7 +271,8 @@ void B2buaServer::onDtmfReceived([[maybe_unused]] const std::shared_ptr<linphone
                                  const std::shared_ptr<linphone::Call>& call,
                                  int dtmf) {
 	auto otherLeg = getPeerCall(call);
-	SLOGD << "Forwarding DTMF " << dtmf << " from " << call->getCallLog()->getCallId() << " to " << otherLeg->getCallLog()->getCallId();
+	SLOGD << "Forwarding DTMF " << dtmf << " from " << call->getCallLog()->getCallId() << " to "
+	      << otherLeg->getCallLog()->getCallId();
 	otherLeg->sendDtmf(dtmf);
 };
 
@@ -304,11 +306,17 @@ void B2buaServer::_init() {
 	configLinphone->setInt("misc", "media_resources_mode", 1); // share media resources
 	configLinphone->setBool("sip", "reject_duplicated_calls", false);
 	configLinphone->setBool("sip", "use_rfc2833", true); // Forward DTMF via out-of-band RTP...
-	configLinphone->setBool("sip", "use_info", true); // ...or via SIP INFO if unsupported by media
+	configLinphone->setBool("sip", "use_info", true);    // ...or via SIP INFO if unsupported by media
 	configLinphone->setBool("sip", "defer_update_default",
 	                        true); // do not automatically accept update: we might want to update peer call before
 	configLinphone->setBool("misc", "conference_event_log_enabled", 0);
 	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::ActiveSpeaker));
+	// Prevent the default log handler from being reset while LinphoneCore construction.
+	configLinphone->setBool("logging", "disable_stdout", true);
+	// we may want to use unsupported codecs (h264) in the conference
+	configLinphone->setBool("video", "dont_check_codecs", true);
+	// make sure the videostream can be started when using unsupported codec
+	configLinphone->setBool("video", "fallback_to_dummy_codec", true);
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
@@ -319,7 +327,9 @@ void B2buaServer::_init() {
 	mCore->enableAutoSendRinging(
 	    false); // Do not auto answer a 180 on incoming calls, relay the one from the other part.
 	mCore->setZrtpSecretsFile("null");
-	mCore->setInCallTimeout(30 * 60); // Give enough time to the outgoing call (legB) to establish while we leave the incoming one (legA) ringing
+	mCore->setInCallTimeout(
+	    30 *
+	    60); // Give enough time to the outgoing call (legB) to establish while we leave the incoming one (legA) ringing
 
 	// b2bua shall never take the initiative of accepting or starting video calls
 	// stick to incoming call parameters for that
@@ -329,12 +339,38 @@ void B2buaServer::_init() {
 	policy->setAutomaticallyInitiate(false);
 	mCore->setVideoActivationPolicy(policy);
 
+	// if a video codec is set in config enable only that one
+	std::string cVideoCodec = config->get<ConfigString>("video-codec")->read();
+	if (cVideoCodec.length() > 0) {
+		// disable all video codecs
+		for (const auto& pt : mCore->getVideoPayloadTypes()) {
+			BCTBX_SLOGI << "Disable " << pt->getMimeType() << " codec as only " << cVideoCodec << " should be used";
+			pt->enable(false);
+		}
+		// enable the given one
+		auto enabledCodec = mCore->getPayloadType(cVideoCodec, -1, -1);
+		if (enabledCodec) {
+			enabledCodec->enable(true);
+		} else {
+			BCTBX_SLOGW << "B2bua core failed to enable " << cVideoCodec << " video codec";
+		}
+	}
+
 	// random port for UDP audio and video stream
 	mCore->setAudioPort(-1);
 	mCore->setVideoPort(-1);
 
-	shared_ptr<Transports> b2buaTransport = Factory::get()->createTransports();
+	// set no-RTP timeout
+	const auto noRTPTimeout = config->get<ConfigInt>("no-rtp-timeout")->read();
+	if (noRTPTimeout <= 0) {
+		LOGF("'%s' must be higher than 0", config->getCompleteName().c_str());
+	}
+	mCore->setNortpTimeout(noRTPTimeout);
+
+	mCore->setInCallTimeout(config->get<ConfigInt>("max-call-duration")->read());
+
 	// Get transport from flexisip configuration
+	shared_ptr<Transports> b2buaTransport = Factory::get()->createTransports();
 	std::string mTransport = config->get<ConfigString>("transport")->read();
 	if (mTransport.length() > 0) {
 		sofiasip::Home mHome;
@@ -344,7 +380,11 @@ void B2buaServer::_init() {
 			     "If you have \"<>\" in your transport, remove them.",
 			     mTransport.c_str());
 		}
-		b2buaTransport->setTcpPort(stoi(urlTransport->url_port));
+		auto port = stoi(urlTransport->url_port);
+		if (port == 0) {
+			port = LC_SIP_TRANSPORT_RANDOM;
+		}
+		b2buaTransport->setTcpPort(port);
 	}
 
 	mCore->setTransports(b2buaTransport);
@@ -394,6 +434,18 @@ auto defineConfig = [] {
 	    {String, "outbound-proxy",
 	     "The Flexisip proxy URI to which the B2bua server should send all its outgoing SIP requests.",
 	     "sip:127.0.0.1:5060;transport=tcp"},
+	    {Integer, "no-rtp-timeout",
+	     "Duration after which the B2BUA will terminate a call if no RTP packet is received from the other call "
+	     "participant. Unit: seconds.",
+	     "30"},
+	    {Integer, "max-call-duration",
+	     "Any call bridged through the B2BUA that has been running for longer than this amount of seconds will be "
+	     "terminated. 0 to disable and let calls run unbounded.",
+	     "0"},
+	    {String, "video-codec",
+	     "When not null, force outgoing video call to use the specified codec.\n"
+	     "Warning: all outgoing calls will list only this codec, which means incoming calls must use it too.",
+	     ""},
 	    config_item_end};
 
 	GenericManager::get()

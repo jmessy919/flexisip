@@ -21,26 +21,24 @@
 #include <cstring>
 #include <fstream>
 #include <memory>
+#include <optional>
 #include <string>
+#include <sstream>
 
 #include <json/json.h>
 
 #include "linphone++/enums.hh"
 #include "linphone/core.h"
-#include "linphone/misc.h"
 #include <bctoolbox/logging.h>
+#include "linphone/core.h"
 #include <linphone++/linphone.hh>
 
 #include "flexisip/configmanager.hh"
 #include "flexisip/event.hh"
 #include "flexisip/sofia-wrapper/su-root.hh"
-
-#include "agent.hh"
-#include "b2bua/external-provider-bridge.hh"
-#include "conference/conference-server.hh"
 #include "flexisip/utils/sip-uri.hh"
-#include "registration-events/client.hh"
-#include "registration-events/server.hh"
+
+#include "b2bua/external-provider-bridge.hh"
 #include "tester.hh"
 #include "utils/asserts.hh"
 #include "utils/client-builder.hh"
@@ -715,6 +713,67 @@ static void external_provider_bridge__cli() {
 	}
 }
 
+static void external_provider_bridge__max_call_duration() {
+	TempFile providersJson{};
+	Server proxy{{
+	    // Requesting bind on port 0 to let the kernel find any available port
+	    {"global/transports", "sip:127.0.0.1:0;transport=tcp"},
+	    {"b2bua-server/transport", "sip:127.0.0.1:0;transport=tcp"},
+	    {"b2bua-server/application", "sip-bridge"},
+	    // Call will be interrupted after 1s
+	    {"b2bua-server/max-call-duration", "1"},
+	    {"b2bua-server::sip-bridge/providers", providersJson.name},
+	    // Forward everything to the b2bua
+	    {"module::B2bua/enabled", "true"},
+	    {"module::Registrar/enabled", "true"},
+	    {"module::Registrar/reg-domains", "sip.provider1.com sip.company1.com"},
+	    // Media Relay has problem when everyone is running on localhost
+	    {"module::MediaRelay/enabled", "false"},
+	}};
+	proxy.start();
+	providersJson.writeStream() << R"([
+		{"mediaEncryption": "none",
+		 "enableAvpf": false,
+		 "name": "Max call duration test provider",
+		 "pattern": "sip:.*",
+		 "outboundProxy": "<sip:127.0.0.1:)"
+	                            << proxy.getFirstPort() << R"(;transport=tcp>",
+		 "maxCallsPerLine": 682,
+		 "accounts": [
+			{"uri": "sip:max-call-duration@sip.provider1.com"}
+		 ]
+		}
+	])";
+	const auto b2bua = std::make_shared<flexisip::B2buaServer>(proxy.getRoot());
+	b2bua->init();
+	GenericManager::get()
+	    ->getRoot()
+	    ->get<GenericStruct>("module::B2bua")
+	    ->get<ConfigString>("b2bua-server")
+	    ->set("sip:127.0.0.1:" + std::to_string(b2bua->getTcpPort()) + ";transport=tcp");
+	proxy.getAgent()->findModule("B2bua")->reload();
+	auto builder = proxy.clientBuilder();
+	InternalClient caller = builder.build("sip:caller@sip.company1.com");
+	ExternalClient callee = builder.build("sip:callee@sip.provider1.com");
+	CoreAssert asserter{caller.getCore(), proxy, callee.getCore()};
+
+	caller.invite(callee);
+	BC_ASSERT_TRUE(callee.hasReceivedCallFrom(caller).assert_passed());
+	callee.getCurrentCall()->accept();
+	BC_ASSERT_TRUE(asserter
+	                   .iterateUpTo(3,
+	                                [&callee]() {
+		                                const auto calleeCall = callee.getCurrentCall();
+		                                FAIL_IF(calleeCall == std::nullopt);
+		                                FAIL_IF(calleeCall->getState() != linphone::Call::State::StreamsRunning);
+		                                return ASSERTION_PASSED();
+	                                })
+	                   .assert_passed());
+
+	// None of the clients terminated the call, but the B2BUA dropped it on its own
+	BC_ASSERT_TRUE(asserter.waitUntil(2s, [&callee]() { return callee.getCurrentCall() == std::nullopt; }));
+}
+
 // Forge an INVITE with an erroneous request address, but appropriate To: header.
 // The B2BUA should only use the To: header to build the other leg of the call.
 static void trenscrypter__uses_aor_and_not_contact() {
@@ -975,6 +1034,43 @@ static void sdes2sdes256() {
 	sdes2sdes256(true);
 }
 
+static void disableAllVideoCodecs(std::shared_ptr<linphone::Core> core) {
+	auto payloadTypes = core->getVideoPayloadTypes();
+	for (const auto& pt : payloadTypes) {
+		pt->enable(false);
+	}
+}
+
+template <const char codec[]>
+static void trenscrypter__video_call_with_forced_codec() {
+	// initialize and start the proxy and B2bua server
+	B2buaServer server{"/config/flexisip_b2bua.conf"};
+	// Create and register clients
+	auto builder = server.clientBuilder();
+	builder.setVideoSend(OnOff::On);
+	auto pauline = builder.build("sip:pauline@sip.example.org");
+	auto marie = builder.build("sip:marie@sip.example.org");
+
+	// Check we have the requested codec
+	auto payloadTypeMarie = marie.getCore()->getPayloadType(codec, LINPHONE_FIND_PAYLOAD_IGNORE_RATE,
+	                                                        LINPHONE_FIND_PAYLOAD_IGNORE_CHANNELS);
+	auto payloadTypePauline = pauline.getCore()->getPayloadType(codec, LINPHONE_FIND_PAYLOAD_IGNORE_RATE,
+	                                                            LINPHONE_FIND_PAYLOAD_IGNORE_CHANNELS);
+	if (payloadTypeMarie == nullptr || payloadTypePauline == nullptr) {
+		BC_HARD_FAIL(("Video codec not available: "s + codec).c_str());
+	}
+
+	// Force usage of the requested codec
+	disableAllVideoCodecs(marie.getCore());
+	disableAllVideoCodecs(pauline.getCore());
+	payloadTypeMarie->enable(true);
+	payloadTypePauline->enable(true);
+
+	// Place a video call
+	if (!BC_ASSERT_PTR_NOT_NULL(marie.callVideo(pauline))) return;
+	pauline.endCurrentCall(marie);
+}
+
 static void videoRejected() {
 	// initialize and start the proxy and B2bua server
 	auto server = std::make_shared<B2buaServer>("/config/flexisip_b2bua.conf");
@@ -1028,6 +1124,8 @@ static void videoRejected() {
 }
 
 namespace {
+const char VP8[] = "vp8";
+// const char H264[] = "h264";
 TestSuite _("B2bua",
             {
                 CLASSY_TEST(external_provider_bridge__one_provider_one_line),
@@ -1038,6 +1136,7 @@ TestSuite _("B2bua",
                 CLASSY_TEST(external_provider_bridge__b2bua_receives_several_forks),
                 CLASSY_TEST(external_provider_bridge__dtmf_forwarding),
                 CLASSY_TEST(external_provider_bridge__override_special_options),
+                CLASSY_TEST(external_provider_bridge__max_call_duration),
                 CLASSY_TEST(trenscrypter__uses_aor_and_not_contact),
                 TEST_NO_TAG("Basic", basic),
                 TEST_NO_TAG("Forward Media Encryption", forward),
@@ -1045,9 +1144,14 @@ TestSuite _("B2bua",
                 TEST_NO_TAG("SDES to DTLS call", sdes2dtls),
                 TEST_NO_TAG("ZRTP to DTLS call", zrtp2dtls),
                 TEST_NO_TAG("SDES to SDES256 call", sdes2sdes256),
+                CLASSY_TEST(trenscrypter__video_call_with_forced_codec<VP8>),
+                // H264 is not supported in flexisip sdk's build. So even if the b2bua core is able to
+                // relay h264 video without decoding, the test client cannot support it
+                // Uncomment when h264 support can be built
+                // CLASSY_TEST(trenscrypter__video_call_with_forced_codec<H264>),
                 TEST_NO_TAG("Video rejected by callee", videoRejected),
             });
-}
+} // namespace
 } // namespace b2buatester
 } // namespace tester
 } // namespace flexisip
