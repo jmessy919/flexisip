@@ -39,11 +39,15 @@ public:
 	void checkConfig() override{};
 	void onLoad([[maybe_unused]] const flexisip::GenericStruct* dosModuleConfig) override{};
 	void onUnload() override{};
-	void banIP([[maybe_unused]] const std::string& ip, [[maybe_unused]] const std::string& port, [[maybe_unused]] const std::string& protocol) override {
+	void banIP([[maybe_unused]] const std::string& ip,
+	           [[maybe_unused]] const std::string& port,
+	           [[maybe_unused]] const std::string& protocol) override {
 		banIPCalls++;
 	};
 
-	void unbanIP([[maybe_unused]] const std::string& ip, [[maybe_unused]] const std::string& port, [[maybe_unused]] const std::string& protocol) override{};
+	void unbanIP([[maybe_unused]] const std::string& ip,
+	             [[maybe_unused]] const std::string& port,
+	             [[maybe_unused]] const std::string& protocol) override{};
 
 	int banIPCalls = 0;
 };
@@ -65,7 +69,7 @@ private:
 		    ->set(to_string(packetRateLimit));
 		cfg.getRoot()
 		    ->get<GenericStruct>("module::DoSProtection")
-		    ->get<ConfigInt>("time-period")
+		    ->get<ConfigDuration<chrono::milliseconds>>("time-period")
 		    ->set(to_string(timePeriod.count()));
 	}
 
