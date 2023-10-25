@@ -94,6 +94,7 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 
 			// create a conference and attach it
 			auto conferenceParams = mCore->createConferenceParams(nullptr);
+			conferenceParams->setHidden(true); // Hide conference to prevent the contact address from being updated
 			conferenceParams->enableVideo(true);
 			conferenceParams->enableLocalParticipant(false); // b2bua core is not part of it
 			conferenceParams->enableOneParticipantConference(true);
@@ -217,7 +218,7 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const std::shared_ptr<linp
 			// Paused by remote: do not pause peer call as it will kick it out of the conference
 			// just switch the media direction to sendOnly (only if it is not already set this way)
 			auto peerCall = getPeerCall(call);
-			auto peerCallParams = peerCall->getCurrentParams()->copy();
+			auto peerCallParams = mCore->createCallParams(peerCall);
 			auto audioDirection = peerCallParams->getAudioDirection();
 			// Nothing to do if peer call is already not sending audio
 			if (audioDirection != linphone::MediaDirection::Inactive &&
@@ -310,7 +311,7 @@ void B2buaServer::_init() {
 	configLinphone->setBool("sip", "defer_update_default",
 	                        true); // do not automatically accept update: we might want to update peer call before
 	configLinphone->setBool("misc", "conference_event_log_enabled", 0);
-	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::ConferenceLayout::ActiveSpeaker));
+	configLinphone->setInt("misc", "conference_layout", static_cast<int>(linphone::Conference::Layout::ActiveSpeaker));
 	// Prevent the default log handler from being reset while LinphoneCore construction.
 	configLinphone->setBool("logging", "disable_stdout", true);
 	// we may want to use unsupported codecs (h264) in the conference
