@@ -119,25 +119,21 @@ string PresentityPresenceInformation::setOrUpdate(Xsd::Pidf::Presence::TupleSequ
                                                   Xsd::DataModel::Person* person,
                                                   std::optional<const std::string> eTag,
                                                   int expires) {
-	PresenceInformationElement* informationElement = nullptr;
+	bool etagAlreadyPresent = false;
 
-	// etag ?
 	if (eTag && !eTag->empty()) {
-		// check if already exist
-		auto optElement = mInformationElements->getByEtag(*eTag);
-		if (!optElement) {
+		if (etagAlreadyPresent = mInformationElements->isEtagPresent(*eTag); !etagAlreadyPresent) {
 			throw FLEXISIP_EXCEPTION << "Unknown eTag [" << *eTag << "] for presentity [" << *this << "]";
 		}
 		if (!tuples) {
 			// juste a refresh
-			informationElement = *optElement;
-			SLOGD << "Updating presence information element [" << informationElement << "]  for presentity [" << *this
+			SLOGD << "Updating presence information element with etag [" << *eTag << "]  for presentity [" << *this
 			      << "]";
 		} else {
 			// remove
 			mInformationElements->removeByEtag(*eTag, false);
+			etagAlreadyPresent = false;
 		}
-
 	} else {
 		// no etag, check for tuples
 		if (!tuples)
@@ -145,18 +141,10 @@ string PresentityPresenceInformation::setOrUpdate(Xsd::Pidf::Presence::TupleSequ
 			                         << "]  without tuple";
 	}
 
-	if (!informationElement) { // create a new one if needed
-		informationElement = new PresenceInformationElement(tuples, person);
-		SLOGD << "Creating presence information element [" << informationElement << "]  for presentity [" << *this
-		      << "]";
-	}
 	// generate new etag
 	char generatedETag_char[ETAG_SIZE];
 	belle_sip_random_token(generatedETag_char, sizeof(generatedETag_char));
 	string generatedETag = generatedETag_char;
-
-	// update etag for this information element
-	informationElement->setEtag(generatedETag);
 
 	// cb function to invalidate an unrefreshed etag;
 	auto func = [this, generatedETag](unsigned int) {
@@ -166,27 +154,23 @@ string PresentityPresenceInformation::setOrUpdate(Xsd::Pidf::Presence::TupleSequ
 		mPresentityManager.invalidateETag(generatedETag);
 		return BELLE_SIP_STOP;
 	};
-
 	constexpr unsigned int valMax = numeric_limits<unsigned int>::max() / 1000U;
 	unsigned int expiresMs = (static_cast<unsigned int>(expires) > valMax) ? numeric_limits<unsigned int>::max()
 	                                                                       : static_cast<unsigned int>(expires) * 1000U;
-
 	// create timer
 	auto timer = belle_sip_main_loop_create_cpp_timeout(mBelleSipMainloop, func, expiresMs, "timer for presence Info");
 
-	// set expiration timer
-	informationElement->setExpiresTimer(std::move(timer));
-
-	// modify global etag list
-	if (eTag && !eTag->empty()) {
+	if (etagAlreadyPresent) {
 		mPresentityManager.modifyEtag(*eTag, generatedETag);
-		mInformationElements->removeByEtag(*eTag, false);
+		mInformationElements->refreshElement(*eTag, generatedETag, std::move(timer));
 	} else {
 		mPresentityManager.addEtag(shared_from_this(), generatedETag);
+		auto informationElement = make_unique<PresenceInformationElement>(tuples, person, generatedETag, timer);
+		SLOGD << "Creating presence information element [" << informationElement.get() << "]  for presentity [" << *this
+		      << "]";
+		// modify etag list for this presenceInfo and trigger notify on all listeners
+		mInformationElements->emplace(generatedETag, std::move(informationElement));
 	}
-
-	// modify etag list for this presenceInfo and trigger notify on all listeners
-	mInformationElements->emplace(generatedETag, informationElement);
 
 	SLOGD << "Etag [" << generatedETag << "] associated to Presentity [" << *this << "]";
 	return generatedETag;

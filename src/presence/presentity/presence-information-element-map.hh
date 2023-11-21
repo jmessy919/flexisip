@@ -42,9 +42,23 @@ public:
 
 	virtual ~PresenceInformationElementMap() = default;
 
-	void emplace(const std::string& eTag, PresenceInformationElement* element);
-	std::optional<PresenceInformationElement*> getByEtag(const std::string& eTag);
+	void emplace(const std::string& eTag, std::unique_ptr<PresenceInformationElement>&& element);
+	bool isEtagPresent(const std::string& eTag);
 	void removeByEtag(const std::string& eTag, bool notifyOther = true);
+
+	template <typename T>
+	void refreshElement(const std::string& oldEtag, const std::string& newEtag, T&& timer) {
+		if (auto it = mInformationElements.find(oldEtag); it != mInformationElements.end()) {
+			auto elementToRefresh = std::move(it->second);
+			mInformationElements.erase(it);
+			elementToRefresh->setEtag(newEtag);
+			elementToRefresh->setExpiresTimer(std::move(timer));
+			emplace(newEtag, std::move(elementToRefresh));
+			setupLastActivity();
+		} else {
+			throw FLEXISIP_EXCEPTION << "Unknown eTag [" << oldEtag << "] in map.";
+		}
+	}
 
 	std::shared_ptr<PresentityPresenceInformationListener>
 	findPresenceInfoListener(const std::shared_ptr<PresentityPresenceInformation>& info);
@@ -77,6 +91,8 @@ public:
 private:
 	explicit PresenceInformationElementMap(belle_sip_main_loop_t* belleSipMainloop,
 	                                       const std::weak_ptr<PresentityPresenceInformation>& initialParent);
+
+	void setupLastActivity();
 
 	belle_sip_main_loop_t* mBelleSipMainloop;
 	ElementMapType mInformationElements;

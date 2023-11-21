@@ -35,6 +35,15 @@ public:
 	using BelleSipSourcePtr = std::unique_ptr<belle_sip_source_t, BelleSipSourceCancelingDeleter>;
 
 	PresenceInformationElement(Xsd::Pidf::Presence::TupleSequence* tuples, Xsd::DataModel::Person* person);
+	template <typename T>
+	PresenceInformationElement(Xsd::Pidf::Presence::TupleSequence* tuples,
+	                           Xsd::DataModel::Person* person,
+	                           const std::string& eTag,
+	                           T&& timer)
+	    : PresenceInformationElement(tuples, person) {
+		setEtag(eTag);
+		setExpiresTimer(std::move(timer));
+	};
 	// create an information element with a default tuple set to open.
 	explicit PresenceInformationElement(const belle_sip_uri_t* contact);
 	~PresenceInformationElement();

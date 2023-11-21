@@ -24,8 +24,7 @@
 using namespace std;
 using namespace std::chrono;
 
-namespace flexisip {
-namespace tester {
+namespace flexisip::tester {
 
 ////////// ABSTRACT CLASS FOR ALL PUBLISH/NOTIFY TESTS ///////////////////////////////
 
@@ -41,7 +40,6 @@ public:
 		auto beforePlus2 = system_clock::now() + 2s;
 		while ((isRequestAccepted != 1 || isNotifyReceived != 1) && beforePlus2 >= system_clock::now()) {
 			mPresence->_run();
-			waitFor(10ms);
 			bellesipSubscriber->stackSleep(10);
 			bellesipPublisher->stackSleep(10);
 		}
@@ -55,7 +53,6 @@ public:
 			beforePlus2 = system_clock::now() + 2s;
 			while ((isRequestAccepted != 1 || isNotifyReceived != 2) && beforePlus2 >= system_clock::now()) {
 				mPresence->_run();
-				waitFor(10ms);
 				bellesipSubscriber->stackSleep(10);
 				bellesipPublisher->stackSleep(10);
 			}
@@ -105,7 +102,7 @@ protected:
 
 	int isRequestAccepted = 0;
 	int isNotifyReceived = 0;
-	string mNotifiesBodyConcat = "";
+	string mNotifiesBodyConcat{};
 	unique_ptr<BellesipUtils> bellesipSubscriber;
 	unique_ptr<BellesipUtils> bellesipPublisher;
 
@@ -153,18 +150,6 @@ protected:
 		               std::string::npos);
 		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("<timestamp>2023-04-07T07:34:48Z</timestamp>") != std::string::npos);
 	}
-
-	bool waitForExpire() override {
-		return true;
-	};
-
-	void assertAfterPublishExpire() override {
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("tuple id=\"") != std::string::npos);
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("<basic>open</basic>") != std::string::npos);
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("<p1:person id=\"") != std::string::npos);
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("<p2:away/>") != std::string::npos);
-		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("<p1:timestamp>") != std::string::npos);
-	}
 };
 
 class BasicPublishUserPhoneTest : public BasicPublishTest {
@@ -190,6 +175,10 @@ protected:
 		auto* presenceConf = cfg.getRoot()->get<GenericStruct>("presence-server");
 		presenceConf->get<ConfigInt>("last-activity-retention-time")->set("0");
 	}
+
+	bool waitForExpire() override {
+		return true;
+	};
 
 	void assertAfterPublishExpire() override {
 		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("tuple id=\"") != std::string::npos);
@@ -566,5 +555,4 @@ void PublishTest::insertRegistrarContact(const string& aor, const string& port) 
 	    .insert({aor + ":" + port + ";transport=tcp;"});
 };
 
-} // namespace tester
-} // namespace flexisip
+} // namespace flexisip::tester

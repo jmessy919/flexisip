@@ -42,34 +42,35 @@ void PresenceInformationElementMap::removeByEtag(const std::string& eTag, bool n
 	auto it = mInformationElements.find(eTag);
 	if (it != mInformationElements.end()) {
 		mInformationElements.erase(it);
-		mLastActivity = std::chrono::system_clock::now();
-		mLastActivityTimer = belle_sip_main_loop_create_cpp_timeout(
-		    mBelleSipMainloop,
-		    [weakThis = weak_from_this()](unsigned int) {
-			    if (auto sharedThis = weakThis.lock()) {
-				    sharedThis->mLastActivity = nullopt;
-			    }
-			    return BELLE_SIP_STOP;
-		    },
-		    PresenceServer::sLastActivityRetentionMs, "Last activity retention timer");
+		setupLastActivity();
 		if (notifyOther) {
 			notifyListeners();
 		}
 	} else SLOGD << "No tuples found for etag [" << eTag << "]";
 }
 
-void PresenceInformationElementMap::emplace(const std::string& eTag, PresenceInformationElement* element) {
-	if (mInformationElements.try_emplace(eTag, element).second) {
+void PresenceInformationElementMap::setupLastActivity() {
+	mLastActivity = std::chrono::system_clock::now();
+	mLastActivityTimer = belle_sip_main_loop_create_cpp_timeout(
+	    mBelleSipMainloop,
+	    [weakThis = weak_from_this()](unsigned int) {
+		    if (auto sharedThis = weakThis.lock()) {
+			    sharedThis->mLastActivity = nullopt;
+		    }
+		    return BELLE_SIP_STOP;
+	    },
+	    PresenceServer::sLastActivityRetentionMs, "Last activity retention timer");
+}
+
+void PresenceInformationElementMap::emplace(const std::string& eTag,
+                                            std::unique_ptr<PresenceInformationElement>&& element) {
+	if (mInformationElements.try_emplace(eTag, std::move(element)).second) {
 		notifyListeners();
 	}
 }
 
-std::optional<PresenceInformationElement*> PresenceInformationElementMap::getByEtag(const std::string& eTag) {
-	if (auto it = mInformationElements.find(eTag); it != mInformationElements.end()) {
-		return it->second.get();
-	}
-
-	return nullopt;
+bool PresenceInformationElementMap::isEtagPresent(const std::string& eTag) {
+	return mInformationElements.find(eTag) != mInformationElements.end();
 }
 
 void PresenceInformationElementMap::mergeInto(const std::shared_ptr<PresenceInformationElementMap>& otherMap,
