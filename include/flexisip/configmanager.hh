@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -63,7 +63,7 @@ typedef struct sip_s sip_t;
 
 namespace flexisip {
 
-struct LpConfig;
+class LpConfig;
 
 enum class ConfigState { Check, Changed, Reset, Committed };
 class ConfigValue;
@@ -379,7 +379,7 @@ public:
 
 	void addChildrenValues(ConfigItemDescriptor* items);
 	void addChildrenValues(ConfigItemDescriptor* items, bool hashed);
-	void deprecateChild(const char* name, const DeprecationInfo& info);
+	void deprecateChild(const std::string& name, const DeprecationInfo& info);
 	const std::list<std::unique_ptr<GenericEntry>>& getChildren() const;
 	template <typename _retType, typename StrT>
 	_retType* get(StrT&& name) const;
@@ -392,7 +392,7 @@ public:
 		return it != mEntries.cend() ? it->get() : nullptr;
 	}
 
-	GenericEntry* findApproximate(const char* name) const;
+	GenericEntry* findApproximate(const std::string& name) const;
 	void mibFragment(std::ostream& ost, std::string spacing) const override;
 	void setParent(GenericEntry* parent) override;
 
@@ -767,8 +767,7 @@ _retType* GenericStruct::getDeep(const std::string& name, bool strict) const {
 
 class FileConfigReader {
 public:
-	FileConfigReader(GenericStruct* root) : mRoot(root), mCfg(NULL), mHaveUnreads(false) {
-	}
+	FileConfigReader(GenericStruct* root);
 	int read(const std::string& filename);
 	int reload();
 	void checkUnread();
@@ -776,10 +775,8 @@ public:
 
 private:
 	int read2(GenericEntry* entry, int level);
-	static void onUnreadItem(void* p, const char* secname, const char* key, int lineno);
-	void onUnreadItem(const char* secname, const char* key, int lineno);
 	GenericStruct* mRoot;
-	flexisip::LpConfig* mCfg;
+	std::unique_ptr<flexisip::LpConfig> mCfg;
 	std::string mFilename;
 	bool mHaveUnreads;
 };
@@ -797,11 +794,11 @@ public:
 	void setInitialized(bool status);
 };
 
-class GenericManager : protected ConfigValueListener {
+class ConfigManager : protected ConfigValueListener {
 	friend class ConfigArea;
 
 public:
-	static GenericManager* get();
+	static ConfigManager* get();
 
 	int load(const std::string& configFile);
 	GenericStruct* getRoot();
@@ -839,7 +836,7 @@ public:
 	bool mDirtyConfig = false;
 
 protected:
-	GenericManager();
+	ConfigManager();
 
 private:
 	bool doIsValidNextConfig(const ConfigValue& cv);
@@ -852,7 +849,7 @@ private:
 	std::unordered_set<std::string> mStatOids;
 	NotificationEntry* mNotifier = nullptr;
 
-	static std::unique_ptr<GenericManager> sInstance;
+	static std::unique_ptr<ConfigManager> sInstance;
 };
 
 } // namespace flexisip

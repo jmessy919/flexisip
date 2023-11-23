@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -491,16 +491,16 @@ static void dump_config(const std::shared_ptr<sofiasip::SuRoot>& root,
                         bool with_experimental,
                         bool dumpDefault,
                         const string& format) {
-	GenericManager::get()->applyOverrides(true);
-	auto* pluginsDirEntry = GenericManager::get()->getGlobal()->get<ConfigString>("plugins-dir");
+	ConfigManager::get()->applyOverrides(true);
+	auto* pluginsDirEntry = ConfigManager::get()->getGlobal()->get<ConfigString>("plugins-dir");
 	if (pluginsDirEntry->get().empty()) {
 		pluginsDirEntry->set(DEFAULT_PLUGINS_DIR);
 	}
 
 	auto a = make_shared<Agent>(root);
-	if (!dumpDefault) a->loadConfig(GenericManager::get());
+	if (!dumpDefault) a->loadConfig(ConfigManager::get());
 
-	auto* rootStruct = GenericManager::get()->getRoot();
+	auto* rootStruct = ConfigManager::get()->getRoot();
 	if (dump_cfg_part != "all") {
 		smatch m;
 		rootStruct = dynamic_cast<GenericStruct*>(rootStruct->find(dump_cfg_part));
@@ -545,7 +545,7 @@ static void dump_config(const std::shared_ptr<sofiasip::SuRoot>& root,
 static void list_sections(bool moduleOnly = false) {
 	const string modulePrefix{"module::"};
 	auto a = make_shared<Agent>(root);
-	for (const auto& child : GenericManager::get()->getRoot()->getChildren()) {
+	for (const auto& child : ConfigManager::get()->getRoot()->getChildren()) {
 		if (!moduleOnly || child->getName().compare(0, modulePrefix.size(), modulePrefix) == 0) {
 			cout << child->getName() << endl;
 		}
@@ -727,7 +727,7 @@ int main(int argc, char* argv[]) {
 	signal(SIGHUP, flexisip_reopen_log_files);
 
 	// Instanciate the Generic manager
-	GenericManager* cfg = GenericManager::get();
+	ConfigManager* cfg = ConfigManager::get();
 	cfg->setOverrideMap(oset);
 
 	// list default config and exit
@@ -743,7 +743,7 @@ int main(int argc, char* argv[]) {
 	// list all mibs and exit
 	if (dumpMibs) {
 		a = make_shared<Agent>(root);
-		cout << MibDumper(GenericManager::get()->getRoot());
+		cout << MibDumper(ConfigManager::get()->getRoot());
 		return EXIT_SUCCESS;
 	}
 
@@ -768,7 +768,7 @@ int main(int argc, char* argv[]) {
 		string empty;
 		string& filter = listOverrides.getValue();
 
-		depthFirstSearch(empty, GenericManager::get()->getRoot(), allCompletions);
+		depthFirstSearch(empty, ConfigManager::get()->getRoot(), allCompletions);
 
 		for (auto it = allCompletions.cbegin(); it != allCompletions.cend(); ++it) {
 			if (filter == "all") {
@@ -780,15 +780,22 @@ int main(int argc, char* argv[]) {
 		return EXIT_SUCCESS;
 	}
 
-	if (cfg->load(configFile.getValue()) == -1) {
-		fprintf(stderr,
-		        "Flexisip version %s\n"
-		        "No configuration file found at %s.\nPlease specify a valid configuration file.\n"
-		        "A default flexisip.conf.sample configuration file should be installed in " CONFIG_DIR "\n"
-		        "Please edit it and restart flexisip when ready.\n"
-		        "Alternatively a default configuration sample file can be generated at any time using "
-		        "'--dump-default all' option.\n",
-		        versionString.c_str(), configFile.getValue().c_str());
+	try {
+		// Try parsing configuration file
+		if (cfg->load(configFile.getValue()) == -1) {
+			fprintf(stderr,
+			        "Flexisip version %s\n"
+			        "No configuration file found at %s.\nPlease specify a valid configuration file.\n"
+			        "A default flexisip.conf.sample configuration file should be installed in " CONFIG_DIR "\n"
+			        "Please edit it and restart flexisip when ready.\n"
+			        "Alternatively a default configuration sample file can be generated at any time using "
+			        "'--dump-default all' option.\n",
+			        versionString.c_str(), configFile.getValue().c_str());
+			return -1;
+		}
+
+	} catch (std::runtime_error& e) {
+		cerr << e.what() << endl;
 		return -1;
 	}
 
@@ -958,7 +965,7 @@ int main(int argc, char* argv[]) {
 	 * server.
 	 */
 	LOGN("Starting flexisip %s-server version %s", fName.c_str(), FLEXISIP_GIT_VERSION);
-	GenericManager::get()->sendTrap("Flexisip " + fName + "-server starting");
+	ConfigManager::get()->sendTrap("Flexisip " + fName + "-server starting");
 
 	increaseFDLimit();
 
@@ -1104,7 +1111,7 @@ int main(int argc, char* argv[]) {
 
 	LOGN("Flexisip %s-server exiting normally.", fName.c_str());
 	if (trackAllocs) dump_remaining_msgs();
-	GenericManager::get()->sendTrap("Flexisip " + fName + "-server exiting normally");
+	ConfigManager::get()->sendTrap("Flexisip " + fName + "-server exiting normally");
 
 	bctbx_uninit_logger();
 	return 0;

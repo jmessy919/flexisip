@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -46,14 +46,14 @@ bool ConfigValueListener::onConfigStateChanged(const ConfigValue& conf, ConfigSt
 		case ConfigState::Committed:
 			if (sDirty) {
 				// Write to disk
-				GenericStruct* rootStruct = GenericManager::get()->getRoot();
+				GenericStruct* rootStruct = ConfigManager::get()->getRoot();
 				ofstream cfgfile;
-				cfgfile.open(GenericManager::get()->getConfigFile());
+				cfgfile.open(ConfigManager::get()->getConfigFile());
 				FileConfigDumper dumper(rootStruct);
 				dumper.setMode(FileConfigDumper::Mode::CurrentValue);
 				cfgfile << dumper;
 				cfgfile.close();
-				LOGI("New configuration wrote to %s .", GenericManager::get()->getConfigFile().c_str());
+				LOGI("New configuration wrote to %s .", ConfigManager::get()->getConfigFile().c_str());
 				sDirty = false;
 			}
 			break;
@@ -280,9 +280,9 @@ void NotificationEntry::send(const GenericEntry* source, const string& msg) {
 		return;
 	}
 
-	static Oid& sMsgTemplateOid = GenericManager::get()->getRoot()->getDeep<GenericEntry>("notif/msg", true)->getOid();
+	static Oid& sMsgTemplateOid = ConfigManager::get()->getRoot()->getDeep<GenericEntry>("notif/msg", true)->getOid();
 	static Oid& sSourceTemplateOid =
-	    GenericManager::get()->getRoot()->getDeep<GenericEntry>("notif/source", true)->getOid();
+	    ConfigManager::get()->getRoot()->getDeep<GenericEntry>("notif/source", true)->getOid();
 
 	/*
 	 * See:
@@ -473,7 +473,7 @@ void GenericStruct::setParent(GenericEntry* parent) {
 #endif
 }
 
-void GenericStruct::deprecateChild(const char* name, const DeprecationInfo& info) {
+void GenericStruct::deprecateChild(const string& name, const DeprecationInfo& info) {
 	GenericEntry* e = find(name);
 	if (e) e->setDeprecated(info);
 }
@@ -557,7 +557,7 @@ unique_ptr<StatPair> GenericStruct::createStats(const string& name, const string
 
 struct matchEntryNameApprox {
 	const string mName;
-	matchEntryNameApprox(const char* name) : mName(name) {
+	matchEntryNameApprox(const string& name) : mName(name) {
 	}
 	bool operator()(const unique_ptr<GenericEntry>& e) {
 		unsigned int i;
@@ -577,7 +577,7 @@ struct matchEntryNameApprox {
 	}
 };
 
-GenericEntry* GenericStruct::findApproximate(const char* name) const {
+GenericEntry* GenericStruct::findApproximate(const string& name) const {
 	auto it = find_if(mEntries.begin(), mEntries.end(), matchEntryNameApprox(name));
 	if (it != mEntries.end()) return it->get();
 	return nullptr;
@@ -754,7 +754,7 @@ void ConfigRuntimeError::writeErrors(GenericEntry* entry, ostringstream& oss) co
 
 string ConfigRuntimeError::generateErrors() const {
 	ostringstream oss;
-	writeErrors(GenericManager::get()->getRoot(), oss);
+	writeErrors(ConfigManager::get()->getRoot(), oss);
 	return oss.str();
 }
 
@@ -797,7 +797,7 @@ shared_ptr<SipBooleanExpression> ConfigBooleanExpression::read() const {
 	return SipBooleanExpressionBuilder::get().parse(get());
 }
 
-std::unique_ptr<GenericManager> GenericManager::sInstance{};
+std::unique_ptr<ConfigManager> ConfigManager::sInstance{};
 
 static void init_flexisip_snmp() {
 #ifdef ENABLE_SNMP
@@ -824,12 +824,12 @@ static void init_flexisip_snmp() {
 #endif
 }
 
-GenericManager* GenericManager::get() {
+ConfigManager* ConfigManager::get() {
 	if (sInstance == nullptr) {
 		init_flexisip_snmp();
 		// make_unique<>() cannot be used here because
-		// the constructor of GenericManager is protected.
-		sInstance.reset(new GenericManager{});
+		// the constructor of ConfigManager is protected.
+		sInstance.reset(new ConfigManager{});
 	}
 	return sInstance.get();
 }
@@ -845,7 +845,7 @@ RootConfigStruct::~RootConfigStruct() {
 #define DEFAULT_LOG_DIR "/var/opt/belledonne-communications/log/flexisip"
 #endif
 
-GenericManager::GenericManager()
+ConfigManager::ConfigManager()
     : mConfigRoot("flexisip",
                   "This is the default Flexisip (v" FLEXISIP_GIT_VERSION ") configuration file",
                   {1, 3, 6, 1, 4, 1, SNMP_COMPANY_OID}),
@@ -1147,11 +1147,11 @@ GenericManager::GenericManager()
 	mdns->setReadOnly(true);
 }
 
-bool GenericManager::doIsValidNextConfig([[maybe_unused]] const ConfigValue& cv) {
+bool ConfigManager::doIsValidNextConfig([[maybe_unused]] const ConfigValue& cv) {
 	return true;
 }
 
-bool GenericManager::doOnConfigStateChanged(const ConfigValue& conf, ConfigState state) {
+bool ConfigManager::doOnConfigStateChanged(const ConfigValue& conf, ConfigState state) {
 	switch (state) {
 		case ConfigState::Check:
 			return doIsValidNextConfig(conf);
@@ -1172,7 +1172,7 @@ bool GenericManager::doOnConfigStateChanged(const ConfigValue& conf, ConfigState
 	return true;
 }
 
-int GenericManager::load(const std::string& configfile) {
+int ConfigManager::load(const std::string& configfile) {
 	SLOGI << "Loading config file " << configfile;
 	mConfigFile = configfile;
 	int res = mReader.read(configfile);
@@ -1180,13 +1180,13 @@ int GenericManager::load(const std::string& configfile) {
 	return res;
 }
 
-void GenericManager::loadStrict() {
+void ConfigManager::loadStrict() {
 	mReader.reload();
 	mReader.checkUnread();
 	applyOverrides(true);
 }
 
-void GenericManager::applyOverrides(bool strict) {
+void ConfigManager::applyOverrides(bool strict) {
 	for (auto& it : mOverrides) {
 		const std::string& key = it.first;
 		const std::string& value = it.second;
@@ -1199,22 +1199,19 @@ void GenericManager::applyOverrides(bool strict) {
 	}
 }
 
-GenericStruct* GenericManager::getRoot() {
+GenericStruct* ConfigManager::getRoot() {
 	return &mConfigRoot;
 }
 
-const GenericStruct* GenericManager::getGlobal() {
+const GenericStruct* ConfigManager::getGlobal() {
 	return mConfigRoot.get<GenericStruct>("global");
 }
 
 int FileConfigReader::read(const std::string& filename) {
 	int err;
-	if (mCfg) {
-		lp_config_destroy(mCfg);
-	}
-	mCfg = lp_config_new(NULL);
 	mFilename = filename;
-	err = lp_config_read_file(mCfg, filename.c_str());
+	mCfg = make_unique<LpConfig>();
+	err = mCfg->readFile(filename);
 	read2(mRoot, 0);
 	return err;
 }
@@ -1224,40 +1221,35 @@ int FileConfigReader::reload() {
 	return 0;
 }
 
-void FileConfigReader::onUnreadItem(void* p, const char* secname, const char* key, int lineno) {
-	FileConfigReader* zis = (FileConfigReader*)p;
-	zis->onUnreadItem(secname, key, lineno);
-}
-
-void FileConfigReader::onUnreadItem(const char* secname, const char* key, int lineno) {
-	ostringstream ss;
-	ss << "Unsupported parameter '" << key << "' in section [" << secname << "] at line " << lineno << ".";
-	mHaveUnreads = true;
-	GenericEntry* sec = mRoot->find(secname);
-	if (sec == NULL) {
-		sec = mRoot->findApproximate(secname);
-		if (sec != NULL) {
-			ss << " Unknown section '[" << secname << "]', did you mean '[" << sec->getName().c_str() << "]' instead?";
+void FileConfigReader::checkUnread() {
+	auto onUnreadItem = [&](const string& secname, const string& key, int lineno) {
+		ostringstream ss;
+		ss << "Unsupported parameter '" << key << "' in section [" << secname << "] at line " << lineno << ".";
+		mHaveUnreads = true;
+		GenericEntry* sec = mRoot->find(secname);
+		if (sec == NULL) {
+			sec = mRoot->findApproximate(secname);
+			if (sec != NULL) {
+				ss << " Unknown section '[" << secname << "]', did you mean '[" << sec->getName().c_str()
+				   << "]' instead?";
+			} else {
+				ss << " Unknown section '[" << secname << "]'.";
+			}
 		} else {
-			ss << " Unknown section '[" << secname << "]'.";
-		}
-	} else {
-		GenericStruct* st = dynamic_cast<GenericStruct*>(sec);
-		if (st) {
-			GenericEntry* val = st->find(key);
-			if (val == NULL) {
-				val = st->findApproximate(key);
-				if (val != NULL) {
-					ss << " Did you mean '" << val->getName().c_str() << "'?";
+			GenericStruct* st = dynamic_cast<GenericStruct*>(sec);
+			if (st) {
+				GenericEntry* val = st->find(key);
+				if (val == NULL) {
+					val = st->findApproximate(key);
+					if (val != NULL) {
+						ss << " Did you mean '" << val->getName().c_str() << "'?";
+					}
 				}
 			}
 		}
-	}
-	LOGEN("%s", ss.str().c_str());
-}
-
-void FileConfigReader::checkUnread() {
-	lp_config_for_each_unread(mCfg, onUnreadItem, this);
+		LOGEN("%s", ss.str().c_str());
+	};
+	mCfg->processUnread(std::function<void(const string& secname, const string& key, int lineo)>(onUnreadItem));
 	if (mHaveUnreads) LOGF("Some items or section are invalid in the configuration file. Please check it.");
 }
 
@@ -1273,8 +1265,7 @@ int FileConfigReader::read2(GenericEntry* entry, int level) {
 		if (level < 2) LOGF("ConfigValues at root is disallowed.");
 		if (level > 2) LOGF("The current file format doesn't support recursive subsections.");
 
-		const char* val =
-		    lp_config_get_string(mCfg, cv->getParent()->getName().c_str(), cv->getName().c_str(), nullptr);
+		const char* val = mCfg->getString(cv->getParent()->getName(), cv->getName(), nullptr);
 		if (val) {
 			if (cv->isDeprecated()) {
 				const auto& info = cv->getDeprecationInfo();
@@ -1295,9 +1286,10 @@ int FileConfigReader::read2(GenericEntry* entry, int level) {
 	return 0;
 }
 
-FileConfigReader::~FileConfigReader() {
-	if (mCfg) lp_config_destroy(mCfg);
+FileConfigReader::FileConfigReader(GenericStruct* root) : mRoot(root), mHaveUnreads(false) {
 }
+
+FileConfigReader::~FileConfigReader() = default;
 
 GenericEntriesGetter* GenericEntriesGetter::sInstance = NULL;
 

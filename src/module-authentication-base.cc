@@ -121,7 +121,8 @@ void ModuleAuthenticationBase::onLoad(const GenericStruct* mc) {
 	if (mAlgorithms.empty()) mAlgorithms.assign(sValidAlgos.cbegin(), sValidAlgos.cend());
 
 	auto disableQOPAuth = mc->get<ConfigBoolean>("disable-qop-auth")->read();
-	auto nonceExpires = chrono::duration_cast<chrono::seconds>(mc->get<ConfigDuration<chrono::seconds>>("nonce-expires")->read());
+	auto nonceExpires =
+	    chrono::duration_cast<chrono::seconds>(mc->get<ConfigDuration<chrono::seconds>>("nonce-expires")->read());
 
 	for (const string& domain : authDomains) {
 		unique_ptr<FlexisipAuthModuleBase> am(createAuthModule(domain, nonceExpires.count(), !disableQOPAuth));
@@ -356,7 +357,7 @@ void ModuleAuthenticationBase::loadTrustedHosts(const ConfigStringList& trustedH
 	for (const auto& host : hosts) {
 		if (regex_match(host, m, parameterRef)) {
 			auto paramRefValues =
-			    GenericManager::get()->getRoot()->get<GenericStruct>(m.str(1))->get<ConfigStringList>(m.str(2))->read();
+			    ConfigManager::get()->getRoot()->get<GenericStruct>(m.str(1))->get<ConfigStringList>(m.str(2))->read();
 			for (const auto& value : paramRefValues) {
 				BinaryIp::emplace(mTrustedHosts, value);
 			}
@@ -365,7 +366,7 @@ void ModuleAuthenticationBase::loadTrustedHosts(const ConfigStringList& trustedH
 		}
 	}
 
-	const auto* clusterSection = GenericManager::get()->getRoot()->get<GenericStruct>("cluster");
+	const auto* clusterSection = ConfigManager::get()->getRoot()->get<GenericStruct>("cluster");
 	auto clusterEnabled = clusterSection->get<ConfigBoolean>("enabled")->read();
 	if (clusterEnabled) {
 		auto clusterNodes = clusterSection->get<ConfigStringList>("nodes")->read();
@@ -374,7 +375,7 @@ void ModuleAuthenticationBase::loadTrustedHosts(const ConfigStringList& trustedH
 		}
 	}
 
-	const auto* presenceSection = GenericManager::get()->getRoot()->get<GenericStruct>("module::Presence");
+	const auto* presenceSection = ConfigManager::get()->getRoot()->get<GenericStruct>("module::Presence");
 	auto presenceServer = presenceSection->get<ConfigBoolean>("enabled")->read();
 	if (presenceServer) {
 		sofiasip::Home home{};

@@ -29,7 +29,7 @@ std::unique_ptr<AutoThreadPool> AutoThreadPool::sDbThreadPool{};
 
 std::unique_ptr<AutoThreadPool>& AutoThreadPool::getDbThreadPool() {
 	if (!sDbThreadPool) {
-		const auto routerConf = GenericManager::get()->getRoot()->get<GenericStruct>("module::Router");
+		const auto routerConf = ConfigManager::get()->getRoot()->get<GenericStruct>("module::Router");
 		const auto threadCount = routerConf->get<ConfigInt>("message-database-pool-size")->read() * 2;
 		sDbThreadPool = std::make_unique<AutoThreadPool>(threadCount, 0);
 	}
@@ -121,7 +121,7 @@ void AutoThreadPool::_run() {
 	}
 }
 
-void AutoThreadPool::_subThreadRun(Task initialTask){
+void AutoThreadPool::_subThreadRun(Task initialTask) {
 	initialTask();
 	while (true) {
 		Task moreTask;

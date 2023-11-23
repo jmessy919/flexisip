@@ -72,10 +72,11 @@ void ModuleDoSProtection::onDeclare(GenericStruct* module_config) {
 void ModuleDoSProtection::onLoad(const GenericStruct* mc) {
 	mTimePeriod = mc->get<ConfigDuration<chrono::milliseconds>>("time-period")->read().count();
 	mPacketRateLimit = mc->get<ConfigInt>("packet-rate-limit")->read();
-	mBanTime = chrono::duration_cast<chrono::minutes>(mc->get<ConfigDuration<chrono::minutes>>("ban-time")->read()).count();
+	mBanTime =
+	    chrono::duration_cast<chrono::minutes>(mc->get<ConfigDuration<chrono::minutes>>("ban-time")->read()).count();
 	mDOSHashtableIterator = mDosContexts.begin();
 
-	GenericStruct* cluster = GenericManager::get()->getRoot()->get<GenericStruct>("cluster");
+	GenericStruct* cluster = ConfigManager::get()->getRoot()->get<GenericStruct>("cluster");
 	list<string> whiteList = cluster->get<ConfigStringList>("nodes")->read();
 	whiteList.splice(whiteList.end(), mc->get<ConfigStringList>("white-list")->read());
 

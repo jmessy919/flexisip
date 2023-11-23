@@ -42,7 +42,7 @@ AuthDbListener::~AuthDbListener() {
 
 class FixedAuthDb : public AuthDbBackend {
 public:
-	FixedAuthDb() : AuthDbBackend(*GenericManager::get()->getRoot()) {
+	FixedAuthDb() : AuthDbBackend(*ConfigManager::get()->getRoot()) {
 	}
 
 	void getUserWithPhoneFromBackend([[maybe_unused]] const string& phone,
@@ -63,7 +63,7 @@ public:
 
 AuthDbBackend& AuthDbBackend::get() {
 	if (sUnique == nullptr) {
-		GenericStruct* cr = GenericManager::get()->getRoot();
+		GenericStruct* cr = ConfigManager::get()->getRoot();
 		GenericStruct* ma = cr->get<GenericStruct>("module::Authentication");
 		const string& impl = ma->get<ConfigString>("db-implementation")->read();
 		if (impl == "fixed") {
@@ -83,7 +83,9 @@ AuthDbBackend& AuthDbBackend::get() {
 AuthDbBackend::AuthDbBackend(const GenericStruct& root) {
 	GenericStruct* ma = root.get<GenericStruct>("module::Authentication");
 	list<string> domains = ma->get<ConfigStringList>("auth-domains")->read();
-	mCacheExpire = chrono::duration_cast<chrono::seconds>(ma->get<ConfigDuration<chrono::seconds>>("cache-expire")->read()).count();
+	mCacheExpire =
+	    chrono::duration_cast<chrono::seconds>(ma->get<ConfigDuration<chrono::seconds>>("cache-expire")->read())
+	        .count();
 }
 
 AuthDbBackend::~AuthDbBackend() {

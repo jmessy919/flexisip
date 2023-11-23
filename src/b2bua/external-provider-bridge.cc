@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022  Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2023  Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -63,7 +63,7 @@ Here is a template of what should be in this file:
 	     "example-path.json"},
 	    config_item_end};
 
-	GenericManager::get()
+	ConfigManager::get()
 	    ->getRoot()
 	    ->addChild(make_unique<GenericStruct>(configSection, "External SIP Provider Bridge parameters.", 0))
 	    ->addChildrenValues(items);
@@ -140,8 +140,9 @@ void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& 
 
 			accounts.emplace_back(Account(std::move(account), std::move(provDesc.maxCallsPerLine)));
 		}
-		providers.emplace_back(ExternalSipProvider(std::move(provDesc.pattern), std::move(accounts), std::move(provDesc.name),
-		                                           provDesc.overrideAvpf, provDesc.overrideEncryption));
+		providers.emplace_back(ExternalSipProvider(std::move(provDesc.pattern), std::move(accounts),
+		                                           std::move(provDesc.name), provDesc.overrideAvpf,
+		                                           provDesc.overrideEncryption));
 	}
 }
 
@@ -153,7 +154,7 @@ void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip
 	auto filePath = config.get<GenericStruct>(configSection)->get<ConfigString>(providersConfigItem)->read();
 	if (filePath[0] != '/') {
 		// Interpret as relative to config file
-		const auto& configFilePath = GenericManager::get()->getConfigFile();
+		const auto& configFilePath = ConfigManager::get()->getConfigFile();
 		const auto configFolderPath = configFilePath.substr(0, configFilePath.find_last_of('/') + 1);
 		filePath = configFolderPath + filePath;
 	}

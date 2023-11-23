@@ -428,16 +428,21 @@ void ModuleRegistrar::onLoad(const GenericStruct* mc) {
 
 	int forcedExpires = mc->get<ConfigInt>("force-expires")->read();
 	if (forcedExpires <= 0) {
-		mMaxExpires = chrono::duration_cast<chrono::seconds>(mc->get<ConfigDuration<chrono::seconds>>("max-expires")->read()).count();
-		mMinExpires = chrono::duration_cast<chrono::seconds>(mc->get<ConfigDuration<chrono::seconds>>("min-expires")->read()).count();
+		mMaxExpires =
+		    chrono::duration_cast<chrono::seconds>(mc->get<ConfigDuration<chrono::seconds>>("max-expires")->read())
+		        .count();
+		mMinExpires =
+		    chrono::duration_cast<chrono::seconds>(mc->get<ConfigDuration<chrono::seconds>>("min-expires")->read())
+		        .count();
 	} else {
 		mMaxExpires = forcedExpires;
 		mMinExpires = forcedExpires;
 	}
 
 	mStaticRecordsFile = mc->get<ConfigString>("static-records-file")->read();
-	mStaticRecordsTimeout =
-	    chrono::duration_cast<chrono::seconds>(mc->get<ConfigDuration<chrono::seconds>>("static-records-timeout")->read()).count();
+	mStaticRecordsTimeout = chrono::duration_cast<chrono::seconds>(
+	                            mc->get<ConfigDuration<chrono::seconds>>("static-records-timeout")->read())
+	                            .count();
 
 	mExpireRandomizer = mc->get<ConfigInt>("register-expire-randomizer-max")->read();
 	if (mExpireRandomizer < 0 || mExpireRandomizer > 100) {
@@ -448,22 +453,22 @@ void ModuleRegistrar::onLoad(const GenericStruct* mc) {
 		readStaticRecords(); // read static records from configuration file
 		mStaticRecordsTimer = mAgent->createTimer(mStaticRecordsTimeout * 1000, &staticRoutesRereadTimerfunc, this);
 	}
-	mAllowDomainRegistrations = GenericManager::get()
+	mAllowDomainRegistrations = ConfigManager::get()
 	                                ->getRoot()
 	                                ->get<GenericStruct>("inter-domain-connections")
 	                                ->get<ConfigBoolean>("accept-domain-registrations")
 	                                ->read();
-	mAssumeUniqueDomains = GenericManager::get()
+	mAssumeUniqueDomains = ConfigManager::get()
 	                           ->getRoot()
 	                           ->get<GenericStruct>("inter-domain-connections")
 	                           ->get<ConfigBoolean>("assume-unique-domains")
 	                           ->read();
-	mUseGlobalDomain = GenericManager::get()
+	mUseGlobalDomain = ConfigManager::get()
 	                       ->getRoot()
 	                       ->get<GenericStruct>("module::Router")
 	                       ->get<ConfigBoolean>("use-global-domain")
 	                       ->read();
-	mParamsToRemove = GenericManager::get()
+	mParamsToRemove = ConfigManager::get()
 	                      ->getRoot()
 	                      ->get<GenericStruct>("module::Forward")
 	                      ->get<ConfigStringList>("params-to-remove")
