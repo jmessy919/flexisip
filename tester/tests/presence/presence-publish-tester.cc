@@ -46,8 +46,8 @@ public:
 			bellesipPublisher->stackSleep(10);
 		}
 
-		BC_ASSERT_CPP_EQUAL(isRequestAccepted, 1);
-		BC_ASSERT_CPP_EQUAL(isNotifyReceived, 1);
+		BC_HARD_ASSERT_CPP_EQUAL(isRequestAccepted, 1);
+		BC_HARD_ASSERT_CPP_EQUAL(isNotifyReceived, 1);
 
 		assertAfterPublish();
 
@@ -101,6 +101,7 @@ protected:
 		return ""s;
 	};
 	virtual void assertAfterPublish2(){};
+	virtual string getSubscribeBody(const string& aor, const string& port);
 
 	int isRequestAccepted = 0;
 	int isNotifyReceived = 0;
@@ -111,7 +112,6 @@ protected:
 private:
 	void crossSubscribe(const string& aorPublisher, const string& aorSubscriber);
 	virtual string getSubscribeHeaders(const string& aor, const string& port);
-	virtual string getSubscribeBody(const string& aor, const string& port);
 	void insertRegistrarContact(const string& aor, const string& port);
 };
 
@@ -165,6 +165,21 @@ protected:
 		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("<p2:away/>") != std::string::npos);
 		BC_ASSERT_TRUE(mNotifiesBodyConcat.find("<p1:timestamp>") != std::string::npos);
 	}
+};
+
+class BasicPublishUserPhoneTest : public BasicPublishTest {
+protected:
+	string getSubscribeBody(const string& aor, const string& port) override {
+		// clang-format off
+		return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n"
+		       "<resource-lists xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\r\n"
+		       "xmlns=\"urn:ietf:params:xml:ns:resource-lists\">\r\n"
+		       " <list version=\"2\" fullState=\"true\">\r\n"
+		       "  <entry uri=\"" + aor + ":" + port + ";user=phone\"/>\r\n"
+		       " </list>\r\n"
+		       "</resource-lists>\r\n";
+		// clang-format on
+	};
 };
 
 class BasicPublishLastActivityExpiresTest : public BasicPublishTest {
@@ -435,6 +450,7 @@ namespace {
 TestSuite _("Publish presence unit tests",
             {
                 CLASSY_TEST(BasicPublishTest),
+                CLASSY_TEST(BasicPublishUserPhoneTest),
                 CLASSY_TEST(BasicPublishLastActivityExpiresTest),
                 CLASSY_TEST(AwayPublishTest),
                 CLASSY_TEST(DoubleAwayDateAfterPublishTest),

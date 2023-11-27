@@ -51,8 +51,11 @@ ListSubscription::~ListSubscription() {
 	SLOGD << "List subscription ["<< this <<"] deleted";
 };
 
-void ListSubscription::addInstanceToResource(Xsd::Rlmi::Resource &resource, list<belle_sip_body_handler_t *> &multipartList,
-											 PresentityPresenceInformation &presentityInformation, bool extended) {
+void ListSubscription::addInstanceToResource(Xsd::Rlmi::Resource& resource,
+                                             std::list<belle_sip_body_handler_t*>& multipartList,
+                                             PresentityPresenceInformation& presentityInformation,
+                                             bool extended,
+                                             const std::string& presenceEntity) {
 
 	// we have a resource instance
 	// subscription state is always active until we implement ACL
@@ -62,7 +65,7 @@ void ListSubscription::addInstanceToResource(Xsd::Rlmi::Resource &resource, list
 	ostringstream cid;
 	cid << (const char *)cid_rand_part << "@" << belle_sip_uri_get_host(mName.get());
 	instance.setCid(cid.str());
-	string pidf = presentityInformation.getPidf(extended);
+	string pidf = presentityInformation.getPidf(extended, presenceEntity);
 	belle_sip_memory_body_handler_t *bodyPart =
 		belle_sip_memory_body_handler_new_copy_from_buffer((void *)pidf.c_str(), pidf.length(), nullptr, nullptr);
 	belle_sip_body_handler_add_header(BELLE_SIP_BODY_HANDLER(bodyPart),
@@ -77,7 +80,7 @@ void ListSubscription::addInstanceToResource(Xsd::Rlmi::Resource &resource, list
 	multipartList.push_back(BELLE_SIP_BODY_HANDLER(bodyPart));
 	resource.getInstance().push_back(instance);
 	SLOGI << "Presence info " << (extended ? "(extended)" : "(non-extended)") << " added to list [" << mName.get()
-	      << " for entity [" << presentityInformation.getEntity() << "]";
+	      << " for entity [" << presentityInformation.getMainEntity() << "]";
 }
 
 void ListSubscription::notify(bool isFullState) {
@@ -112,19 +115,20 @@ void ListSubscription::notify(bool isFullState) {
 			for (shared_ptr<PresentityPresenceInformationListener> &resourceListener : mListeners) {
 				char *presentityUri = belle_sip_uri_to_string(resourceListener->getPresentityUri());
 				Xsd::Rlmi::Resource resource(presentityUri);
-				belle_sip_free(presentityUri);
 				if (!resourceListener->getName().empty())
 					resource.getName().push_back(resourceListener->getName());
 
 				PendingStateType::iterator it = mPendingStates.find(resourceListener->getPresentityUri());
 				if (it != mPendingStates.end() && it->second.first->isKnown() && resourceList.getResource().size() < mMaxPresenceInfoNotifiedAtATime) {
 					PresentityPresenceInformation &presentityInformation = *it->second.first;
-					addInstanceToResource(resource, multipartList, presentityInformation, resourceListener->extendedNotifyEnabled());
+					addInstanceToResource(resource, multipartList, presentityInformation,
+					                      resourceListener->extendedNotifyEnabled(), presentityUri);
 					mPendingStates.erase(it); //might be optimized
 				} else {
 					SLOGI << "No presence info yet for uri [" << resourceListener->getPresentityUri() << "]";
 				}
 				resourceList.getResource().push_back(resource);
+				belle_sip_free(presentityUri);
 			}
 		} else {
 			SLOGI << "Building partial state rlmi for list name [" << mName.get() << "]";
@@ -133,14 +137,15 @@ void ListSubscription::notify(bool isFullState) {
 				pair<const belle_sip_uri_t *, pair<shared_ptr<PresentityPresenceInformation>,bool>> presenceInformationPair = *it;
 				if (presenceInformationPair.second.first->isKnown()) { /* only notify for entity with known state*/
 					shared_ptr<PresentityPresenceInformation> presenceInformation = presenceInformationPair.second.first;
-					const belle_sip_uri_t *entity = presenceInformation->getEntity();
-					char *presentityUri = belle_sip_uri_to_string(entity);
+					const belle_sip_uri_t* entity = presenceInformation->getMainEntity();
+					char* presentityUri = belle_sip_uri_to_string(entity);
 					Xsd::Rlmi::Resource resource(presentityUri);
-					belle_sip_free(presentityUri);
 					if (!presenceInformation->getName().empty())
 						resource.getName().push_back(presenceInformation->getName());
-					addInstanceToResource(resource, multipartList, *presenceInformation, presenceInformationPair.second.second);
+					addInstanceToResource(resource, multipartList, *presenceInformation,
+					                      presenceInformationPair.second.second, presentityUri);
 					resourceList.getResource().push_back(resource);
+					belle_sip_free(presentityUri);
 				}
 				it = mPendingStates.erase(it); //erase in any case
 			}
@@ -201,7 +206,9 @@ void ListSubscription::notify(bool isFullState) {
 void ListSubscription::onInformationChanged(PresentityPresenceInformation &presenceInformation, bool extended) {
 	// store state, erase previous one if any
 	if (getState() == active) {
-		mPendingStates[presenceInformation.getEntity()] = make_pair(presenceInformation.shared_from_this(), extended);
+		// TODO is this ok ?
+		mPendingStates[presenceInformation.getMainEntity()] =
+		    make_pair(presenceInformation.shared_from_this(), extended);
 
 		if (isTimeToNotify()) {
 			notify(false);
@@ -228,13 +235,11 @@ void ListSubscription::onInformationChanged(PresentityPresenceInformation &prese
 			}
 
 			if (mVersion > 0) {
-				SLOGI << "Defering presence information notify for entity [" << presenceInformation.getEntity()
-					  << "/" << this << "] to [" << (belle_sip_source_get_timeout_int64(mTimer.get())) << " ms]";
+				SLOGI << "Defering presence information notify for entity [" << presenceInformation.getMainEntity()
+				      << "/" << this << "] to [" << (belle_sip_source_get_timeout_int64(mTimer.get())) << " ms]";
 			} else {
-				SLOGI << "First notify, defering presence information for entity [" << presenceInformation.getEntity()
-					   << "/" << this << "]";
-
-
+				SLOGI << "First notify, defering presence information for entity ["
+				      << presenceInformation.getMainEntity() << "/" << this << "]";
 			}
 		}
 	} // else for list subscription final notify is handled separatly

@@ -33,6 +33,8 @@ class PresentityManager : public EtagManager {
 		virtual void addOrUpdateListener(std::shared_ptr<PresentityPresenceInformationListener> &listerner) = 0;
 		void addListenerIfNecessary(std::shared_ptr<PresentityPresenceInformationListener> &listerner);
 		virtual void removeListener(const std::shared_ptr<PresentityPresenceInformationListener> &listerner) = 0;
+	    virtual void addPresenceInfoUri(const std::shared_ptr<PresentityPresenceInformation>& presentity,
+	                                    const belle_sip_uri_t* uri) = 0;
 };
 
 }

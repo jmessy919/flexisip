@@ -74,10 +74,11 @@ PresenceInformationElement::PresenceInformationElement(const belle_sip_uri_t* co
 PresentityPresenceInformation::PresentityPresenceInformation(const belle_sip_uri_t* entity,
                                                              PresentityManager& presentityManager,
                                                              belle_sip_main_loop_t* mainloop)
-    : mEntity((belle_sip_uri_t*)belle_sip_object_clone(BELLE_SIP_OBJECT(entity))),
-      mPresentityManager(presentityManager), mBelleSipMainloop(mainloop) {
+    : mPresentityManager(presentityManager), mBelleSipMainloop(mainloop) {
 	belle_sip_object_ref(mainloop);
-	belle_sip_object_ref((void*)mEntity);
+	mEntities.push_back((belle_sip_uri_t*)belle_sip_object_clone(BELLE_SIP_OBJECT(entity)));
+	mMainEntity = *mEntities.cbegin();
+	belle_sip_object_ref((void*)mMainEntity);
 }
 
 PresenceInformationElement::~PresenceInformationElement() {
@@ -89,7 +90,9 @@ PresentityPresenceInformation::~PresentityPresenceInformation() {
 		delete it->second;
 	}
 	mInformationElements.clear();
-	belle_sip_object_unref((void*)mEntity);
+	for (auto entity : mEntities) {
+		belle_sip_object_unref((void*)entity);
+	}
 	belle_sip_object_unref((void*)mBelleSipMainloop);
 	SLOGD << "Presence information [" << this << "] deleted";
 }
@@ -107,12 +110,15 @@ std::list<std::shared_ptr<PresentityPresenceInformationListener>> PresentityPres
 size_t PresentityPresenceInformation::getNumberOfInformationElements() const {
 	return mInformationElements.size();
 }
+
 shared_ptr<PresentityPresenceInformationListener>
 PresentityPresenceInformation::findPresenceInfoListener(shared_ptr<PresentityPresenceInformation>& info) {
 	return findSubscriber([&info](const shared_ptr<PresentityPresenceInformationListener>& l) {
-		return belle_sip_uri_equals(l->getTo(), info->getEntity());
+		return any_of(info->getEntities().cbegin(), info->getEntities().cend(),
+		              [&l](const auto entity) { return belle_sip_uri_equals(l->getTo(), entity); });
 	});
 }
+
 string PresentityPresenceInformation::putTuples(Xsd::Pidf::Presence::TupleSequence& tuples,
                                                 Xsd::DataModel::Person& person,
                                                 int expires) {
@@ -189,7 +195,7 @@ string PresentityPresenceInformation::setOrUpdate(Xsd::Pidf::Presence::TupleSequ
 	auto timer = belle_sip_main_loop_create_cpp_timeout(mBelleSipMainloop, func, expiresMs, "timer for presence Info");
 
 	// set expiration timer
-	informationElement->setExpiresTimer(move(timer));
+	informationElement->setExpiresTimer(std::move(timer));
 
 	// modify global etag list
 	if (eTag && eTag->size() > 0) {
@@ -212,13 +218,22 @@ string PresentityPresenceInformation::refreshTuplesForEtag(const string& eTag, i
 	return setOrUpdate(nullptr, nullptr, &eTag, expires);
 }
 
-void PresentityPresenceInformation::setDefaultElement(const char* contact) {
-	mDefaultInformationElement = make_shared<PresenceInformationElement>(getEntity());
-
+void PresentityPresenceInformation::setDefaultElement(const belle_sip_uri_t* contact) {
 	if (contact) {
+		const auto newEntity = (belle_sip_uri_t*)belle_sip_object_clone(BELLE_SIP_OBJECT(contact));
+		belle_sip_object_ref((void*)newEntity);
+		mDefaultInformationElement = make_shared<PresenceInformationElement>(newEntity);
+		mEntities.push_back(newEntity);
+		mMainEntity = newEntity; // TODO is this ok ?
+		mPresentityManager.addPresenceInfoUri(shared_from_this(), newEntity);
+
+		char* contactString = belle_sip_uri_to_string(newEntity);
 		for (auto& tup : mDefaultInformationElement->getTuples()) {
-			tup->setContact(Xsd::Pidf::Contact(contact));
+			tup->setContact(Xsd::Pidf::Contact(contactString));
 		}
+		belle_sip_free(contactString);
+	} else {
+		mDefaultInformationElement = make_shared<PresenceInformationElement>(getMainEntity());
 	}
 
 	notifyAll();
@@ -243,14 +258,18 @@ void PresentityPresenceInformation::removeTuplesForEtag(const string& eTag) {
 }
 
 FlexisipException& operator<<(FlexisipException& ex, const PresentityPresenceInformation& p) {
-	return ex << "entity [" << p.getEntity() << "]/" << &p;
+	return ex << "entity [" << p.getMainEntity() << "]/" << &p;
 }
 ostream& operator<<(ostream& __os, const PresentityPresenceInformation& p) {
-	return __os << "entity [" << p.getEntity() << "]/" << &p;
+	return __os << "entity [" << p.getMainEntity() << "]/" << &p;
 }
 
-const belle_sip_uri_t* PresentityPresenceInformation::getEntity() const {
-	return mEntity;
+const belle_sip_uri_t* PresentityPresenceInformation::getMainEntity() const {
+	return mMainEntity;
+}
+
+const std::vector<const belle_sip_uri_t*>& PresentityPresenceInformation::getEntities() const {
+	return mEntities;
 }
 
 void PresentityPresenceInformation::addOrUpdateListener(
@@ -299,7 +318,7 @@ void PresentityPresenceInformation::addOrUpdateListener(
 		                                                    "timer for presence info listener");
 
 		// set expiration timer
-		listener->setExpiresTimer(mBelleSipMainloop, move(timer));
+		listener->setExpiresTimer(mBelleSipMainloop, std::move(timer));
 	} else {
 		listener->setExpiresTimer(mBelleSipMainloop, nullptr);
 	}
@@ -346,11 +365,11 @@ bool PresentityPresenceInformation::hasDefaultElement() {
 bool PresentityPresenceInformation::isKnown() {
 	return mInformationElements.size() > 0 || hasDefaultElement();
 }
-string PresentityPresenceInformation::getPidf(bool extended) {
+string PresentityPresenceInformation::getPidf(bool extended, const std::string& presenceEntity) {
 	stringstream out;
 	try {
-		char* entity = belle_sip_uri_to_string(getEntity());
-		Xsd::Pidf::Presence presence((string(entity)));
+		char* entity = belle_sip_uri_to_string(getMainEntity());
+		Xsd::Pidf::Presence presence(presenceEntity);
 		belle_sip_free(entity);
 		list<string> tupleList;
 		if (extended) {
@@ -415,12 +434,12 @@ string PresentityPresenceInformation::getPidf(bool extended) {
 			}
 			for (const auto& cap : mAddedCapabilities) {
 				Xsd::Pidf::Tuple::ServiceDescriptionType service(cap.first, cap.second);
-				auto predicate = [cap](Xsd::Pidf::Tuple::ServiceDescriptionType serviceDescription) {
+				auto predicateCapabilities = [cap](Xsd::Pidf::Tuple::ServiceDescriptionType serviceDescription) {
 					return (cap.first == serviceDescription.getServiceId()) &&
 					       (cap.second == serviceDescription.getVersion());
 				};
-				const auto& it =
-				    std::find_if(tup->getServiceDescription().begin(), tup->getServiceDescription().end(), predicate);
+				const auto& it = std::find_if(tup->getServiceDescription().begin(), tup->getServiceDescription().end(),
+				                              predicateCapabilities);
 				if (it == tup->getServiceDescription().end()) tup->getServiceDescription().push_back(service);
 			}
 			presence.getTuple().push_back(*tup);

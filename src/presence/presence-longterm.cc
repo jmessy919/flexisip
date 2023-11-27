@@ -17,6 +17,7 @@
 */
 
 #include <belle-sip/belle-sip.h>
+#include <belle-sip/sip-uri.h>
 
 #include "flexisip/registrar/registar-listeners.hh"
 
@@ -57,23 +58,26 @@ private:
 	void processResponse(AuthDbResult result, const std::string& user) {
 		shared_ptr<PresentityPresenceInformation> info = mInfo ? mInfo : mDInfo.find(user)->second;
 
-		const char* cuser = belle_sip_uri_get_user(info->getEntity());
+		const char* cuser = belle_sip_uri_get_user(info->getMainEntity());
 		if (result == AuthDbResult::PASSWORD_FOUND) {
+			auto isPhone = false;
+			const auto userParam = belle_sip_uri_get_user_param(info->getMainEntity());
+			if (userParam) {
+				isPhone = strcmp(belle_sip_uri_get_user_param(info->getMainEntity()), "phone") == 0;
+			}
 			// result is a phone alias if (and only if) user is not the same as the entity user
-			bool isPhone = (strcmp(user.c_str(), cuser) != 0);
-			belle_sip_uri_t* uri = BELLE_SIP_URI(belle_sip_object_clone(BELLE_SIP_OBJECT(info->getEntity())));
-			char* contact_as_string = belle_sip_uri_to_string(uri);
-			if (isPhone) {
+			auto isAlias = strcmp(user.c_str(), cuser) != 0;
+			belle_sip_uri_t* uri = BELLE_SIP_URI(belle_sip_object_clone(BELLE_SIP_OBJECT(info->getMainEntity())));
+			char* contactString = belle_sip_uri_to_string(uri);
+			if (isAlias || isPhone) {
 				// change contact accordingly
-				belle_sip_free(contact_as_string);
 				belle_sip_parameters_t* params = BELLE_SIP_PARAMETERS(uri);
 				belle_sip_parameters_remove_parameter(params, "user");
 				belle_sip_uri_set_user(uri, user.c_str());
-				contact_as_string = belle_sip_uri_to_string(uri);
 				SLOGD << __FILE__ << ": "
-				      << "Found user " << user << " for phone " << belle_sip_uri_get_user(info->getEntity())
-				      << ", adding contact " << contact_as_string << " presence information";
-				info->setDefaultElement(contact_as_string);
+				      << "Found user " << user << " for alias/phone " << belle_sip_uri_get_user(info->getMainEntity())
+				      << ", adding contact " << uri << " presence information";
+				info->setDefaultElement(uri);
 			} else {
 				SLOGD << __FILE__ << ": "
 				      << "Found user " << user << ", adding presence information";
@@ -112,8 +116,8 @@ private:
 
 			// Fetch Redis info.
 			shared_ptr<InternalListListener> listener = make_shared<InternalListListener>(info);
-			RegistrarDb::get()->fetch(SipUri{contact_as_string}, listener);
-			belle_sip_free(contact_as_string);
+			RegistrarDb::get()->fetch(SipUri{contactString}, listener);
+			belle_sip_free(contactString);
 		} else {
 			SLOGD << __FILE__ << ": "
 			      << "Could not find user " << cuser << ".";
@@ -129,11 +133,10 @@ private:
 void PresenceLongterm::onListenerEvent(const shared_ptr<PresentityPresenceInformation>& info) const {
 	if (!info->hasDefaultElement()) {
 		// no presence information know yet, so ask again to the db.
-		const belle_sip_uri_t* uri = info->getEntity();
+		const belle_sip_uri_t* uri = info->getMainEntity();
 		SLOGD << "No presence info element known yet for " << belle_sip_uri_get_user(uri)
 		      << ", checking if this user is already registered";
-		AuthDbBackend::get().getUserWithPhone(belle_sip_uri_get_user(info->getEntity()),
-		                                      belle_sip_uri_get_host(info->getEntity()),
+		AuthDbBackend::get().getUserWithPhone(belle_sip_uri_get_user(uri), belle_sip_uri_get_host(uri),
 		                                      new PresenceAuthListener(mMainLoop, info));
 	}
 }
@@ -141,13 +144,12 @@ void PresenceLongterm::onListenerEvents(list<shared_ptr<PresentityPresenceInform
 	list<tuple<string, string, AuthDbListener*>> creds;
 	map<string, shared_ptr<PresentityPresenceInformation>> dInfo;
 	for (const shared_ptr<PresentityPresenceInformation>& info : infos) {
+		const belle_sip_uri_t* uri = info->getMainEntity();
 		if (!info->hasDefaultElement()) {
-			creds.push_back(make_tuple(belle_sip_uri_get_user(info->getEntity()),
-			                           belle_sip_uri_get_host(info->getEntity()),
+			creds.push_back(make_tuple(belle_sip_uri_get_user(uri), belle_sip_uri_get_host(uri),
 			                           new PresenceAuthListener(mMainLoop, info)));
 		}
-		dInfo.insert(
-		    pair<string, shared_ptr<PresentityPresenceInformation>>(belle_sip_uri_get_user(info->getEntity()), info));
+		dInfo.insert(pair<string, shared_ptr<PresentityPresenceInformation>>(belle_sip_uri_get_user(uri), info));
 	}
 	AuthDbBackend::get().getUsersWithPhone(creds);
 }
