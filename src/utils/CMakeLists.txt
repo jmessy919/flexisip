@@ -28,13 +28,14 @@ target_sources(flexisip PRIVATE
 	posix-process.cc posix-process.hh
 	rand.cc rand.hh
 	sip-uri.cc
-	string-formater.cc string-formater.hh
+	string-formatter.cc string-formatter.hh
 	string-utils.cc string-utils.hh
 	sys-err.cc sys-err.hh
 	thread/auto-thread-pool.cc thread/auto-thread-pool.hh
 	thread/basic-thread-pool.cc thread/basic-thread-pool.hh
 	thread/base-thread-pool.cc thread/base-thread-pool.hh
 	thread/thread-pool.hh
+	transport/http/authentication-manager.hh
 	transport/http/http2client.cc transport/http/http2client.hh
 	transport/http/http-headers.cc transport/http/http-headers.hh
 	transport/http/http-message.cc transport/http/http-message.hh
