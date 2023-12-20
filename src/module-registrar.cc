@@ -132,8 +132,8 @@ void OnRequestBindListener::onError() {
 }
 
 void OnRequestBindListener::onInvalid() {
-	LOGE("OnRequestBindListener::onInvalid : 400 - Replayed CSeq");
-	mModule->reply(mEv, 400, "Replayed CSeq");
+	LOGE("OnRequestBindListener::onInvalid: 400 - Replayed CSeq or Invalid SIP URI");
+	mModule->reply(mEv, 400, "Replayed CSeq or Invalid SIP URI");
 }
 
 OnResponseBindListener::OnResponseBindListener(ModuleRegistrar* module,
@@ -646,7 +646,7 @@ void ModuleRegistrar::processUpdateRequest(shared_ptr<SipEventT>& ev, const sip_
 	}
 }
 
-bool ModuleRegistrar::isAdjacentRegistration(const sip_t *sip){
+bool ModuleRegistrar::isAdjacentRegistration(const sip_t* sip) {
 	/* in the context of execution of Flexisip, we should always have a Path header inserted by onRequest().
 	 * More than one path header means that we are facing a non-adjacent registration */
 	return sip->sip_path == nullptr || sip->sip_path->r_next == nullptr;
@@ -686,9 +686,11 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent>& ev) {
 		reply(ev, 400, "Invalid Request");
 		return;
 	}
-	if (sip->sip_contact->m_url[0].url_scheme == nullptr) {
-		reply(ev, 400, "Invalid contact");
-		return;
+	for (auto contact = sip->sip_contact; contact != nullptr; contact = contact->m_next) {
+		if (!isValidSipUri(contact->m_url)) {
+			reply(ev, 400, "Invalid contact");
+			return;
+		}
 	}
 	if (!checkStarUse(sip->sip_contact, maindelta)) {
 		LOGD("The star rules are not respected.");
@@ -766,7 +768,9 @@ void ModuleRegistrar::onRequest(shared_ptr<RequestSipEvent>& ev) {
 			parameter.alias = false;
 			parameter.globalExpire = maindelta;
 			parameter.version = 0;
-			parameter.isAliasFunction = [this, ms](const url_t* ct) -> bool { return isAdjacentRegistration(ms->getSip()) && isManagedDomain(ct); };
+			parameter.isAliasFunction = [this, ms](const url_t* ct) -> bool {
+				return isAdjacentRegistration(ms->getSip()) && isManagedDomain(ct);
+			};
 			RegistrarDb::get()->bind(*ms, parameter, listener);
 			return;
 		}
@@ -846,7 +850,9 @@ void ModuleRegistrar::onResponse(shared_ptr<ResponseSipEvent>& ev) {
 			parameter.alias = false;
 			parameter.globalExpire = maindelta;
 			parameter.version = 0;
-			parameter.isAliasFunction = [this, request](const url_t* ct) -> bool { return isAdjacentRegistration(request->getSip()) && isManagedDomain(ct); };
+			parameter.isAliasFunction = [this, request](const url_t* ct) -> bool {
+				return isAdjacentRegistration(request->getSip()) && isManagedDomain(ct);
+			};
 			listener->addStatCounter(mStats.mCountBind->finish);
 
 			/* Before submiting the bind() request to the RegistrarDb, restore the Contact header as it was found in the
