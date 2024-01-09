@@ -24,15 +24,16 @@
 
 #pragma once
 
+#include <optional>
 #include <regex>
 #include <unordered_map>
-#include <optional>
 
 #include "linphone++/enums.hh"
 #include "linphone++/linphone.hh"
 
-#include "b2bua-server.hh"
+#include "b2bua/b2bua-server.hh"
 #include "cli.hh"
+#include "configuration/v1.hh"
 
 namespace flexisip {
 namespace b2bua {
@@ -82,29 +83,12 @@ private:
 	ExternalSipProvider& operator=(const ExternalSipProvider&) = delete;
 };
 
-struct AccountDesc {
-	std::string uri;
-	std::string userid;
-	std::string password;
-};
-
-struct ProviderDesc {
-	std::string name;
-	std::string pattern;
-	std::string outboundProxy;
-	bool registrationRequired;
-	uint32_t maxCallsPerLine;
-	std::vector<AccountDesc> accounts;
-	std::optional<bool> overrideAvpf;
-	std::optional<linphone::MediaEncryption> overrideEncryption;
-};
-
 class SipBridge : public b2bua::Application, public CliHandler {
 public:
 	SipBridge() {
 	}
 
-	SipBridge(linphone::Core& core, std::vector<ProviderDesc>&& provDescs);
+	SipBridge(linphone::Core&, config::v1::Root&&);
 
 	void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) override;
 	std::variant<linphone::Reason, std::shared_ptr<const linphone::Address>>
@@ -117,7 +101,7 @@ private:
 	std::vector<ExternalSipProvider> providers;
 	std::unordered_map<std::string, Account*> occupiedSlots;
 
-	void initFromDescs(linphone::Core& core, std::vector<ProviderDesc>&& provDescs);
+	void initFromDescs(linphone::Core&, config::v1::Root&&);
 
 	std::unique_ptr<std::pair<std::reference_wrapper<ExternalSipProvider>, std::reference_wrapper<Account>>>
 	findAccountToCall(const std::string& destinationUri);

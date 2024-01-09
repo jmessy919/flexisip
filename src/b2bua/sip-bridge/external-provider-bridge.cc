@@ -93,7 +93,7 @@ ExternalSipProvider::ExternalSipProvider(string&& pattern,
       overrideEncryption(overrideEncryption) {
 }
 
-void SipBridge::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& provDescs) {
+void SipBridge::initFromDescs(linphone::Core& core, config::v1::Root&& provDescs) {
 	providers.reserve(provDescs.size());
 	const auto factory = linphone::Factory::get();
 	auto params = core.createAccountParams();
@@ -144,7 +144,7 @@ void SipBridge::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& provD
 	}
 }
 
-SipBridge::SipBridge(linphone::Core& core, vector<ProviderDesc>&& provDescs) {
+SipBridge::SipBridge(linphone::Core& core, config::v1::Root&& provDescs) {
 	initFromDescs(core, std::move(provDescs));
 }
 
@@ -169,15 +169,18 @@ void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::Gen
 		LOGF("Failed to parse %s '%s':\n%s", fileDesignation, filePath.c_str(), errs.c_str());
 	}
 
-	auto providers = vector<ProviderDesc>();
+	auto providers = vector<config::v1::ProviderDesc>();
 	for (auto pit = jsonProviders.begin(); pit != jsonProviders.end(); pit++) {
 		auto& provider = *pit;
 		auto& jsonAccounts = provider["accounts"];
-		auto accounts = vector<AccountDesc>();
+		auto accounts = vector<config::v1::AccountDesc>();
 		for (auto ait = jsonAccounts.begin(); ait != jsonAccounts.end(); ait++) {
 			auto& account = *ait;
-			accounts.emplace_back(
-			    AccountDesc{account["uri"].asString(), account["userid"].asString(), account["password"].asString()});
+			accounts.emplace_back(config::v1::AccountDesc{
+			    account["uri"].asString(),
+			    account["userid"].asString(),
+			    account["password"].asString(),
+			});
 		}
 
 		optional<linphone::MediaEncryption> overrideEncryption{};
@@ -190,10 +193,16 @@ void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::Gen
 		if (enableAvpf.isBool()) {
 			overrideAvpf = enableAvpf.asBool();
 		}
-		providers.emplace_back(
-		    ProviderDesc{provider["name"].asString(), provider["pattern"].asString(),
-		                 provider["outboundProxy"].asString(), provider["registrationRequired"].asBool(),
-		                 provider["maxCallsPerLine"].asUInt(), std::move(accounts), overrideAvpf, overrideEncryption});
+		providers.emplace_back(config::v1::ProviderDesc{
+		    provider["name"].asString(),
+		    provider["pattern"].asString(),
+		    provider["outboundProxy"].asString(),
+		    provider["registrationRequired"].asBool(),
+		    provider["maxCallsPerLine"].asUInt(),
+		    std::move(accounts),
+		    overrideAvpf,
+		    overrideEncryption,
+		});
 	}
 
 	initFromDescs(*core, std::move(providers));

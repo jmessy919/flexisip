@@ -151,7 +151,7 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 
 	if(HAS_GCC_BUG_105616 OR HAS_GCC_BUG_105562)
 		set_source_files_properties(
-				b2bua/external-provider-bridge.cc
+				b2bua/sip-bridge/external-provider-bridge.cc
 				b2bua/trenscrypter.cc
 				configdumper.cc
 				domain-registrations.cc
@@ -324,8 +324,8 @@ if (ENABLE_B2BUA)
 		b2bua/b2bua-server.hh
 		b2bua/trenscrypter.cc
 		b2bua/trenscrypter.hh
-		b2bua/external-provider-bridge.hh
-		b2bua/external-provider-bridge.cc
+		b2bua/sip-bridge/external-provider-bridge.hh
+		b2bua/sip-bridge/external-provider-bridge.cc
 	)
 	target_link_libraries(flexisip
 		PUBLIC liblinphone++ liblinphone

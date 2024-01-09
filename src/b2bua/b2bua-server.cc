@@ -26,7 +26,7 @@
 #include "flexisip/utils/sip-uri.hh"
 
 #include "b2bua-server.hh"
-#include "external-provider-bridge.hh"
+#include "sip-bridge/external-provider-bridge.hh"
 #include "trenscrypter.hh"
 #include "utils/variant-utils.hh"
 

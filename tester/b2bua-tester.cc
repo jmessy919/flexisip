@@ -38,7 +38,7 @@
 #include "flexisip/sofia-wrapper/su-root.hh"
 #include "flexisip/utils/sip-uri.hh"
 
-#include "b2bua/external-provider-bridge.hh"
+#include "b2bua/sip-bridge/external-provider-bridge.hh"
 #include "tester.hh"
 #include "utils/asserts.hh"
 #include "utils/client-builder.hh"
@@ -67,6 +67,9 @@ static constexpr auto dtlsUri = "sip:b2bua_dtlsp@sip.example.org";
 // The external SIP proxy that the B2BUA will bridge calls to. (For test purposes, it's actually the same proxy)
 // MUST match config/flexisip_b2bua.conf:[b2bua-server]:outbound-proxy
 static constexpr auto outboundProxy = "sip:127.0.0.1:5860;transport=tcp";
+
+using V1ProviderDesc = flexisip::b2bua::bridge::config::v1::ProviderDesc;
+using V1AccountDesc = flexisip::b2bua::bridge::config::v1::AccountDesc;
 
 class B2buaServer : public Server {
 private:
@@ -117,9 +120,9 @@ public:
 		Server::start();
 	}
 
-	auto& configureExternalProviderBridge(std::initializer_list<flexisip::b2bua::bridge::ProviderDesc>&& provDescs) {
+	auto& configureExternalProviderBridge(std::initializer_list<V1ProviderDesc>&& provDescs) {
 		mB2buaServer->mApplication = make_unique<flexisip::b2bua::bridge::SipBridge>(
-		    *mB2buaServer->mCore, std::vector<flexisip::b2bua::bridge::ProviderDesc>(std::move(provDescs)));
+		    *mB2buaServer->mCore, std::vector<V1ProviderDesc>(std::move(provDescs)));
 		return static_cast<flexisip::b2bua::bridge::SipBridge&>(*mB2buaServer->mApplication);
 	}
 
@@ -220,16 +223,16 @@ static void external_provider_bridge__one_provider_one_line() {
 	using namespace flexisip::b2bua;
 	auto server = make_shared<B2buaServer>("config/flexisip_b2bua.conf");
 	const auto line1 = "sip:bridge@sip.provider1.com";
-	auto providers = {bridge::ProviderDesc{"provider1",
-	                                       "sip:\\+39.*",
-	                                       outboundProxy,
-	                                       false,
-	                                       1,
-	                                       {bridge::AccountDesc{
-	                                           line1,
-	                                           "",
-	                                           "",
-	                                       }}}};
+	auto providers = {V1ProviderDesc{"provider1",
+	                                 "sip:\\+39.*",
+	                                 outboundProxy,
+	                                 false,
+	                                 1,
+	                                 {V1AccountDesc{
+	                                     line1,
+	                                     "",
+	                                     "",
+	                                 }}}};
 	server->configureExternalProviderBridge(std::move(providers));
 
 	// Doesn't match any external provider
@@ -266,16 +269,16 @@ static void external_provider_bridge__one_provider_one_line() {
 static void external_provider_bridge__dtmf_forwarding() {
 	using namespace flexisip::b2bua;
 	auto server = make_shared<B2buaServer>("config/flexisip_b2bua.conf");
-	auto providers = {bridge::ProviderDesc{"provider1",
-	                                       "sip:\\+39.*",
-	                                       outboundProxy,
-	                                       false,
-	                                       1,
-	                                       {bridge::AccountDesc{
-	                                           "sip:bridge@sip.provider1.com",
-	                                           "",
-	                                           "",
-	                                       }}}};
+	auto providers = {V1ProviderDesc{"provider1",
+	                                 "sip:\\+39.*",
+	                                 outboundProxy,
+	                                 false,
+	                                 1,
+	                                 {V1AccountDesc{
+	                                     "sip:bridge@sip.provider1.com",
+	                                     "",
+	                                     "",
+	                                 }}}};
 	server->configureExternalProviderBridge(std::move(providers));
 	auto intercom = InternalClient("sip:intercom@sip.company1.com", server);
 	auto phone = ExternalClient("sip:+39064728917@sip.provider1.com;user=phone", server);
@@ -307,19 +310,19 @@ static void external_provider_bridge__call_release() {
 	using namespace flexisip::b2bua;
 	auto server = make_shared<B2buaServer>("config/flexisip_b2bua.conf");
 	// We start with 4 empty slots total, divided into 2 lines
-	auto providers = {bridge::ProviderDesc{
+	auto providers = {V1ProviderDesc{
 	    "2 lines 2 slots",
 	    ".*",
 	    outboundProxy,
 	    false,
 	    2,
 	    {
-	        bridge::AccountDesc{
+	        V1AccountDesc{
 	            "sip:line1@sip.provider1.com",
 	            "",
 	            "",
 	        },
-	        {bridge::AccountDesc{
+	        {V1AccountDesc{
 	            "sip:line2@sip.provider1.com",
 	            "",
 	            "",
@@ -394,18 +397,18 @@ static void external_provider_bridge__load_balancing() {
 	const auto call = ClientCall::getLinphoneCall(*callee.getCurrentCall());
 	auto& b2buaCore = *intercom.getCore();
 	auto params = b2buaCore.createCallParams(call);
-	vector<bridge::AccountDesc> lines{
-	    bridge::AccountDesc{
+	vector<V1AccountDesc> lines{
+	    V1AccountDesc{
 	        "sip:+39068439733@sip.provider1.com",
 	        "",
 	        "",
 	    },
-	    bridge::AccountDesc{
+	    V1AccountDesc{
 	        "sip:+39063466115@sip.provider1.com",
 	        "",
 	        "",
 	    },
-	    bridge::AccountDesc{
+	    V1AccountDesc{
 	        "sip:+39064726074@sip.provider1.com",
 	        "",
 	        "",
@@ -415,7 +418,7 @@ static void external_provider_bridge__load_balancing() {
 	const uint32_t maxCallsPerLine = 5000;
 	bridge::SipBridge sipBridge{
 	    b2buaCore,
-	    {bridge::ProviderDesc{
+	    {V1ProviderDesc{
 	        "provider1",
 	        "sip:\\+39.*",
 	        outboundProxy,
@@ -669,16 +672,16 @@ static void external_provider_bridge__b2bua_receives_several_forks() {
 static void external_provider_bridge__cli() {
 	using namespace flexisip::b2bua;
 	const auto core = linphone::Factory::get()->createCore("", "", nullptr);
-	auto sipBridge = bridge::SipBridge(*core, {bridge::ProviderDesc{"provider1",
-	                                                                  "regex1",
-	                                                                  "sip:107.20.139.176:682;transport=scp",
-	                                                                  false,
-	                                                                  682,
-	                                                                  {bridge::AccountDesc{
-	                                                                      "sip:account1@sip.example.org",
-	                                                                      "",
-	                                                                      "",
-	                                                                  }}}});
+	auto sipBridge = bridge::SipBridge(*core, {V1ProviderDesc{"provider1",
+	                                                          "regex1",
+	                                                          "sip:107.20.139.176:682;transport=scp",
+	                                                          false,
+	                                                          682,
+	                                                          {V1AccountDesc{
+	                                                              "sip:account1@sip.example.org",
+	                                                              "",
+	                                                              "",
+	                                                          }}}});
 
 	// Not a command handled by the bridge
 	auto output = sipBridge.handleCommand("REGISTRAR_DUMP", vector<string>{"INFO"});
