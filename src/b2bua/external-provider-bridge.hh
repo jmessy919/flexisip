@@ -39,7 +39,7 @@ namespace b2bua {
 namespace bridge {
 
 class Account {
-	friend class AccountManager;
+	friend class SipBridge;
 
 	std::shared_ptr<linphone::Account> account;
 	uint16_t freeSlots;
@@ -58,7 +58,7 @@ public:
 };
 
 class ExternalSipProvider {
-	friend class AccountManager;
+	friend class SipBridge;
 
 public:
 	// Move constructor
@@ -99,12 +99,12 @@ struct ProviderDesc {
 	std::optional<linphone::MediaEncryption> overrideEncryption;
 };
 
-class AccountManager : public BridgedCallApplication, public CliHandler {
+class SipBridge : public b2bua::Application, public CliHandler {
 public:
-	AccountManager() {
+	SipBridge() {
 	}
 
-	AccountManager(linphone::Core& core, std::vector<ProviderDesc>&& provDescs);
+	SipBridge(linphone::Core& core, std::vector<ProviderDesc>&& provDescs);
 
 	void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) override;
 	std::variant<linphone::Reason, std::shared_ptr<const linphone::Address>>

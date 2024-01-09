@@ -93,7 +93,7 @@ ExternalSipProvider::ExternalSipProvider(string&& pattern,
       overrideEncryption(overrideEncryption) {
 }
 
-void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& provDescs) {
+void SipBridge::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& provDescs) {
 	providers.reserve(provDescs.size());
 	const auto factory = linphone::Factory::get();
 	auto params = core.createAccountParams();
@@ -144,11 +144,11 @@ void AccountManager::initFromDescs(linphone::Core& core, vector<ProviderDesc>&& 
 	}
 }
 
-AccountManager::AccountManager(linphone::Core& core, vector<ProviderDesc>&& provDescs) {
+SipBridge::SipBridge(linphone::Core& core, vector<ProviderDesc>&& provDescs) {
 	initFromDescs(core, std::move(provDescs));
 }
 
-void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) {
+void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) {
 	auto filePath = config.get<GenericStruct>(configSection)->get<ConfigString>(providersConfigItem)->read();
 	if (filePath[0] != '/') {
 		// Interpret as relative to config file
@@ -200,7 +200,7 @@ void AccountManager::init(const shared_ptr<linphone::Core>& core, const flexisip
 }
 
 unique_ptr<pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>>
-AccountManager::findAccountToCall(const string& destinationUri) {
+SipBridge::findAccountToCall(const string& destinationUri) {
 	for (auto& provider : providers) {
 		if (!regex_match(destinationUri, provider.pattern)) {
 			continue;
@@ -223,7 +223,7 @@ AccountManager::findAccountToCall(const string& destinationUri) {
 }
 
 std::variant<linphone::Reason, std::shared_ptr<const linphone::Address>>
-AccountManager::onCallCreate(const linphone::Call& incomingCall, linphone::CallParams& outgoingCallParams) {
+SipBridge::onCallCreate(const linphone::Call& incomingCall, linphone::CallParams& outgoingCallParams) {
 	const auto requestAddress = incomingCall.getRequestAddress();
 	const auto addressAsString = requestAddress->asStringUriOnly();
 	const auto pair = findAccountToCall(addressAsString);
@@ -250,7 +250,7 @@ AccountManager::onCallCreate(const linphone::Call& incomingCall, linphone::CallP
 	return callee;
 }
 
-void AccountManager::onCallEnd(const linphone::Call& call) {
+void SipBridge::onCallEnd(const linphone::Call& call) {
 	const auto it = occupiedSlots.find(call.getCallLog()->getCallId());
 	if (it == occupiedSlots.end()) {
 		return;
@@ -259,7 +259,7 @@ void AccountManager::onCallEnd(const linphone::Call& call) {
 	occupiedSlots.erase(it);
 }
 
-string AccountManager::handleCommand(const string& command, const vector<string>& args) {
+string SipBridge::handleCommand(const string& command, const vector<string>& args) {
 	if (command != "SIP_BRIDGE") {
 		return "";
 	}

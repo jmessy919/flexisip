@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -118,12 +118,12 @@ public:
 	}
 
 	auto& configureExternalProviderBridge(std::initializer_list<flexisip::b2bua::bridge::ProviderDesc>&& provDescs) {
-		mB2buaServer->mApplication = make_unique<flexisip::b2bua::bridge::AccountManager>(
+		mB2buaServer->mApplication = make_unique<flexisip::b2bua::bridge::SipBridge>(
 		    *mB2buaServer->mCore, std::vector<flexisip::b2bua::bridge::ProviderDesc>(std::move(provDescs)));
-		return static_cast<flexisip::b2bua::bridge::AccountManager&>(*mB2buaServer->mApplication);
+		return static_cast<flexisip::b2bua::bridge::SipBridge&>(*mB2buaServer->mApplication);
 	}
 
-	flexisip::b2bua::BridgedCallApplication& getModule() {
+	flexisip::b2bua::Application& getModule() {
 		return *mB2buaServer->mApplication;
 	}
 
@@ -413,7 +413,7 @@ static void external_provider_bridge__load_balancing() {
 	};
 	const uint32_t line_count = lines.size();
 	const uint32_t maxCallsPerLine = 5000;
-	bridge::AccountManager accman{
+	bridge::SipBridge sipBridge{
 	    b2buaCore,
 	    {bridge::ProviderDesc{
 	        "provider1",
@@ -428,7 +428,7 @@ static void external_provider_bridge__load_balancing() {
 
 	uint32_t i = 0;
 	for (; i < maxCallsPerLine; i++) {
-		const auto result = accman.onCallCreate(*call, *params);
+		const auto result = sipBridge.onCallCreate(*call, *params);
 		const auto* callee = get_if<shared_ptr<const linphone::Address>>(&result);
 		BC_HARD_ASSERT_TRUE(callee != nullptr);
 		BC_ASSERT_CPP_EQUAL((**callee).getUsername(), expectedUsername);
@@ -451,14 +451,14 @@ static void external_provider_bridge__load_balancing() {
 
 	// Finish saturating all the lines
 	for (; i < (maxCallsPerLine * line_count); i++) {
-		const auto result = accman.onCallCreate(*call, *params);
+		const auto result = sipBridge.onCallCreate(*call, *params);
 		const auto* callee = get_if<shared_ptr<const linphone::Address>>(&result);
 		BC_HARD_ASSERT_TRUE(callee != nullptr);
 		BC_ASSERT_CPP_EQUAL((**callee).getUsername(), expectedUsername);
 	}
 
 	// Only now would the call get rejected
-	BC_ASSERT_TRUE(holds_alternative<linphone::Reason>(accman.onCallCreate(*call, *params)));
+	BC_ASSERT_TRUE(holds_alternative<linphone::Reason>(sipBridge.onCallCreate(*call, *params)));
 }
 
 static void external_provider_bridge__parse_register_authenticate() {
@@ -470,7 +470,7 @@ static void external_provider_bridge__parse_register_authenticate() {
 	    ->get<ConfigString>("application")
 	    ->set("sip-bridge");
 	server->start();
-	auto& accman = dynamic_cast<flexisip::b2bua::bridge::AccountManager&>(server->getModule());
+	auto& sipBridge = dynamic_cast<flexisip::b2bua::bridge::SipBridge&>(server->getModule());
 	auto builder = server->clientBuilder();
 
 	// Only one account is registered and available
@@ -488,7 +488,7 @@ static void external_provider_bridge__parse_register_authenticate() {
 	BC_ASSERT_PTR_NOT_NULL(invite);
 	BC_ASSERT_FALSE(other_phone.hasReceivedCallFrom(other_intercom));
 
-	const auto info = accman.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
+	const auto info = sipBridge.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
 	const auto expected = R"({
 	"providers" : 
 	[
@@ -536,7 +536,7 @@ static void external_provider_bridge__override_special_options() {
 	ConfigItemDescriptor configItems[] = {{String, "providers", "help", providersJson.name}, config_item_end};
 	RootConfigStruct config("placeholder", "A stub config root for testing", {});
 	config.addChild(make_unique<GenericStruct>("b2bua-server::sip-bridge", "help", 0))->addChildrenValues(configItems);
-	b2bua::bridge::AccountManager accman{};
+	b2bua::bridge::SipBridge sipBridge{};
 	Server proxy{{
 	    // Requesting bind on port 0 to let the kernel find any available port
 	    {"global/transports", "sip:127.0.0.1:0;transport=tcp"},
@@ -554,12 +554,12 @@ static void external_provider_bridge__override_special_options() {
 	const auto call = ClientCall::getLinphoneCall(*callee.getCurrentCall());
 	BC_HARD_ASSERT_TRUE(call->getRequestAddress()->asStringUriOnly() != "");
 	const auto core = minimalCore(*linphone::Factory::get());
-	accman.init(core, config);
+	sipBridge.init(core, config);
 	auto params = core->createCallParams(call);
 	params->setMediaEncryption(MediaEncryption::ZRTP);
 	params->enableAvpf(true);
 
-	const auto calleeAddres = accman.onCallCreate(*call, *params);
+	const auto calleeAddres = sipBridge.onCallCreate(*call, *params);
 
 	BC_ASSERT_TRUE(holds_alternative<shared_ptr<const linphone::Address>>(calleeAddres));
 	// Special call params overriden
@@ -669,7 +669,7 @@ static void external_provider_bridge__b2bua_receives_several_forks() {
 static void external_provider_bridge__cli() {
 	using namespace flexisip::b2bua;
 	const auto core = linphone::Factory::get()->createCore("", "", nullptr);
-	auto accman = bridge::AccountManager(*core, {bridge::ProviderDesc{"provider1",
+	auto sipBridge = bridge::SipBridge(*core, {bridge::ProviderDesc{"provider1",
 	                                                                  "regex1",
 	                                                                  "sip:107.20.139.176:682;transport=scp",
 	                                                                  false,
@@ -681,20 +681,20 @@ static void external_provider_bridge__cli() {
 	                                                                  }}}});
 
 	// Not a command handled by the bridge
-	auto output = accman.handleCommand("REGISTRAR_DUMP", vector<string>{"INFO"});
+	auto output = sipBridge.handleCommand("REGISTRAR_DUMP", vector<string>{"INFO"});
 	auto expected = "";
 	BC_ASSERT_TRUE(output == expected);
 
 	// Unknown subcommand
-	output = accman.handleCommand("SIP_BRIDGE", {});
+	output = sipBridge.handleCommand("SIP_BRIDGE", {});
 	expected = "Valid subcommands for SIP_BRIDGE:\n"
 	           "  INFO  displays information on the current state of the bridge.";
 	BC_ASSERT_TRUE(output == expected);
-	output = accman.handleCommand("SIP_BRIDGE", vector<string>{"anything"});
+	output = sipBridge.handleCommand("SIP_BRIDGE", vector<string>{"anything"});
 	BC_ASSERT_TRUE(output == expected);
 
 	// INFO command
-	output = accman.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
+	output = sipBridge.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
 	// Fields are sorted alphabetically, and `:` are surrounded by whitespace (` : `) even before linebreaks
 	// (Yes, that's important when writing assertions like the following)
 	// (No, it can't be configured in Jsoncpp, or I didn't find where)
