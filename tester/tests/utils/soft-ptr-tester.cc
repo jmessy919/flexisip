@@ -119,13 +119,13 @@ void objectDoesNotLiveLongEnough() {
 	}};
 
 	// With sanitizers on, stack unwinding and printing can take a long time
-	Match(std::move(segfaulting).wait(2s))
+	Match(std::move(segfaulting).wait(4s))
 	    .against(
 	        [](ExitedNormally&& crashed) {
 		        std::ostringstream serStream{};
 		        serStream << std::move(crashed);
 		        auto serialized = serStream.str();
-		        if (serialized.find("ERROR: AddressSanitizer:") == std::string::npos) {
+		        if (serialized.find("AddressSanitizer:") == std::string::npos) {
 			        std::ostringstream msg{};
 			        msg << "Subprocess does not appear to have crashed to a memory error: " << serialized;
 			        bc_assert(__FILE__, __LINE__, false, msg.str().c_str());

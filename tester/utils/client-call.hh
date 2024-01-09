@@ -22,8 +22,10 @@ public:
 	linphone::Status accept() const;
 	linphone::Status acceptEarlyMedia() const;
 	linphone::Status decline(linphone::Reason) const;
+	linphone::Status terminate() const;
 	linphone::Call::State getState() const;
 	linphone::Reason getReason() const;
+	std::shared_ptr<const linphone::Address> getRemoteAddress() const;
 	const bool& videoFrameDecoded();
 
 	/* CHEATS ~~ Use only for quick prototyping */

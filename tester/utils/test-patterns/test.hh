@@ -26,8 +26,7 @@
 
 #include <bctoolbox/tester.h>
 
-namespace flexisip {
-namespace tester {
+namespace flexisip::tester {
 
 class TestAssertFailedException : public std::exception {
 public:
@@ -120,26 +119,28 @@ inline void bc_hard_assert(const char* file, int line, int predicate, const char
 	{                                                                                                                  \
 		bool exceptionWasThrown = false;                                                                               \
 		try {                                                                                                          \
-		expression;                                                                                                    \
-	} catch (const expectedType& exception) {                                                                          \
-		exceptionWasThrown = true;                                                                                     \
-		if (typeid(exception) == typeid(expectedType)) {                                                               \
-			BC_PASS("");                                                                                               \
-		} else {                                                                                                       \
+			expression;                                                                                                \
+		} catch (const expectedType& exception) {                                                                      \
+			exceptionWasThrown = true;                                                                                 \
+			if (typeid(exception) == typeid(expectedType)) {                                                           \
+				BC_PASS("");                                                                                           \
+			} else {                                                                                                   \
+				bc_assert(__FILE__, __LINE__, 0,                                                                       \
+				          ("thrown exception has wrong type, " + std::string(typeid(exception).name()) +               \
+				           " != " + std::string(typeid(expectedType).name()))                                          \
+				              .c_str());                                                                               \
+			}                                                                                                          \
+		} catch (const exception& e) {                                                                                 \
+			exceptionWasThrown = true;                                                                                 \
 			bc_assert(__FILE__, __LINE__, 0,                                                                           \
-			          ("thrown exception has wrong type, " + std::string(typeid(exception).name()) +                   \
-			           " != " + std::string(typeid(expectedType).name()))                                              \
+			          ("thrown exception has wrong type, " + std::string(typeid(expectedType).name()) +                \
+			           " was expected but " + std::string(typeid(e).name()) + " was sent.")                            \
 			              .c_str());                                                                                   \
 		}                                                                                                              \
-	} catch (...) {                                                                                                    \
-		exceptionWasThrown = true;                                                                                     \
-		bc_assert(__FILE__, __LINE__, 0,                                                                               \
-		          ("thrown exception has wrong type, " + std::string(typeid(expectedType).name()) + " was expected")   \
-		              .c_str());                                                                                       \
-	}                                                                                                                  \
-	if (!exceptionWasThrown) {                                                                                         \
-		bc_assert(__FILE__, __LINE__, 0,                                                                               \
-		          ("expected " + std::string(typeid(expectedType).name()) + " but no exception was thrown").c_str());  \
+		if (!exceptionWasThrown) {                                                                                     \
+			bc_assert(                                                                                                 \
+			    __FILE__, __LINE__, 0,                                                                                 \
+			    ("expected " + std::string(typeid(expectedType).name()) + " but no exception was thrown").c_str());    \
 		}                                                                                                              \
 	}
 
@@ -201,5 +202,4 @@ static void run() noexcept {
 
 #define CLASSY_TEST(test_class) TEST_NO_TAG(#test_class, run<test_class>)
 
-} // namespace tester
-} // namespace flexisip
+} // namespace flexisip::tester

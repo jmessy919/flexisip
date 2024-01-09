@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2023  Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -9,11 +9,11 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <memory>
@@ -26,7 +26,7 @@
 #include "flexisip/utils/sip-uri.hh"
 
 #include "b2bua-server.hh"
-#include "external-provider-bridge.hh"
+#include "sip-bridge/external-provider-bridge.hh"
 #include "trenscrypter.hh"
 #include "utils/variant-utils.hh"
 
@@ -320,6 +320,7 @@ void B2buaServer::_init() {
 	// make sure the videostream can be started when using unsupported codec
 	configLinphone->setBool("video", "fallback_to_dummy_codec", true);
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
+	mCore->setLabel("Flexisip B2BUA");
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
 	mCore->setUseFiles(true); // No sound card shall be used in calls
@@ -426,7 +427,7 @@ void B2buaServer::_init() {
 	if (applicationType == "trenscrypter") {
 		mApplication = make_unique<b2bua::trenscrypter::Trenscrypter>();
 	} else if (applicationType == "sip-bridge") {
-		auto bridge = make_unique<b2bua::bridge::AccountManager>();
+		auto bridge = make_unique<b2bua::bridge::SipBridge>(mRoot);
 		mCli.registerHandler(*bridge);
 		mApplication = std::move(bridge);
 	} else {

@@ -28,7 +28,13 @@
 using namespace std;
 
 vector<string> StringUtils::split(const string& str, const string& delimiter) noexcept {
-	vector<string> out;
+	const auto views = split(string_view{str}, string_view{delimiter});
+
+	return {views.begin(), views.end()};
+}
+
+vector<string_view> StringUtils::split(string_view str, string_view delimiter) noexcept {
+	vector<string_view> out;
 
 	if (!str.empty()) {
 		size_t pos = 0, oldPos = 0;
@@ -38,6 +44,13 @@ vector<string> StringUtils::split(const string& str, const string& delimiter) no
 	}
 
 	return out;
+}
+
+optional<pair<string_view, string_view>> StringUtils::splitOnce(string_view str, string_view delimiter) noexcept {
+	const auto pos = str.find(delimiter);
+	if (pos == string_view::npos) return nullopt;
+
+	return {{str.substr(0, pos), str.substr(pos + delimiter.size())}};
 }
 
 std::string StringUtils::strip(const char* str, char c) noexcept {
@@ -107,8 +120,7 @@ std::string StringUtils::transform(const std::string& str, const std::map<char, 
 }
 
 #ifdef HAVE_LIBLINPHONECXX
-std::optional<linphone::MediaEncryption>
-StringUtils::string2MediaEncryption(const std::string& str) {
+std::optional<linphone::MediaEncryption> StringUtils::string2MediaEncryption(const std::string& str) {
 	using enc = linphone::MediaEncryption;
 	if (str == "zrtp") {
 		return enc::ZRTP;

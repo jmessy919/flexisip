@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -38,7 +38,7 @@
 #include "flexisip/sofia-wrapper/su-root.hh"
 #include "flexisip/utils/sip-uri.hh"
 
-#include "b2bua/external-provider-bridge.hh"
+#include "b2bua/sip-bridge/external-provider-bridge.hh"
 #include "tester.hh"
 #include "utils/asserts.hh"
 #include "utils/client-builder.hh"
@@ -67,6 +67,9 @@ static constexpr auto dtlsUri = "sip:b2bua_dtlsp@sip.example.org";
 // The external SIP proxy that the B2BUA will bridge calls to. (For test purposes, it's actually the same proxy)
 // MUST match config/flexisip_b2bua.conf:[b2bua-server]:outbound-proxy
 static constexpr auto outboundProxy = "sip:127.0.0.1:5860;transport=tcp";
+
+using V1ProviderDesc = flexisip::b2bua::bridge::config::v1::ProviderDesc;
+using V1AccountDesc = flexisip::b2bua::bridge::config::v1::AccountDesc;
 
 class B2buaServer : public Server {
 private:
@@ -117,13 +120,15 @@ public:
 		Server::start();
 	}
 
-	auto& configureExternalProviderBridge(std::initializer_list<flexisip::b2bua::bridge::ProviderDesc>&& provDescs) {
-		mB2buaServer->mApplication = make_unique<flexisip::b2bua::bridge::AccountManager>(
-		    *mB2buaServer->mCore, std::vector<flexisip::b2bua::bridge::ProviderDesc>(std::move(provDescs)));
-		return static_cast<flexisip::b2bua::bridge::AccountManager&>(*mB2buaServer->mApplication);
+	auto& configureExternalProviderBridge(std::initializer_list<V1ProviderDesc>&& provDescs) {
+		using namespace b2bua::bridge;
+		mB2buaServer->mApplication =
+		    make_unique<SipBridge>(make_shared<sofiasip::SuRoot>(), *mB2buaServer->mCore,
+		                           config::v2::fromV1(std::vector<V1ProviderDesc>(std::move(provDescs))));
+		return static_cast<SipBridge&>(*mB2buaServer->mApplication);
 	}
 
-	flexisip::b2bua::BridgedCallApplication& getModule() {
+	flexisip::b2bua::Application& getModule() {
 		return *mB2buaServer->mApplication;
 	}
 
@@ -220,16 +225,16 @@ static void external_provider_bridge__one_provider_one_line() {
 	using namespace flexisip::b2bua;
 	auto server = make_shared<B2buaServer>("config/flexisip_b2bua.conf");
 	const auto line1 = "sip:bridge@sip.provider1.com";
-	auto providers = {bridge::ProviderDesc{"provider1",
-	                                       "sip:\\+39.*",
-	                                       outboundProxy,
-	                                       false,
-	                                       1,
-	                                       {bridge::AccountDesc{
-	                                           line1,
-	                                           "",
-	                                           "",
-	                                       }}}};
+	auto providers = {V1ProviderDesc{"provider1",
+	                                 "sip:\\+39.*",
+	                                 outboundProxy,
+	                                 false,
+	                                 1,
+	                                 {V1AccountDesc{
+	                                     line1,
+	                                     "",
+	                                     "",
+	                                 }}}};
 	server->configureExternalProviderBridge(std::move(providers));
 
 	// Doesn't match any external provider
@@ -266,16 +271,16 @@ static void external_provider_bridge__one_provider_one_line() {
 static void external_provider_bridge__dtmf_forwarding() {
 	using namespace flexisip::b2bua;
 	auto server = make_shared<B2buaServer>("config/flexisip_b2bua.conf");
-	auto providers = {bridge::ProviderDesc{"provider1",
-	                                       "sip:\\+39.*",
-	                                       outboundProxy,
-	                                       false,
-	                                       1,
-	                                       {bridge::AccountDesc{
-	                                           "sip:bridge@sip.provider1.com",
-	                                           "",
-	                                           "",
-	                                       }}}};
+	auto providers = {V1ProviderDesc{"provider1",
+	                                 "sip:\\+39.*",
+	                                 outboundProxy,
+	                                 false,
+	                                 1,
+	                                 {V1AccountDesc{
+	                                     "sip:bridge@sip.provider1.com",
+	                                     "",
+	                                     "",
+	                                 }}}};
 	server->configureExternalProviderBridge(std::move(providers));
 	auto intercom = InternalClient("sip:intercom@sip.company1.com", server);
 	auto phone = ExternalClient("sip:+39064728917@sip.provider1.com;user=phone", server);
@@ -307,19 +312,19 @@ static void external_provider_bridge__call_release() {
 	using namespace flexisip::b2bua;
 	auto server = make_shared<B2buaServer>("config/flexisip_b2bua.conf");
 	// We start with 4 empty slots total, divided into 2 lines
-	auto providers = {bridge::ProviderDesc{
+	auto providers = {V1ProviderDesc{
 	    "2 lines 2 slots",
 	    ".*",
 	    outboundProxy,
 	    false,
 	    2,
 	    {
-	        bridge::AccountDesc{
+	        V1AccountDesc{
 	            "sip:line1@sip.provider1.com",
 	            "",
 	            "",
 	        },
-	        {bridge::AccountDesc{
+	        {V1AccountDesc{
 	            "sip:line2@sip.provider1.com",
 	            "",
 	            "",
@@ -385,7 +390,7 @@ static void external_provider_bridge__load_balancing() {
 	proxy.start();
 	const auto builder = proxy.clientBuilder();
 	const auto intercom = builder.build("sip:caller@sip.company1.com");
-	// Fake a call close enough to what the AccountManager will be taking as input
+	// Fake a call close enough to what the SipBridge will be taking as input
 	// Only incoming calls have a request address, so we need a stand-in client to receive it
 	const string expectedUsername = "+39067362350";
 	auto callee = builder.build("sip:" + expectedUsername + "@sip.company1.com;user=phone");
@@ -394,18 +399,18 @@ static void external_provider_bridge__load_balancing() {
 	const auto call = ClientCall::getLinphoneCall(*callee.getCurrentCall());
 	auto& b2buaCore = *intercom.getCore();
 	auto params = b2buaCore.createCallParams(call);
-	vector<bridge::AccountDesc> lines{
-	    bridge::AccountDesc{
+	vector<V1AccountDesc> lines{
+	    V1AccountDesc{
 	        "sip:+39068439733@sip.provider1.com",
 	        "",
 	        "",
 	    },
-	    bridge::AccountDesc{
+	    V1AccountDesc{
 	        "sip:+39063466115@sip.provider1.com",
 	        "",
 	        "",
 	    },
-	    bridge::AccountDesc{
+	    V1AccountDesc{
 	        "sip:+39064726074@sip.provider1.com",
 	        "",
 	        "",
@@ -413,22 +418,22 @@ static void external_provider_bridge__load_balancing() {
 	};
 	const uint32_t line_count = lines.size();
 	const uint32_t maxCallsPerLine = 5000;
-	bridge::AccountManager accman{
-	    b2buaCore,
-	    {bridge::ProviderDesc{
-	        "provider1",
-	        "sip:\\+39.*",
-	        outboundProxy,
-	        false,
-	        maxCallsPerLine,
-	        std::move(lines),
-	    }},
-	};
+	bridge::SipBridge sipBridge{0, b2buaCore,
+	                            bridge::config::v2::fromV1({
+	                                V1ProviderDesc{
+	                                    "provider1",
+	                                    "sip:\\+39.*",
+	                                    outboundProxy,
+	                                    false,
+	                                    maxCallsPerLine,
+	                                    std::move(lines),
+	                                },
+	                            })};
 	auto tally = unordered_map<const linphone::Account*, uint32_t>();
 
 	uint32_t i = 0;
 	for (; i < maxCallsPerLine; i++) {
-		const auto result = accman.onCallCreate(*call, *params);
+		const auto result = sipBridge.onCallCreate(*call, *params);
 		const auto* callee = get_if<shared_ptr<const linphone::Address>>(&result);
 		BC_HARD_ASSERT_TRUE(callee != nullptr);
 		BC_ASSERT_CPP_EQUAL((**callee).getUsername(), expectedUsername);
@@ -451,14 +456,14 @@ static void external_provider_bridge__load_balancing() {
 
 	// Finish saturating all the lines
 	for (; i < (maxCallsPerLine * line_count); i++) {
-		const auto result = accman.onCallCreate(*call, *params);
+		const auto result = sipBridge.onCallCreate(*call, *params);
 		const auto* callee = get_if<shared_ptr<const linphone::Address>>(&result);
 		BC_HARD_ASSERT_TRUE(callee != nullptr);
 		BC_ASSERT_CPP_EQUAL((**callee).getUsername(), expectedUsername);
 	}
 
 	// Only now would the call get rejected
-	BC_ASSERT_TRUE(holds_alternative<linphone::Reason>(accman.onCallCreate(*call, *params)));
+	BC_ASSERT_TRUE(holds_alternative<linphone::Reason>(sipBridge.onCallCreate(*call, *params)));
 }
 
 static void external_provider_bridge__parse_register_authenticate() {
@@ -470,7 +475,7 @@ static void external_provider_bridge__parse_register_authenticate() {
 	    ->get<ConfigString>("application")
 	    ->set("sip-bridge");
 	server->start();
-	auto& accman = dynamic_cast<flexisip::b2bua::bridge::AccountManager&>(server->getModule());
+	auto& sipBridge = dynamic_cast<flexisip::b2bua::bridge::SipBridge&>(server->getModule());
 	auto builder = server->clientBuilder();
 
 	// Only one account is registered and available
@@ -488,34 +493,40 @@ static void external_provider_bridge__parse_register_authenticate() {
 	BC_ASSERT_PTR_NOT_NULL(invite);
 	BC_ASSERT_FALSE(other_phone.hasReceivedCallFrom(other_intercom));
 
-	const auto info = accman.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
-	const auto expected = R"({
-	"providers" : 
-	[
+	const auto info = sipBridge.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
+	auto parsed = nlohmann::json::parse(info);
+	auto& accounts = parsed["providers"][0]["accounts"];
+	const std::unordered_set<nlohmann::json> parsedAccountSet{accounts.begin(), accounts.end()};
+	accounts.clear();
+
+	BC_ASSERT_CPP_EQUAL(parsed, R"({
+		"providers" : 
+		[
+			{
+				"accounts" : [ ],
+				"name" : "provider1"
+			}
+		]
+	})"_json);
+
+	const auto expectedAccounts = R"([
 		{
-			"accounts" : 
-			[
-				{
-					"address" : "sip:wrongpassword@auth.provider1.com",
-					"status" : "Registration failed: Bad credentials"
-				},
-				{
-					"address" : "sip:unregistered@auth.provider1.com",
-					"status" : "Registration failed: Bad credentials"
-				},
-				{
-					"address" : "sip:registered@auth.provider1.com",
-					"freeSlots" : 0,
-					"registerEnabled" : true,
-					"status" : "OK"
-				}
-			],
-			"name" : "provider1"
+			"address" : "sip:registered@auth.provider1.com",
+			"freeSlots" : 0,
+			"registerEnabled" : true,
+			"status" : "OK"
+		},
+		{
+			"address" : "sip:unregistered@auth.provider1.com",
+			"status" : "Registration failed: Bad credentials"
+		},
+		{
+			"address" : "sip:wrongpassword@auth.provider1.com",
+			"status" : "Registration failed: Bad credentials"
 		}
-	]
-})";
-	SLOGD << "SIP BRIDGE INFO: " << info;
-	BC_ASSERT_TRUE(info == expected);
+	])"_json;
+	decltype(parsedAccountSet) expectedAccountSet{expectedAccounts.begin(), expectedAccounts.end()};
+	BC_ASSERT_CPP_EQUAL(parsedAccountSet, expectedAccountSet);
 
 	intercom.endCurrentCall(phone);
 }
@@ -536,7 +547,7 @@ static void external_provider_bridge__override_special_options() {
 	ConfigItemDescriptor configItems[] = {{String, "providers", "help", providersJson.name}, config_item_end};
 	RootConfigStruct config("placeholder", "A stub config root for testing", {});
 	config.addChild(make_unique<GenericStruct>("b2bua-server::sip-bridge", "help", 0))->addChildrenValues(configItems);
-	b2bua::bridge::AccountManager accman{};
+	b2bua::bridge::SipBridge sipBridge{make_shared<sofiasip::SuRoot>()};
 	Server proxy{{
 	    // Requesting bind on port 0 to let the kernel find any available port
 	    {"global/transports", "sip:127.0.0.1:0;transport=tcp"},
@@ -546,7 +557,7 @@ static void external_provider_bridge__override_special_options() {
 	proxy.start();
 	const auto builder = proxy.clientBuilder();
 	const auto caller = builder.build("sip:caller@sip.example.com");
-	// Fake a call close enough to what the AccountManager will be taking as input
+	// Fake a call close enough to what the SipBridge will be taking as input
 	// Only incoming calls have a request address, so we need a stand-in client to receive it
 	auto callee = builder.build("sip:unique-pattern@sip.example.com");
 	caller.invite(callee);
@@ -554,12 +565,12 @@ static void external_provider_bridge__override_special_options() {
 	const auto call = ClientCall::getLinphoneCall(*callee.getCurrentCall());
 	BC_HARD_ASSERT_TRUE(call->getRequestAddress()->asStringUriOnly() != "");
 	const auto core = minimalCore(*linphone::Factory::get());
-	accman.init(core, config);
+	sipBridge.init(core, config);
 	auto params = core->createCallParams(call);
 	params->setMediaEncryption(MediaEncryption::ZRTP);
 	params->enableAvpf(true);
 
-	const auto calleeAddres = accman.onCallCreate(*call, *params);
+	const auto calleeAddres = sipBridge.onCallCreate(*call, *params);
 
 	BC_ASSERT_TRUE(holds_alternative<shared_ptr<const linphone::Address>>(calleeAddres));
 	// Special call params overriden
@@ -669,32 +680,40 @@ static void external_provider_bridge__b2bua_receives_several_forks() {
 static void external_provider_bridge__cli() {
 	using namespace flexisip::b2bua;
 	const auto core = linphone::Factory::get()->createCore("", "", nullptr);
-	auto accman = bridge::AccountManager(*core, {bridge::ProviderDesc{"provider1",
-	                                                                  "regex1",
-	                                                                  "sip:107.20.139.176:682;transport=scp",
-	                                                                  false,
-	                                                                  682,
-	                                                                  {bridge::AccountDesc{
-	                                                                      "sip:account1@sip.example.org",
-	                                                                      "",
-	                                                                      "",
-	                                                                  }}}});
+	bridge::SipBridge sipBridge{0, *core,
+	                            bridge::config::v2::fromV1({
+	                                {
+	                                    .name = "provider1",
+	                                    .pattern = "regex1",
+	                                    .outboundProxy = "sip:107.20.139.176:682;transport=scp",
+	                                    .registrationRequired = false,
+	                                    .maxCallsPerLine = 682,
+	                                    .accounts =
+	                                        {
+	                                            {
+	                                                .uri = "sip:account1@sip.example.org",
+	                                                .userid = "",
+	                                                .password = "",
+	                                            },
+	                                        },
+	                                },
+	                            })};
 
 	// Not a command handled by the bridge
-	auto output = accman.handleCommand("REGISTRAR_DUMP", vector<string>{"INFO"});
+	auto output = sipBridge.handleCommand("REGISTRAR_DUMP", vector<string>{"INFO"});
 	auto expected = "";
 	BC_ASSERT_TRUE(output == expected);
 
 	// Unknown subcommand
-	output = accman.handleCommand("SIP_BRIDGE", {});
+	output = sipBridge.handleCommand("SIP_BRIDGE", {});
 	expected = "Valid subcommands for SIP_BRIDGE:\n"
 	           "  INFO  displays information on the current state of the bridge.";
 	BC_ASSERT_TRUE(output == expected);
-	output = accman.handleCommand("SIP_BRIDGE", vector<string>{"anything"});
+	output = sipBridge.handleCommand("SIP_BRIDGE", vector<string>{"anything"});
 	BC_ASSERT_TRUE(output == expected);
 
 	// INFO command
-	output = accman.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
+	output = sipBridge.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
 	// Fields are sorted alphabetically, and `:` are surrounded by whitespace (` : `) even before linebreaks
 	// (Yes, that's important when writing assertions like the following)
 	// (No, it can't be configured in Jsoncpp, or I didn't find where)
