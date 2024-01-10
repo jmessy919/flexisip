@@ -8,15 +8,14 @@
 
 #pragma once
 
-#include <optional>
 #include <string>
 #include <vector>
 
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 
-#include "linphone++/enums.hh"
+#include "media-encryption.hh"
 
-#include "flexiapi/schemas/optional-json.hh" // IWYU pragma: keep. To serialize std::optional<T>
+#include "flexiapi/schemas/optional-json.hh"
 
 namespace flexisip::b2bua::bridge::config::v1 {
 
@@ -34,8 +33,8 @@ struct ProviderDesc {
 	bool registrationRequired;
 	uint32_t maxCallsPerLine;
 	std::vector<AccountDesc> accounts;
-	std::optional<bool> overrideAvpf;
-	std::optional<linphone::MediaEncryption> overrideEncryption;
+	std::optional<bool> enableAvpf;
+	std::optional<linphone::MediaEncryption> mediaEncryption;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ProviderDesc,
                                                 name,
@@ -44,8 +43,8 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ProviderDesc,
                                                 registrationRequired,
                                                 maxCallsPerLine,
                                                 accounts,
-                                                overrideAvpf,
-                                                overrideEncryption);
+                                                enableAvpf,
+                                                mediaEncryption);
 
 using Root = std::vector<ProviderDesc>;
 

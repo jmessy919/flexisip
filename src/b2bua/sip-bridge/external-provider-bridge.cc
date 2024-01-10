@@ -138,8 +138,8 @@ void SipBridge::initFromDescs(linphone::Core& core, config::v1::Root&& provDescs
 			accounts.emplace_back(Account(std::move(account), std::move(provDesc.maxCallsPerLine)));
 		}
 		providers.emplace_back(ExternalSipProvider(std::move(provDesc.pattern), std::move(accounts),
-		                                           std::move(provDesc.name), provDesc.overrideAvpf,
-		                                           provDesc.overrideEncryption));
+		                                           std::move(provDesc.name), provDesc.enableAvpf,
+		                                           provDesc.mediaEncryption));
 	}
 }
 
