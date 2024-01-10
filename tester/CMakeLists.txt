@@ -180,7 +180,10 @@ endif()
 
 
 if(ENABLE_B2BUA)
-	target_sources(flexisip_tester PRIVATE b2bua-tester.cc)
+	target_sources(flexisip_tester PRIVATE
+		b2bua-tester.cc
+		tests/b2bua/sip-bridge/configuration/v2-tester.cc
+	)
 endif()
 
 target_compile_options(flexisip_tester PRIVATE ${CPP_BUILD_FLAGS} ${CXX_BUILD_FLAGS})
