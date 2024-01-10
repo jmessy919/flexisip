@@ -20,13 +20,12 @@
 #include <iostream>
 #include <regex>
 
+#include "lib/nlohmann-json-3-11-2/json.hpp"
 #include <json/json.h>
 
 #include "linphone++/enums.hh"
 #include "linphone++/linphone.hh"
 #include "linphone/misc.h"
-
-#include "utils/string-utils.hh"
 
 #include "external-provider-bridge.hh"
 
@@ -162,50 +161,11 @@ void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::Gen
 		LOGF("Failed to open %s '%s'", fileDesignation, filePath.c_str());
 	}
 
-	auto builder = Json::CharReaderBuilder();
-	Json::Value jsonProviders;
-	JSONCPP_STRING errs;
-	if (!Json::parseFromStream(builder, fileStream, &jsonProviders, &errs)) {
-		LOGF("Failed to parse %s '%s':\n%s", fileDesignation, filePath.c_str(), errs.c_str());
-	}
+	// Parse file
+	nlohmann::json j;
+	fileStream >> j;
 
-	auto providers = vector<config::v1::ProviderDesc>();
-	for (auto pit = jsonProviders.begin(); pit != jsonProviders.end(); pit++) {
-		auto& provider = *pit;
-		auto& jsonAccounts = provider["accounts"];
-		auto accounts = vector<config::v1::AccountDesc>();
-		for (auto ait = jsonAccounts.begin(); ait != jsonAccounts.end(); ait++) {
-			auto& account = *ait;
-			accounts.emplace_back(config::v1::AccountDesc{
-			    account["uri"].asString(),
-			    account["userid"].asString(),
-			    account["password"].asString(),
-			});
-		}
-
-		optional<linphone::MediaEncryption> overrideEncryption{};
-		auto& mediaEncryption = provider["mediaEncryption"];
-		if (mediaEncryption.isString()) {
-			overrideEncryption = StringUtils::string2MediaEncryption(mediaEncryption.asString());
-		}
-		optional<bool> overrideAvpf{};
-		auto& enableAvpf = provider["enableAvpf"];
-		if (enableAvpf.isBool()) {
-			overrideAvpf = enableAvpf.asBool();
-		}
-		providers.emplace_back(config::v1::ProviderDesc{
-		    provider["name"].asString(),
-		    provider["pattern"].asString(),
-		    provider["outboundProxy"].asString(),
-		    provider["registrationRequired"].asBool(),
-		    provider["maxCallsPerLine"].asUInt(),
-		    std::move(accounts),
-		    overrideAvpf,
-		    overrideEncryption,
-		});
-	}
-
-	initFromDescs(*core, std::move(providers));
+	initFromDescs(*core, j.template get<config::v1::Root>());
 }
 
 unique_ptr<pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>>
