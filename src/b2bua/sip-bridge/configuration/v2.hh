@@ -87,7 +87,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(OnAccountNotFound,
 
 struct OutgoingInvite {
 	std::string to;
-	std::string from;
+	std::string from = "";
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, OutgoingInvite& nlohmann_json_t) {
 	OutgoingInvite nlohmann_json_default_obj;
@@ -105,8 +105,8 @@ struct Provider {
 	AccountToUse accountToUse;
 	OnAccountNotFound onAccountNotFound;
 	OutgoingInvite outgoingInvite;
-	std::optional<bool> enableAvpf;
-	std::optional<linphone::MediaEncryption> mediaEncryption;
+	std::optional<bool> enableAvpf = std::nullopt;
+	std::optional<linphone::MediaEncryption> mediaEncryption = std::nullopt;
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, Provider& nlohmann_json_t) {
 	Provider nlohmann_json_default_obj;
@@ -125,9 +125,9 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, Provider& nlohmann
 
 struct Account {
 	std::string uri;
-	std::string userid;
-	std::string password;
-	std::string alias;
+	std::string userid = "";
+	std::string password = "";
+	std::string alias = "";
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, Account& nlohmann_json_t) {
 	Account nlohmann_json_default_obj;

@@ -83,13 +83,57 @@ bool Account::isAvailable() const {
 	return true;
 }
 
-ExternalSipProvider::ExternalSipProvider(string&& pattern,
+ExternalSipProvider::ExternalSipProvider(decltype(ExternalSipProvider::mTriggerStrat)&& triggerStrat,
                                          vector<Account>&& accounts,
                                          string&& name,
                                          const optional<bool>& overrideAvpf,
                                          const optional<linphone::MediaEncryption>& overrideEncryption)
-    : pattern(std::move(pattern)), accounts(std::move(accounts)), name(std::move(name)), overrideAvpf(overrideAvpf),
-      overrideEncryption(overrideEncryption) {
+    : mTriggerStrat(std::move(triggerStrat)), accounts(std::move(accounts)), name(std::move(name)),
+      overrideAvpf(overrideAvpf), overrideEncryption(overrideEncryption) {
+}
+
+std::optional<b2bua::Application::ActionToTake>
+ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
+                                  linphone::CallParams& outgoingCallParams,
+                                  std::unordered_map<std::string, Account*>& occupiedSlots) {
+	if (!mTriggerStrat->shouldHandleThisCall(incomingCall)) {
+		return std::nullopt;
+	}
+
+	const auto requestAddress = incomingCall.getRequestAddress();
+	auto* account = findAccountToMakeTheCall();
+	if (!account) {
+		SLOGD << "No external accounts available to bridge the call to " << requestAddress->asStringUriOnly();
+		return linphone::Reason::NotAcceptable;
+	}
+
+	occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;
+	account->freeSlots--;
+	const auto& linAccount = account->account;
+	const auto callee = requestAddress->clone();
+	callee->setDomain(linAccount->getParams()->getIdentityAddress()->getDomain());
+	outgoingCallParams.setAccount(linAccount);
+	if (const auto& mediaEncryption = overrideEncryption) {
+		outgoingCallParams.setMediaEncryption(*mediaEncryption);
+	}
+	if (const auto& enableAvpf = overrideAvpf) {
+		outgoingCallParams.enableAvpf(*enableAvpf);
+	}
+
+	return callee;
+}
+
+Account* ExternalSipProvider::findAccountToMakeTheCall() {
+	// Pick a random account then keep iterating if unavailable
+	const int max = accounts.size();
+	const int seed = rand() % max;
+	for (int i = seed; i < (seed + max); i++) {
+		auto& account = accounts[i % max];
+		if (account.isAvailable()) {
+			return &account;
+		}
+	}
+	return nullptr;
 }
 
 void SipBridge::initFromDescs(linphone::Core& core, config::v2::Root&& provDescs) {
@@ -139,8 +183,8 @@ void SipBridge::initFromDescs(linphone::Core& core, config::v2::Root&& provDescs
 
 			accounts.emplace_back(Account(std::move(account), std::move(provDesc.maxCallsPerLine)));
 		}
-		providers.emplace_back(ExternalSipProvider(std::move(triggerCond.pattern), std::move(accounts),
-		                                           std::move(provDesc.name), provDesc.enableAvpf,
+		providers.emplace_back(ExternalSipProvider(std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)),
+		                                           std::move(accounts), std::move(provDesc.name), provDesc.enableAvpf,
 		                                           provDesc.mediaEncryption));
 	}
 }
@@ -175,55 +219,16 @@ void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::Gen
 	}());
 }
 
-unique_ptr<pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>>
-SipBridge::findAccountToCall(const string& destinationUri) {
+b2bua::Application::ActionToTake SipBridge::onCallCreate(const linphone::Call& incomingCall,
+                                                         linphone::CallParams& outgoingCallParams) {
 	for (auto& provider : providers) {
-		if (!regex_match(destinationUri, provider.pattern)) {
-			continue;
-		}
-
-		auto& accounts = provider.accounts;
-		const int max = accounts.size();
-		// Pick a random account then keep iterating if unavailable
-		const int seed = rand() % max;
-		for (int i = seed; i < (seed + max); i++) {
-			auto& account = accounts[i % max];
-			if (account.isAvailable()) {
-				return make_unique<pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>>(
-				    make_pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>(provider, account));
-			}
+		if (const auto actionToTake = provider.onCallCreate(incomingCall, outgoingCallParams, occupiedSlots)) {
+			return *actionToTake;
 		}
 	}
 
-	return nullptr;
-}
-
-std::variant<linphone::Reason, std::shared_ptr<const linphone::Address>>
-SipBridge::onCallCreate(const linphone::Call& incomingCall, linphone::CallParams& outgoingCallParams) {
-	const auto requestAddress = incomingCall.getRequestAddress();
-	const auto addressAsString = requestAddress->asStringUriOnly();
-	const auto pair = findAccountToCall(addressAsString);
-	if (!pair) {
-		SLOGD << "No external accounts available to bridge the call to " << addressAsString;
-		return linphone::Reason::NotAcceptable;
-	}
-
-	auto& extAccount = pair->second.get();
-	occupiedSlots[incomingCall.getCallLog()->getCallId()] = &extAccount;
-	extAccount.freeSlots--;
-	const auto& linAccount = extAccount.account;
-	auto callee = requestAddress->clone();
-	callee->setDomain(linAccount->getParams()->getIdentityAddress()->getDomain());
-	outgoingCallParams.setAccount(linAccount);
-	const auto& provider = pair->first.get();
-	if (const auto& mediaEncryption = provider.overrideEncryption) {
-		outgoingCallParams.setMediaEncryption(*mediaEncryption);
-	}
-	if (const auto& enableAvpf = provider.overrideAvpf) {
-		outgoingCallParams.enableAvpf(*enableAvpf);
-	}
-
-	return callee;
+	SLOGD << "No provider could handle the call to " << incomingCall.getToAddress()->asStringUriOnly();
+	return linphone::Reason::NotAcceptable;
 }
 
 void SipBridge::onCallEnd(const linphone::Call& call) {

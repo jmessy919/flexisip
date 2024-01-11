@@ -324,6 +324,7 @@ if (ENABLE_B2BUA)
 		b2bua/b2bua-server.hh
 		b2bua/sip-bridge/configuration/v2.cc b2bua/sip-bridge/configuration/v2.hh
 		b2bua/sip-bridge/external-provider-bridge.cc b2bua/sip-bridge/external-provider-bridge.hh
+		b2bua/sip-bridge/trigger-strategy.cc b2bua/sip-bridge/trigger-strategy.hh
 		b2bua/trenscrypter.cc
 		b2bua/trenscrypter.hh
 	)

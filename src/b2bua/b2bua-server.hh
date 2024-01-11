@@ -40,6 +40,10 @@ class B2buaServer;
 namespace b2bua {
 class Application {
 public:
+	using DeclineCall = linphone::Reason;
+	using InviteAddress = std::shared_ptr<const linphone::Address>;
+	using ActionToTake = std::variant<DeclineCall, InviteAddress>;
+
 	virtual void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& configRoot) = 0;
 	/**
 	 * lets the application run some business logic before the outgoing call is placed.
@@ -51,9 +55,8 @@ public:
 	 * @return		a reason to abort the bridging and decline the incoming call. Reason::None if the call should go
 	 *through.
 	 **/
-	virtual std::variant<linphone::Reason, std::shared_ptr<const linphone::Address>>
-	onCallCreate(const linphone::Call& incomingCall,
-	             linphone::CallParams& outgoingCallParams) = 0;
+	virtual ActionToTake onCallCreate(const linphone::Call& incomingCall,
+	                                                              linphone::CallParams& outgoingCallParams) = 0;
 	virtual void onCallEnd([[maybe_unused]] const linphone::Call& call) {
 	}
 	virtual ~Application() = default;
@@ -81,7 +84,7 @@ public:
 	void onDtmfReceived(const std::shared_ptr<linphone::Core>& core,
 	                    const std::shared_ptr<linphone::Call>& call,
 	                    int dtmf) override;
-	
+
 	int getTcpPort() const {
 		return mCore->getTransportsUsed()->getTcpPort();
 	}

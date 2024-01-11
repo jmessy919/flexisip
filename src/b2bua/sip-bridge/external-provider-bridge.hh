@@ -32,6 +32,7 @@
 #include "linphone++/linphone.hh"
 
 #include "b2bua/b2bua-server.hh"
+#include "b2bua/sip-bridge/trigger-strategy.hh"
 #include "cli.hh"
 #include "configuration/v2.hh"
 
@@ -41,6 +42,7 @@ namespace bridge {
 
 class Account {
 	friend class SipBridge;
+	friend class ExternalSipProvider;
 
 	std::shared_ptr<linphone::Account> account;
 	uint16_t freeSlots;
@@ -65,18 +67,25 @@ public:
 	// Move constructor
 	ExternalSipProvider(ExternalSipProvider&& other) = default;
 
-private:
-	std::regex pattern;
-	std::vector<Account> accounts;
-	std::string name;
-	std::optional<bool> overrideAvpf;
-	std::optional<linphone::MediaEncryption> overrideEncryption;
+	std::optional<b2bua::Application::ActionToTake>
+	onCallCreate(const linphone::Call& incomingCall,
+	             linphone::CallParams& outgoingCallParams,
+	             std::unordered_map<std::string, Account*>& occupiedSlots);
 
-	ExternalSipProvider(std::string&& pattern,
+private:
+	ExternalSipProvider(std::unique_ptr<trigger_strat::TriggerStrategy>&& triggerStrat,
 	                    std::vector<Account>&& accounts,
 	                    std::string&& name,
 	                    const std::optional<bool>& overrideAvpf,
 	                    const std::optional<linphone::MediaEncryption>& overrideEncryption);
+
+	Account* findAccountToMakeTheCall();
+
+	std::unique_ptr<trigger_strat::TriggerStrategy> mTriggerStrat;
+	std::vector<Account> accounts;
+	std::string name;
+	std::optional<bool> overrideAvpf;
+	std::optional<linphone::MediaEncryption> overrideEncryption;
 
 	// Disable copy semantics
 	ExternalSipProvider(const ExternalSipProvider&) = delete;
@@ -91,8 +100,7 @@ public:
 	SipBridge(linphone::Core&, config::v2::Root&&);
 
 	void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) override;
-	std::variant<linphone::Reason, std::shared_ptr<const linphone::Address>>
-	onCallCreate(const linphone::Call& incomingCall, linphone::CallParams& outgoingCallParams) override;
+	ActionToTake onCallCreate(const linphone::Call& incomingCall, linphone::CallParams& outgoingCallParams) override;
 	void onCallEnd(const linphone::Call& call) override;
 
 	std::string handleCommand(const std::string& command, const std::vector<std::string>& args) override;
@@ -102,9 +110,6 @@ private:
 	std::unordered_map<std::string, Account*> occupiedSlots;
 
 	void initFromDescs(linphone::Core&, config::v2::Root&&);
-
-	std::unique_ptr<std::pair<std::reference_wrapper<ExternalSipProvider>, std::reference_wrapper<Account>>>
-	findAccountToCall(const std::string& destinationUri);
 };
 
 } // namespace bridge
