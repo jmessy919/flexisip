@@ -121,9 +121,10 @@ public:
 	}
 
 	auto& configureExternalProviderBridge(std::initializer_list<V1ProviderDesc>&& provDescs) {
-		mB2buaServer->mApplication = make_unique<flexisip::b2bua::bridge::SipBridge>(
-		    *mB2buaServer->mCore, std::vector<V1ProviderDesc>(std::move(provDescs)));
-		return static_cast<flexisip::b2bua::bridge::SipBridge&>(*mB2buaServer->mApplication);
+		using namespace b2bua::bridge;
+		mB2buaServer->mApplication = make_unique<SipBridge>(
+		    *mB2buaServer->mCore, config::v2::fromV1(std::vector<V1ProviderDesc>(std::move(provDescs))));
+		return static_cast<SipBridge&>(*mB2buaServer->mApplication);
 	}
 
 	flexisip::b2bua::Application& getModule() {
@@ -418,14 +419,16 @@ static void external_provider_bridge__load_balancing() {
 	const uint32_t maxCallsPerLine = 5000;
 	bridge::SipBridge sipBridge{
 	    b2buaCore,
-	    {V1ProviderDesc{
-	        "provider1",
-	        "sip:\\+39.*",
-	        outboundProxy,
-	        false,
-	        maxCallsPerLine,
-	        std::move(lines),
-	    }},
+	    bridge::config::v2::fromV1({
+	        V1ProviderDesc{
+	            "provider1",
+	            "sip:\\+39.*",
+	            outboundProxy,
+	            false,
+	            maxCallsPerLine,
+	            std::move(lines),
+	        },
+	    }),
 	};
 	auto tally = unordered_map<const linphone::Account*, uint32_t>();
 
@@ -672,16 +675,26 @@ static void external_provider_bridge__b2bua_receives_several_forks() {
 static void external_provider_bridge__cli() {
 	using namespace flexisip::b2bua;
 	const auto core = linphone::Factory::get()->createCore("", "", nullptr);
-	auto sipBridge = bridge::SipBridge(*core, {V1ProviderDesc{"provider1",
-	                                                          "regex1",
-	                                                          "sip:107.20.139.176:682;transport=scp",
-	                                                          false,
-	                                                          682,
-	                                                          {V1AccountDesc{
-	                                                              "sip:account1@sip.example.org",
-	                                                              "",
-	                                                              "",
-	                                                          }}}});
+	bridge::SipBridge sipBridge{
+	    *core,
+	    bridge::config::v2::fromV1({
+	        {
+	            .name = "provider1",
+	            .pattern = "regex1",
+	            .outboundProxy = "sip:107.20.139.176:682;transport=scp",
+	            .registrationRequired = false,
+	            .maxCallsPerLine = 682,
+	            .accounts =
+	                {
+	                    {
+	                        .uri = "sip:account1@sip.example.org",
+	                        .userid = "",
+	                        .password = "",
+	                    },
+	                },
+	        },
+	    }),
+	};
 
 	// Not a command handled by the bridge
 	auto output = sipBridge.handleCommand("REGISTRAR_DUMP", vector<string>{"INFO"});

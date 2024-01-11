@@ -33,7 +33,7 @@
 
 #include "b2bua/b2bua-server.hh"
 #include "cli.hh"
-#include "configuration/v1.hh"
+#include "configuration/v2.hh"
 
 namespace flexisip {
 namespace b2bua {
@@ -88,7 +88,7 @@ public:
 	SipBridge() {
 	}
 
-	SipBridge(linphone::Core&, config::v1::Root&&);
+	SipBridge(linphone::Core&, config::v2::Root&&);
 
 	void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) override;
 	std::variant<linphone::Reason, std::shared_ptr<const linphone::Address>>
@@ -101,7 +101,7 @@ private:
 	std::vector<ExternalSipProvider> providers;
 	std::unordered_map<std::string, Account*> occupiedSlots;
 
-	void initFromDescs(linphone::Core&, config::v1::Root&&);
+	void initFromDescs(linphone::Core&, config::v2::Root&&);
 
 	std::unique_ptr<std::pair<std::reference_wrapper<ExternalSipProvider>, std::reference_wrapper<Account>>>
 	findAccountToCall(const std::string& destinationUri);

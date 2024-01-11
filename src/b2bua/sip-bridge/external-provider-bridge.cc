@@ -92,15 +92,16 @@ ExternalSipProvider::ExternalSipProvider(string&& pattern,
       overrideEncryption(overrideEncryption) {
 }
 
-void SipBridge::initFromDescs(linphone::Core& core, config::v1::Root&& provDescs) {
-	providers.reserve(provDescs.size());
+void SipBridge::initFromDescs(linphone::Core& core, config::v2::Root&& provDescs) {
+	providers.reserve(provDescs.providers.size());
 	const auto factory = linphone::Factory::get();
 	auto params = core.createAccountParams();
-	for (auto& provDesc : provDescs) {
+	for (auto& provDesc : provDescs.providers) {
 		if (provDesc.name.empty()) {
 			LOGF("One of your external SIP providers has an empty `name`");
 		}
-		if (provDesc.pattern.empty()) {
+		auto& triggerCond = std::get<config::v2::trigger_cond::MatchRegex>(provDesc.triggerCondition);
+		if (triggerCond.pattern.empty()) {
 			LOGF("Please provide a `pattern` for provider '%s'", provDesc.name.c_str());
 		}
 		if (provDesc.outboundProxy.empty()) {
@@ -110,7 +111,8 @@ void SipBridge::initFromDescs(linphone::Core& core, config::v1::Root&& provDescs
 			SLOGW << "Provider '" << provDesc.name
 			      << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
 		}
-		if (provDesc.accounts.empty()) {
+		auto& accountPool = std::get<config::v2::StaticPool>(provDescs.accountPools.at(provDesc.accountPool));
+		if (accountPool.empty()) {
 			SLOGW << "Provider '" << provDesc.name << "' has no `accounts` and will not be used to bridge calls";
 		}
 
@@ -120,8 +122,8 @@ void SipBridge::initFromDescs(linphone::Core& core, config::v1::Root&& provDescs
 		params->enableRegister(provDesc.registrationRequired);
 
 		auto accounts = vector<Account>();
-		accounts.reserve(provDesc.accounts.size());
-		for (const auto& accountDesc : provDesc.accounts) {
+		accounts.reserve(accountPool.size());
+		for (const auto& accountDesc : accountPool) {
 			if (accountDesc.uri.empty()) {
 				LOGF("An account of provider '%s' is missing a `uri` field", provDesc.name.c_str());
 			}
@@ -137,13 +139,13 @@ void SipBridge::initFromDescs(linphone::Core& core, config::v1::Root&& provDescs
 
 			accounts.emplace_back(Account(std::move(account), std::move(provDesc.maxCallsPerLine)));
 		}
-		providers.emplace_back(ExternalSipProvider(std::move(provDesc.pattern), std::move(accounts),
+		providers.emplace_back(ExternalSipProvider(std::move(triggerCond.pattern), std::move(accounts),
 		                                           std::move(provDesc.name), provDesc.enableAvpf,
 		                                           provDesc.mediaEncryption));
 	}
 }
 
-SipBridge::SipBridge(linphone::Core& core, config::v1::Root&& provDescs) {
+SipBridge::SipBridge(linphone::Core& core, config::v2::Root&& provDescs) {
 	initFromDescs(core, std::move(provDescs));
 }
 
@@ -165,7 +167,12 @@ void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::Gen
 	nlohmann::json j;
 	fileStream >> j;
 
-	initFromDescs(*core, j.get<config::v1::Root>());
+	initFromDescs(*core, [&j]() {
+		if (j.is_array()) {
+			return config::v2::fromV1(j.get<config::v1::Root>());
+		}
+		return j.get<config::v2::Root>();
+	}());
 }
 
 unique_ptr<pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>>
