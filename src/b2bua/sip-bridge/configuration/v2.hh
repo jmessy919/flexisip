@@ -14,9 +14,9 @@
 
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 
-#include "media-encryption.hh"
-
 #include "flexiapi/schemas/optional-json.hh"
+#include "media-encryption.hh"
+#include "v1.hh"
 
 namespace flexisip::b2bua::bridge::config::v2 {
 namespace trigger_cond {
@@ -161,9 +161,11 @@ struct Root {
 	std::unordered_map<AccountPoolName, AccountPool> accountPools;
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, Root& nlohmann_json_t) {
-	NLOHMANN_JSON_FROM(schemaVersion)
-	NLOHMANN_JSON_FROM(providers)
-	NLOHMANN_JSON_FROM(accountPools)
+	NLOHMANN_JSON_FROM(schemaVersion);
+	NLOHMANN_JSON_FROM(providers);
+	NLOHMANN_JSON_FROM(accountPools);
 }
+
+Root fromV1(v1::Root&&);
 
 } // namespace flexisip::b2bua::bridge::config::v2

@@ -76,12 +76,61 @@ void v1ConfigExpressedAsEquivalentV2Config() {
 	BC_ASSERT_CPP_EQUAL(matchRegex.pattern, "sip:+33.*");
 	std::ignore = std::get<v2::account_selection::Random>(deserialized.providers[0].accountToUse);
 	BC_ASSERT_ENUM_EQUAL(deserialized.providers[0].onAccountNotFound, v2::OnAccountNotFound::Decline);
+	BC_ASSERT_CPP_EQUAL(deserialized.providers[0].outgoingInvite.to,
+	                    "sip:${incoming.requestAddress.userinfo}@${account.sipIdentity.hostport}${incoming."
+	                    "requestAddress.uriParameters}");
+	BC_ASSERT_CPP_EQUAL(deserialized.providers[0].outgoingInvite.from, "");
 	BC_ASSERT_CPP_EQUAL(deserialized.providers[0].accountPool, "MyIncredibleTestAccountPool");
+}
+
+void v1ConfigToV2() {
+	auto v1 = R"json([
+	{
+		"name": "provider1",
+		"pattern": "sip:.*",
+		"outboundProxy": "<sip:127.0.0.1:5860;transport=tcp>",
+		"maxCallsPerLine": 2,
+		"accounts": [ 
+			{
+				"uri": "sip:bridge@sip.provider1.com",
+				"password": "wow such password"
+			}
+		]
+	}
+])json"_json.get<v1::Root>();
+
+	auto v2 = v2::fromV1(std::move(v1));
+
+	BC_ASSERT_CPP_EQUAL(v2.schemaVersion, 2);
+	BC_HARD_ASSERT_CPP_EQUAL(v2.accountPools.size(), 1);
+	BC_ASSERT_CPP_EQUAL(v2.accountPools.begin()->first, "Account pool - provider1");
+	const auto& staticPool = std::get<v2::StaticPool>(v2.accountPools.begin()->second);
+	BC_HARD_ASSERT_CPP_EQUAL(staticPool.size(), 1);
+	BC_ASSERT_CPP_EQUAL(staticPool[0].uri, "sip:bridge@sip.provider1.com");
+	BC_ASSERT_CPP_EQUAL(staticPool[0].userid, "");
+	BC_ASSERT_CPP_EQUAL(staticPool[0].password, "wow such password");
+	BC_ASSERT_CPP_EQUAL(staticPool[0].alias, "");
+	BC_HARD_ASSERT_CPP_EQUAL(v2.providers.size(), 1);
+	BC_ASSERT_CPP_EQUAL(v2.providers[0].name, "provider1");
+	BC_ASSERT_CPP_EQUAL(v2.providers[0].outboundProxy, "<sip:127.0.0.1:5860;transport=tcp>");
+	BC_ASSERT_CPP_EQUAL(v2.providers[0].registrationRequired, false);
+	BC_ASSERT_CPP_EQUAL(v2.providers[0].maxCallsPerLine, 2);
+	const auto& matchRegex = std::get<v2::trigger_cond::MatchRegex>(v2.providers[0].triggerCondition);
+	BC_ASSERT_CPP_EQUAL(matchRegex.source, "${incoming.requestAddress}");
+	BC_ASSERT_CPP_EQUAL(matchRegex.pattern, "sip:.*");
+	std::ignore = std::get<v2::account_selection::Random>(v2.providers[0].accountToUse);
+	BC_ASSERT_ENUM_EQUAL(v2.providers[0].onAccountNotFound, v2::OnAccountNotFound::Decline);
+	BC_ASSERT_CPP_EQUAL(v2.providers[0].outgoingInvite.to,
+	                    "sip:${incoming.requestAddress.userinfo}@${account.sipIdentity.hostport}${incoming."
+	                    "requestAddress.uriParameters}");
+	BC_ASSERT_CPP_EQUAL(v2.providers[0].outgoingInvite.from, "");
+	BC_ASSERT_CPP_EQUAL(v2.providers[0].accountPool, "Account pool - provider1");
 }
 
 TestSuite _("b2bua::sip-bridge::configuration::v2",
             {
                 CLASSY_TEST(v1ConfigExpressedAsEquivalentV2Config),
+                CLASSY_TEST(v1ConfigToV2),
             });
 } // namespace
 } // namespace flexisip::tester

@@ -322,10 +322,10 @@ if (ENABLE_B2BUA)
 	target_sources(flexisip PRIVATE
 		b2bua/b2bua-server.cc
 		b2bua/b2bua-server.hh
+		b2bua/sip-bridge/configuration/v2.cc b2bua/sip-bridge/configuration/v2.hh
+		b2bua/sip-bridge/external-provider-bridge.cc b2bua/sip-bridge/external-provider-bridge.hh
 		b2bua/trenscrypter.cc
 		b2bua/trenscrypter.hh
-		b2bua/sip-bridge/external-provider-bridge.hh
-		b2bua/sip-bridge/external-provider-bridge.cc
 	)
 	target_link_libraries(flexisip
 		PUBLIC liblinphone++ liblinphone
