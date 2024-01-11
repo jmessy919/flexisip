@@ -51,7 +51,7 @@ void v1ConfigExpressedAsEquivalentV2Config() {
   }
 })json"_json;
 
-	auto deserialized = j.template get<v2::Root>();
+	auto deserialized = j.get<v2::Root>();
 
 	BC_ASSERT_CPP_EQUAL(deserialized.schemaVersion, 2);
 	BC_HARD_ASSERT_CPP_EQUAL(deserialized.accountPools.size(), 1);

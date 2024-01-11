@@ -165,7 +165,7 @@ void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::Gen
 	nlohmann::json j;
 	fileStream >> j;
 
-	initFromDescs(*core, j.template get<config::v1::Root>());
+	initFromDescs(*core, j.get<config::v1::Root>());
 }
 
 unique_ptr<pair<reference_wrapper<ExternalSipProvider>, reference_wrapper<Account>>>
