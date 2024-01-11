@@ -20,21 +20,21 @@
 namespace flexisip::b2bua::bridge::config::v1 {
 
 struct AccountDesc {
-	std::string uri;
-	std::string userid;
-	std::string password;
+	std::string uri = "";
+	std::string userid = "";
+	std::string password = "";
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(AccountDesc, uri, userid, password);
 
 struct ProviderDesc {
-	std::string name;
-	std::string pattern;
-	std::string outboundProxy;
-	bool registrationRequired;
-	uint32_t maxCallsPerLine;
-	std::vector<AccountDesc> accounts;
-	std::optional<bool> enableAvpf;
-	std::optional<linphone::MediaEncryption> mediaEncryption;
+	std::string name = "";
+	std::string pattern = "";
+	std::string outboundProxy = "";
+	bool registrationRequired = false;
+	uint32_t maxCallsPerLine = std::numeric_limits<std::uint32_t>::max();
+	std::vector<AccountDesc> accounts = {};
+	std::optional<bool> enableAvpf = std::nullopt;
+	std::optional<linphone::MediaEncryption> mediaEncryption = std::nullopt;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(ProviderDesc,
                                                 name,
