@@ -53,6 +53,7 @@ public:
 
 private:
 	ExternalSipProvider(std::unique_ptr<trigger_strat::TriggerStrategy>&& triggerStrat,
+	                    config::v2::OnAccountNotFound onAccountNotFound,
 	                    std::vector<Account>&& accounts,
 	                    std::string&& name,
 	                    const std::optional<bool>& overrideAvpf,

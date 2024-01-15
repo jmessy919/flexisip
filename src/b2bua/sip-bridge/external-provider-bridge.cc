@@ -68,12 +68,13 @@ Here is a template of what should be in this file:
 } // namespace
 
 ExternalSipProvider::ExternalSipProvider(decltype(ExternalSipProvider::mTriggerStrat)&& triggerStrat,
+                                         decltype(mOnAccountNotFound) onAccountNotFound,
                                          vector<Account>&& accounts,
                                          string&& name,
                                          const optional<bool>& overrideAvpf,
                                          const optional<linphone::MediaEncryption>& overrideEncryption)
-    : mTriggerStrat(std::move(triggerStrat)), accounts(std::move(accounts)), name(std::move(name)),
-      overrideAvpf(overrideAvpf), overrideEncryption(overrideEncryption) {
+    : mTriggerStrat(std::move(triggerStrat)), mOnAccountNotFound(onAccountNotFound), accounts(std::move(accounts)),
+      name(std::move(name)), overrideAvpf(overrideAvpf), overrideEncryption(overrideEncryption) {
 }
 
 std::optional<b2bua::Application::ActionToTake>
@@ -173,9 +174,9 @@ void SipBridge::initFromDescs(linphone::Core& core, config::v2::Root&& provDescs
 
 			accounts.emplace_back(Account(std::move(account), std::move(provDesc.maxCallsPerLine)));
 		}
-		providers.emplace_back(ExternalSipProvider(std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)),
-		                                           std::move(accounts), std::move(provDesc.name), provDesc.enableAvpf,
-		                                           provDesc.mediaEncryption));
+		providers.emplace_back(ExternalSipProvider(
+		    std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)), provDesc.onAccountNotFound,
+		    std::move(accounts), std::move(provDesc.name), provDesc.enableAvpf, provDesc.mediaEncryption));
 	}
 }
 
