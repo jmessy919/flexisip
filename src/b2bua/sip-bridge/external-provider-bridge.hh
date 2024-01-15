@@ -28,14 +28,14 @@
 #include <regex>
 #include <unordered_map>
 
-#include "linphone++/enums.hh"
 #include "linphone++/linphone.hh"
 
 #include "b2bua/b2bua-server.hh"
 #include "b2bua/sip-bridge/accounts/account.hh"
-#include "b2bua/sip-bridge/trigger-strategy.hh"
 #include "cli.hh"
 #include "configuration/v2.hh"
+#include "invite-tweaker.hh"
+#include "trigger-strategy.hh"
 
 namespace flexisip::b2bua::bridge {
 
@@ -54,19 +54,17 @@ public:
 private:
 	ExternalSipProvider(std::unique_ptr<trigger_strat::TriggerStrategy>&& triggerStrat,
 	                    config::v2::OnAccountNotFound onAccountNotFound,
+	                    InviteTweaker&& inviteTweaker,
 	                    std::vector<Account>&& accounts,
-	                    std::string&& name,
-	                    const std::optional<bool>& overrideAvpf,
-	                    const std::optional<linphone::MediaEncryption>& overrideEncryption);
+	                    std::string&& name);
 
 	Account* findAccountToMakeTheCall();
 
 	std::unique_ptr<trigger_strat::TriggerStrategy> mTriggerStrat;
 	config::v2::OnAccountNotFound mOnAccountNotFound;
+	InviteTweaker mInviteTweaker;
 	std::vector<Account> accounts;
 	std::string name;
-	std::optional<bool> overrideAvpf;
-	std::optional<linphone::MediaEncryption> overrideEncryption;
 
 	// Disable copy semantics
 	ExternalSipProvider(const ExternalSipProvider&) = delete;

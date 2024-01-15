@@ -31,9 +31,9 @@ Root fromV1(v1::Root&& v1) {
 		        {
 		            .to = "sip:${incoming.requestAddress.userinfo}@${account.sipIdentity.hostport}${incoming."
 		                  "requestAddress.uriParameters}",
+		            .enableAvpf = provider.enableAvpf,
+		            .mediaEncryption = provider.mediaEncryption,
 		        },
-		    .enableAvpf = provider.enableAvpf,
-		    .mediaEncryption = provider.mediaEncryption,
 		});
 		StaticPool accounts{};
 		accounts.reserve(provider.accounts.size());

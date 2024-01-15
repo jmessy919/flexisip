@@ -24,12 +24,13 @@ find_package(jsoncpp "1.1.0" REQUIRED)
 
 target_sources(flexisip PRIVATE
         b2bua-server.cc b2bua-server.hh
-        sip-bridge/accounts/account.cc sip-bridge/accounts/account.hh
         sip-bridge/accounts/account-pool.hh
+        sip-bridge/accounts/account.cc sip-bridge/accounts/account.hh
         sip-bridge/configuration/media-encryption.hh
         sip-bridge/configuration/v1.hh
         sip-bridge/configuration/v2.cc sip-bridge/configuration/v2.hh
         sip-bridge/external-provider-bridge.cc sip-bridge/external-provider-bridge.hh
+        sip-bridge/invite-tweaker.cc sip-bridge/invite-tweaker.hh
         sip-bridge/trigger-strategy.cc sip-bridge/trigger-strategy.hh
         trenscrypter.cc trenscrypter.hh
 )

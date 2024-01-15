@@ -69,12 +69,11 @@ Here is a template of what should be in this file:
 
 ExternalSipProvider::ExternalSipProvider(decltype(ExternalSipProvider::mTriggerStrat)&& triggerStrat,
                                          decltype(mOnAccountNotFound) onAccountNotFound,
+                                         InviteTweaker&& inviteTweaker,
                                          vector<Account>&& accounts,
-                                         string&& name,
-                                         const optional<bool>& overrideAvpf,
-                                         const optional<linphone::MediaEncryption>& overrideEncryption)
-    : mTriggerStrat(std::move(triggerStrat)), mOnAccountNotFound(onAccountNotFound), accounts(std::move(accounts)),
-      name(std::move(name)), overrideAvpf(overrideAvpf), overrideEncryption(overrideEncryption) {
+                                         string&& name)
+    : mTriggerStrat(std::move(triggerStrat)), mOnAccountNotFound(onAccountNotFound),
+      mInviteTweaker(std::move(inviteTweaker)), accounts(std::move(accounts)), name(std::move(name)) {
 }
 
 std::optional<b2bua::Application::ActionToTake>
@@ -100,18 +99,10 @@ ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
 
 	occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;
 	account->freeSlots--;
-	const auto& linAccount = account->account;
-	const auto callee = requestAddress->clone();
-	callee->setDomain(linAccount->getParams()->getIdentityAddress()->getDomain());
-	outgoingCallParams.setAccount(linAccount);
-	if (const auto& mediaEncryption = overrideEncryption) {
-		outgoingCallParams.setMediaEncryption(*mediaEncryption);
-	}
-	if (const auto& enableAvpf = overrideAvpf) {
-		outgoingCallParams.enableAvpf(*enableAvpf);
-	}
 
-	return callee;
+	const auto& linAccount = account->account;
+	outgoingCallParams.setAccount(linAccount);
+	return mInviteTweaker.tweakInvite(incomingCall, *linAccount, outgoingCallParams);
 }
 
 Account* ExternalSipProvider::findAccountToMakeTheCall() {
@@ -174,9 +165,13 @@ void SipBridge::initFromDescs(linphone::Core& core, config::v2::Root&& provDescs
 
 			accounts.emplace_back(Account(std::move(account), std::move(provDesc.maxCallsPerLine)));
 		}
-		providers.emplace_back(ExternalSipProvider(
-		    std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)), provDesc.onAccountNotFound,
-		    std::move(accounts), std::move(provDesc.name), provDesc.enableAvpf, provDesc.mediaEncryption));
+		providers.emplace_back(ExternalSipProvider{
+		    std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)),
+		    provDesc.onAccountNotFound,
+		    InviteTweaker(std::move(provDesc.outgoingInvite)),
+		    std::move(accounts),
+		    std::move(provDesc.name),
+		});
 	}
 }
 
