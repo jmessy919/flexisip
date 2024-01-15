@@ -31,9 +31,7 @@
 
 using namespace std;
 
-namespace flexisip {
-namespace b2bua {
-namespace bridge {
+namespace flexisip::b2bua::bridge {
 
 namespace {
 // Name of the corresponding section in the configuration file
@@ -68,20 +66,6 @@ Here is a template of what should be in this file:
 	return nullptr;
 }();
 } // namespace
-
-Account::Account(shared_ptr<linphone::Account>&& account, uint16_t&& freeSlots)
-    : account(std::move(account)), freeSlots(std::move(freeSlots)) {
-}
-
-bool Account::isAvailable() const {
-	if (freeSlots == 0) {
-		return false;
-	}
-	if (account->getParams()->registerEnabled() && account->getState() != linphone::RegistrationState::Ok) {
-		return false;
-	}
-	return true;
-}
 
 ExternalSipProvider::ExternalSipProvider(decltype(ExternalSipProvider::mTriggerStrat)&& triggerStrat,
                                          vector<Account>&& accounts,
@@ -307,6 +291,4 @@ string SipBridge::handleCommand(const string& command, const vector<string>& arg
 	return Json::writeString(builder, infoObj);
 }
 
-} // namespace bridge
-} // namespace b2bua
-} // namespace flexisip
+} // namespace flexisip::b2bua::bridge

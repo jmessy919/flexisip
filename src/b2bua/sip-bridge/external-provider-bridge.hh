@@ -32,33 +32,12 @@
 #include "linphone++/linphone.hh"
 
 #include "b2bua/b2bua-server.hh"
+#include "b2bua/sip-bridge/accounts/account.hh"
 #include "b2bua/sip-bridge/trigger-strategy.hh"
 #include "cli.hh"
 #include "configuration/v2.hh"
 
-namespace flexisip {
-namespace b2bua {
-namespace bridge {
-
-class Account {
-	friend class SipBridge;
-	friend class ExternalSipProvider;
-
-	std::shared_ptr<linphone::Account> account;
-	uint16_t freeSlots;
-
-	Account(std::shared_ptr<linphone::Account>&& account, uint16_t&& freeSlots);
-
-	bool isAvailable() const;
-
-	// Disable copy semantics
-	Account(const Account&) = delete;
-	Account& operator=(const Account&) = delete;
-
-public:
-	// Move constructor
-	Account(Account&& other) = default;
-};
+namespace flexisip::b2bua::bridge {
 
 class ExternalSipProvider {
 	friend class SipBridge;
@@ -95,8 +74,7 @@ private:
 
 class SipBridge : public b2bua::Application, public CliHandler {
 public:
-	SipBridge() {
-	}
+	SipBridge() = default;
 
 	SipBridge(linphone::Core&, config::v2::Root&&);
 
@@ -113,6 +91,4 @@ private:
 	void initFromDescs(linphone::Core&, config::v2::Root&&);
 };
 
-} // namespace bridge
-} // namespace b2bua
-} // namespace flexisip
+} // namespace flexisip::b2bua::bridge

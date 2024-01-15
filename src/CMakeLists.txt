@@ -151,8 +151,6 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 
 	if(HAS_GCC_BUG_105616 OR HAS_GCC_BUG_105562)
 		set_source_files_properties(
-				b2bua/sip-bridge/external-provider-bridge.cc
-				b2bua/trenscrypter.cc
 				configdumper.cc
 				domain-registrations.cc
 				eventlogs/writers/flexi-stats-event-log-writer.cc
@@ -317,24 +315,7 @@ if (ENABLE_CONFERENCE)
 	)
 endif ()
 if (ENABLE_B2BUA)
-	find_package(jsoncpp "1.1.0" REQUIRED)
-
-	target_sources(flexisip PRIVATE
-		b2bua/b2bua-server.cc
-		b2bua/b2bua-server.hh
-		b2bua/sip-bridge/configuration/v2.cc b2bua/sip-bridge/configuration/v2.hh
-		b2bua/sip-bridge/external-provider-bridge.cc b2bua/sip-bridge/external-provider-bridge.hh
-		b2bua/sip-bridge/trigger-strategy.cc b2bua/sip-bridge/trigger-strategy.hh
-		b2bua/trenscrypter.cc
-		b2bua/trenscrypter.hh
-	)
-	target_link_libraries(flexisip
-		PUBLIC liblinphone++ liblinphone
-	)
-	target_link_libraries(flexisip PRIVATE
-		jsoncpp_lib
-		mediastreamer2
-	)
+	add_subdirectory(b2bua)
 endif ()
 if (ENABLE_SOCI)
 	target_compile_definitions(flexisip PRIVATE "ENABLE_SOCI")
