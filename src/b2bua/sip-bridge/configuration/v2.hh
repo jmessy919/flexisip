@@ -19,17 +19,6 @@
 #include "v1.hh"
 
 namespace flexisip::b2bua::bridge::config::v2 {
-namespace trigger_cond {
-
-struct MatchRegex {
-	std::string pattern;
-	std::string source;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MatchRegex, pattern, source);
-
-struct Always {};
-
-} // namespace trigger_cond
 namespace account_selection {
 
 struct Random {};
@@ -41,37 +30,70 @@ struct FindInPool {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FindInPool, key, source);
 
 } // namespace account_selection
-
-using TriggerCondition = std::variant<trigger_cond::MatchRegex, trigger_cond::Always>;
-inline void from_json(const nlohmann ::json& j, TriggerCondition& triggerCond) {
-	using namespace trigger_cond;
-	const auto strategy = j.at("strategy").get<std::string_view>();
-	if (strategy == "MatchRegex") {
-		triggerCond = j.get<MatchRegex>();
-	} else if (strategy == "Always") {
-		triggerCond = Always{};
-	} else {
-		throw std::runtime_error{
-		    "Unknown 'triggerCondition/strategy' found in config. Supported strategies are 'MatchRegex' "
-		    "and 'Always', not: " +
-		    std::string(strategy)};
-	}
-}
-
 using AccountToUse = std::variant<account_selection::Random, account_selection::FindInPool>;
-inline void from_json(const nlohmann ::json& j, AccountToUse& accountToUse) {
-	using namespace account_selection;
-	const auto strategy = j.at("strategy").get<std::string_view>();
-	if (strategy == "Random") {
-		accountToUse = Random{};
-	} else if (strategy == "FindInPool") {
-		accountToUse = j.get<FindInPool>();
-	} else {
-		throw std::runtime_error{"Unknown 'accountToUse/strategy' found in config. Supported strategies are 'Random' "
-		                         "and 'FindInPool', not: " +
-		                         std::string(strategy)};
+
+namespace trigger_cond {
+
+struct MatchRegex {
+	std::string pattern;
+	std::string source;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MatchRegex, pattern, source);
+
+struct Always {};
+
+} // namespace trigger_cond
+using TriggerCondition = std::variant<trigger_cond::MatchRegex, trigger_cond::Always>;
+
+} // namespace flexisip::b2bua::bridge::config::v2
+
+NLOHMANN_JSON_NAMESPACE_BEGIN
+template <>
+struct adl_serializer<flexisip::b2bua::bridge::config::v2::AccountToUse> {
+	static void to_json(json&, const flexisip::b2bua::bridge::config::v2::AccountToUse&) {
+		throw std::runtime_error{"unimplemented"};
 	}
-}
+
+	static void from_json(const json& j, flexisip::b2bua::bridge::config::v2::AccountToUse& accountToUse) {
+		using namespace flexisip::b2bua::bridge::config::v2::account_selection;
+		const auto strategy = j.at("strategy").get<std::string_view>();
+		if (strategy == "Random") {
+			accountToUse = Random{};
+		} else if (strategy == "FindInPool") {
+			accountToUse = j.get<FindInPool>();
+		} else {
+			throw std::runtime_error{
+			    "Unknown 'accountToUse/strategy' found in config. Supported strategies are 'Random' "
+			    "and 'FindInPool', not: " +
+			    std::string(strategy)};
+		}
+	}
+};
+
+template <>
+struct adl_serializer<flexisip::b2bua::bridge::config::v2::TriggerCondition> {
+	static void to_json(json&, const flexisip::b2bua::bridge::config::v2::TriggerCondition&) {
+		throw std::runtime_error{"unimplemented"};
+	}
+
+	static void from_json(const json& j, flexisip::b2bua::bridge::config::v2::TriggerCondition& triggerCond) {
+		using namespace flexisip::b2bua::bridge::config::v2::trigger_cond;
+		const auto strategy = j.at("strategy").get<std::string_view>();
+		if (strategy == "MatchRegex") {
+			triggerCond = j.get<MatchRegex>();
+		} else if (strategy == "Always") {
+			triggerCond = Always{};
+		} else {
+			throw std::runtime_error{
+			    "Unknown 'triggerCondition/strategy' found in config. Supported strategies are 'MatchRegex' "
+			    "and 'Always', not: " +
+			    std::string(strategy)};
+		}
+	};
+};
+NLOHMANN_JSON_NAMESPACE_END
+
+namespace flexisip::b2bua::bridge::config::v2 {
 
 using AccountPoolName = std::string;
 
@@ -115,8 +137,8 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, Provider& nlohmann
 	NLOHMANN_JSON_FROM(registrationRequired)
 	NLOHMANN_JSON_FROM(maxCallsPerLine)
 	NLOHMANN_JSON_FROM(accountPool)
-	from_json(nlohmann_json_j.at("triggerCondition"), nlohmann_json_t.triggerCondition);
-	from_json(nlohmann_json_j.at("accountToUse"), nlohmann_json_t.accountToUse);
+	NLOHMANN_JSON_FROM(triggerCondition)
+	NLOHMANN_JSON_FROM(accountToUse)
 	NLOHMANN_JSON_FROM(onAccountNotFound)
 	NLOHMANN_JSON_FROM(outgoingInvite)
 	NLOHMANN_JSON_FROM_WITH_DEFAULT(enableAvpf)
