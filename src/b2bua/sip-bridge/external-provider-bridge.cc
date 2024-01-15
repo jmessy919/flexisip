@@ -103,8 +103,14 @@ ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
 	const auto requestAddress = incomingCall.getRequestAddress();
 	auto* account = findAccountToMakeTheCall();
 	if (!account) {
-		SLOGD << "No external accounts available to bridge the call to " << requestAddress->asStringUriOnly();
-		return linphone::Reason::NotAcceptable;
+		switch (mOnAccountNotFound) {
+			case config::v2::OnAccountNotFound::NextProvider:
+				return std::nullopt;
+			case config::v2::OnAccountNotFound::Decline: {
+				SLOGD << "No external accounts available to bridge the call to " << requestAddress->asStringUriOnly();
+				return linphone::Reason::NotAcceptable;
+			}
+		}
 	}
 
 	occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;

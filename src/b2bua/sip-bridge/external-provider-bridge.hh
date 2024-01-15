@@ -82,6 +82,7 @@ private:
 	Account* findAccountToMakeTheCall();
 
 	std::unique_ptr<trigger_strat::TriggerStrategy> mTriggerStrat;
+	config::v2::OnAccountNotFound mOnAccountNotFound;
 	std::vector<Account> accounts;
 	std::string name;
 	std::optional<bool> overrideAvpf;
