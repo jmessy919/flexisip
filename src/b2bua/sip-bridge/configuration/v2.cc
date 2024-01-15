@@ -14,7 +14,7 @@ Root fromV1(v1::Root&& v1) {
 
 	for (auto& provider : v1) {
 		auto poolName = "Account pool - " + provider.name;
-		providers.push_back({
+		providers.push_back(Provider{
 		    .name = std::move(provider.name),
 		    .outboundProxy = std::move(provider.outboundProxy),
 		    .registrationRequired = provider.registrationRequired,
