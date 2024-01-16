@@ -389,7 +389,7 @@ static void external_provider_bridge__load_balancing() {
 	proxy.start();
 	const auto builder = proxy.clientBuilder();
 	const auto intercom = builder.build("sip:caller@sip.company1.com");
-	// Fake a call close enough to what the AccountManager will be taking as input
+	// Fake a call close enough to what the SipBridge will be taking as input
 	// Only incoming calls have a request address, so we need a stand-in client to receive it
 	const string expectedUsername = "+39067362350";
 	auto callee = builder.build("sip:" + expectedUsername + "@sip.company1.com;user=phone");
@@ -552,7 +552,7 @@ static void external_provider_bridge__override_special_options() {
 	proxy.start();
 	const auto builder = proxy.clientBuilder();
 	const auto caller = builder.build("sip:caller@sip.example.com");
-	// Fake a call close enough to what the AccountManager will be taking as input
+	// Fake a call close enough to what the SipBridge will be taking as input
 	// Only incoming calls have a request address, so we need a stand-in client to receive it
 	auto callee = builder.build("sip:unique-pattern@sip.example.com");
 	caller.invite(callee);

@@ -27,6 +27,7 @@ namespace flexisip::b2bua::bridge {
 class Account {
 	friend class SipBridge;
 	friend class ExternalSipProvider;
+	friend class InviteTweaker;
 
 public:
 	// Move constructor

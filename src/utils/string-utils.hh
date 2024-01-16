@@ -42,6 +42,7 @@ public:
 	 * results to a vector containing the entire string (one element).
 	 */
 	static std::vector<std::string> split(const std::string& str, const std::string& delimiter) noexcept;
+	static std::vector<std::string_view> split(std::string_view str, std::string_view delimiter) noexcept;
 
 	/* Remove surrounding double-quotes, if present */
 	static std::string unquote(const std::string& str) noexcept {

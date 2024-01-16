@@ -7,18 +7,21 @@
 #include <linphone++/account.hh>
 #include <linphone++/call.hh>
 
+#include "accounts/account.hh"
 #include "configuration/v2.hh"
+#include "utils/string-formatter.hh"
 
 namespace flexisip::b2bua::bridge {
 
 class InviteTweaker {
 public:
-	explicit InviteTweaker(config::v2::OutgoingInvite&&);
+	explicit InviteTweaker(const config::v2::OutgoingInvite&);
 
-	std::shared_ptr<linphone::Address>
-	tweakInvite(const linphone::Call&, const linphone::Account&, linphone::CallParams&) const;
+	std::shared_ptr<linphone::Address> tweakInvite(const linphone::Call&, const Account&, linphone::CallParams&) const;
 
 private:
+	/// The address to send the INVITE to
+	StringFormatter mToHeader;
 	std::optional<bool> mAvpfOverride;
 	std::optional<linphone::MediaEncryption> mEncryptionOverride;
 };

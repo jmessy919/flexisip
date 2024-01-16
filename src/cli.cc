@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -299,7 +299,7 @@ void CommandLineInterface::run() {
 				finished = true;
 			} else if (n > 0) {
 				SLOGD << "CommandLineInterface " << mName << " received: " << buffer;
-				auto split_query = StringUtils::split(buffer, " ");
+				auto split_query = StringUtils::split(std::string(buffer), " ");
 				std::string command = split_query.front();
 				split_query.erase(split_query.begin());
 				parseAndAnswer(std::move(child_socket), command, split_query);

@@ -29,8 +29,8 @@ Root fromV1(v1::Root&& v1) {
 		    .onAccountNotFound = OnAccountNotFound::Decline,
 		    .outgoingInvite =
 		        {
-		            .to = "sip:${incoming.requestAddress.userinfo}@${account.sipIdentity.hostport}${incoming."
-		                  "requestAddress.uriParameters}",
+		            .to = "sip:{incoming.requestAddress.user}@{account.sipIdentity.hostport}"
+		                  "{incoming.requestAddress.uriParameters}",
 		            .enableAvpf = provider.enableAvpf,
 		            .mediaEncryption = provider.mediaEncryption,
 		        },

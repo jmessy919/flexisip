@@ -100,9 +100,8 @@ ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
 	occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;
 	account->freeSlots--;
 
-	const auto& linAccount = account->account;
-	outgoingCallParams.setAccount(linAccount);
-	return mInviteTweaker.tweakInvite(incomingCall, *linAccount, outgoingCallParams);
+	outgoingCallParams.setAccount(account->account);
+	return mInviteTweaker.tweakInvite(incomingCall, *account, outgoingCallParams);
 }
 
 Account* ExternalSipProvider::findAccountToMakeTheCall() {
