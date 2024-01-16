@@ -121,8 +121,8 @@ void v1ConfigToV2() {
 	std::ignore = std::get<v2::account_selection::Random>(v2.providers[0].accountToUse);
 	BC_ASSERT_ENUM_EQUAL(v2.providers[0].onAccountNotFound, v2::OnAccountNotFound::Decline);
 	BC_ASSERT_CPP_EQUAL(v2.providers[0].outgoingInvite.to,
-	                    "sip:${incoming.requestAddress.userinfo}@${account.sipIdentity.hostport}${incoming."
-	                    "requestAddress.uriParameters}");
+	                    "sip:{incoming.requestAddress.user}@{account.sipIdentity.hostport}"
+	                    "{incoming.requestAddress.uriParameters}");
 	BC_ASSERT_CPP_EQUAL(v2.providers[0].outgoingInvite.from, "");
 	BC_ASSERT_CPP_EQUAL(v2.providers[0].accountPool, "Account pool - provider1");
 }

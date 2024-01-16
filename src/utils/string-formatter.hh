@@ -39,6 +39,7 @@ public:
 	/**
 	 * @brief Prototype for translation functions.
 	 */
+	// TODO take a string_view instead
 	using TranslationFunc = std::function<std::string(const std::string&)>;
 
 	StringFormatter(const std::string& _template = "", char startDelim = '{', char endDelim = '}')
