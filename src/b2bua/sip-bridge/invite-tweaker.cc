@@ -31,7 +31,9 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 	StringFormatter::TranslationFunc variableResolver{[&incomingCall, &account](const std::string& variableName) {
 		const auto dotPath = StringUtils::split(std::string_view(variableName), ".");
 		if (dotPath[0] == "incoming") {
-			if (dotPath[1] == "requestAddress") {
+			if (dotPath[1] == "to") {
+				return incomingCall.getToAddress()->asStringUriOnly();
+			} else if (dotPath[1] == "requestAddress") {
 				const auto& requestAddress = *incomingCall.getRequestAddress();
 				if (dotPath[2] == "user") {
 					return requestAddress.getUsername();

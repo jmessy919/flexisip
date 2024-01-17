@@ -59,9 +59,17 @@ void test() {
 
 	{
 		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);
-		const auto& toAddress = InviteTweaker{{.to = "sip:{incoming.requestAddress.user}@stub.example.org"}}.tweakInvite(*forgedCall, forgedAccount,
-		                                                                    *outgoingCallParams);
+		const auto& toAddress =
+		    InviteTweaker{{.to = "sip:{incoming.requestAddress.user}@stub.example.org"}}.tweakInvite(
+		        *forgedCall, forgedAccount, *outgoingCallParams);
 		BC_ASSERT_CPP_EQUAL(toAddress->asStringUriOnly(), "sip:expected-request-uri@stub.example.org");
+	}
+
+	{
+		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);
+		const auto& toAddress =
+		    InviteTweaker{{.to = "{incoming.to}"}}.tweakInvite(*forgedCall, forgedAccount, *outgoingCallParams);
+		BC_ASSERT_CPP_EQUAL(toAddress->asStringUriOnly(), expectedToAddress.str());
 	}
 }
 
