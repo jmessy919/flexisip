@@ -32,10 +32,9 @@ class Account {
 public:
 	// Move constructor
 	Account(Account&& other) = default;
-
-private:
 	Account(const std::shared_ptr<linphone::Account>& account, uint16_t freeSlots);
 
+private:
 	// Disable copy semantics
 	Account(const Account&) = delete;
 	Account& operator=(const Account&) = delete;
