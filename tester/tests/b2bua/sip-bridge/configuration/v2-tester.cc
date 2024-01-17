@@ -13,43 +13,43 @@ using namespace b2bua::bridge::config;
 
 void v1ConfigExpressedAsEquivalentV2Config() {
 	const auto j = R"json({
-    "schemaVersion": 2,
-    "providers": [
-      {
-        "name": "Pattern matching (legacy) provider, new style",
-        "outboundProxy": "<sip:some.provider.example.com;transport=tls>",
-        "registrationRequired": true,
-        "maxCallsPerLine": 500,
-        "triggerCondition": {
-          "source": "${incoming.from}",
-          "strategy": "MatchRegex",
-          "pattern": "sip:+33.*"
-        },
-        "accountToUse": {
-          "strategy": "Random"
-        },
-        "onAccountNotFound": "decline",
-        "outgoingInvite": {
-          "to": "sip:${incoming.requestAddress.userinfo}@${account.sipIdentity.hostport}${incoming.requestAddress.uriParameters}"
-        },
-        "accountPool": "MyIncredibleTestAccountPool"
-      }
-    ],
-    "accountPools": {
-      "MyIncredibleTestAccountPool": [
-        {
-          "uri": "sip:account1@some.provider.example.com",
-          "userid": "userid1",
-          "password": "correct horse battery staple",
-          "alias": "sip:alias@internal.domain.example.com"
-        },
-        {
-          "uri": "sip:account2@some.provider.example.com",
-          "password": "secret horse battery staple"
-        }
-      ]
-    }
-  })json"_json;
+		"schemaVersion": 2,
+		"providers": [
+		{
+			"name": "Pattern matching (legacy) provider, new style",
+			"outboundProxy": "<sip:some.provider.example.com;transport=tls>",
+			"registrationRequired": true,
+			"maxCallsPerLine": 500,
+			"triggerCondition": {
+			"source": "${incoming.from}",
+			"strategy": "MatchRegex",
+			"pattern": "sip:+33.*"
+			},
+			"accountToUse": {
+			"strategy": "Random"
+			},
+			"onAccountNotFound": "decline",
+			"outgoingInvite": {
+			"to": "sip:${incoming.requestAddress.userinfo}@${account.sipIdentity.hostport}${incoming.requestAddress.uriParameters}"
+			},
+			"accountPool": "MyIncredibleTestAccountPool"
+		}
+		],
+		"accountPools": {
+		"MyIncredibleTestAccountPool": [
+			{
+			"uri": "sip:account1@some.provider.example.com",
+			"userid": "userid1",
+			"password": "correct horse battery staple",
+			"alias": "sip:alias@internal.domain.example.com"
+			},
+			{
+			"uri": "sip:account2@some.provider.example.com",
+			"password": "secret horse battery staple"
+			}
+		]
+		}
+	})json"_json;
 
 	auto deserialized = j.get<v2::Root>();
 
@@ -85,19 +85,19 @@ void v1ConfigExpressedAsEquivalentV2Config() {
 
 void v1ConfigToV2() {
 	auto v1 = R"json([
-    {
-      "name": "provider1",
-      "pattern": "sip:.*",
-      "outboundProxy": "<sip:127.0.0.1:5860;transport=tcp>",
-      "maxCallsPerLine": 2,
-      "accounts": [ 
-        {
-          "uri": "sip:bridge@sip.provider1.com",
-          "password": "wow such password"
-        }
-      ]
-    }
-  ])json"_json.get<v1::Root>();
+		{
+		"name": "provider1",
+		"pattern": "sip:.*",
+		"outboundProxy": "<sip:127.0.0.1:5860;transport=tcp>",
+		"maxCallsPerLine": 2,
+		"accounts": [ 
+			{
+			"uri": "sip:bridge@sip.provider1.com",
+			"password": "wow such password"
+			}
+		]
+		}
+	])json"_json.get<v1::Root>();
 
 	auto v2 = v2::fromV1(std::move(v1));
 
