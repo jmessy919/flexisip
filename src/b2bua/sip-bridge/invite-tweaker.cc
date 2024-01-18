@@ -19,7 +19,17 @@ public:
 	using SubResolver = std::string (*)(const std::shared_ptr<const linphone::Address>&);
 
 	constexpr static std::pair<std::string_view, SubResolver> kFields[] = {
+	    {"", [](const auto& address) { return address->asStringUriOnly(); }},
 	    {"user", [](const auto& address) { return address->getUsername(); }},
+	    {"hostport",
+	     [](const auto& address) {
+		     auto hostport = address->getDomain();
+		     const auto port = address->getPort();
+		     if (port != 0) {
+			     hostport += ":" + std::to_string(port);
+		     }
+		     return hostport;
+	     }},
 	    {"uriParameters",
 	     [](const auto& address) {
 		     auto params = SipUri{address->asStringUriOnly()}.getParams();
@@ -68,23 +78,16 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 		const auto dotPath = StringUtils::split(std::string_view(variableName), ".");
 		if (dotPath[0] == "incoming") {
 			if (dotPath[1] == "to") {
-				return incomingCall.getToAddress()->asStringUriOnly();
+				return variable_resolution::Address(incomingCall.getToAddress()).resolve("");
 			} else if (dotPath[1] == "from") {
-				return incomingCall.getRemoteAddress()->asStringUriOnly();
+				return variable_resolution::Address(incomingCall.getRemoteAddress()).resolve("");
 			} else if (dotPath[1] == "requestAddress") {
 				return variable_resolution::Address(incomingCall.getRequestAddress()).resolve(dotPath[2]);
 			}
 		} else if (dotPath[0] == "account") {
 			if (dotPath[1] == "sipIdentity") {
-				const auto sipIdentity = account.account->getParams()->getIdentityAddress();
-				if (dotPath[2] == "hostport") {
-					auto hostport = sipIdentity->getDomain();
-					const auto port = sipIdentity->getPort();
-					if (port != 0) {
-						hostport += ":" + std::to_string(port);
-					}
-					return hostport;
-				}
+				return variable_resolution::Address(account.account->getParams()->getIdentityAddress())
+				    .resolve(dotPath[2]);
 			}
 		}
 		throw std::runtime_error{"unimplemented"};
