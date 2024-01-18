@@ -14,7 +14,8 @@
 namespace flexisip::b2bua::bridge {
 
 InviteTweaker::InviteTweaker(const config::v2::OutgoingInvite& config)
-    : mToHeader(config.to), mAvpfOverride(config.enableAvpf), mEncryptionOverride(config.mediaEncryption) {
+    : mToHeader(config.to), mFromHeader(config.from.empty() ? std::nullopt : decltype(mFromHeader){config.from}),
+      mAvpfOverride(config.enableAvpf), mEncryptionOverride(config.mediaEncryption) {
 }
 
 std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Call& incomingCall,
@@ -33,12 +34,14 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 		if (dotPath[0] == "incoming") {
 			if (dotPath[1] == "to") {
 				return incomingCall.getToAddress()->asStringUriOnly();
+			} else if (dotPath[1] == "from") {
+				return incomingCall.getRemoteAddress()->asStringUriOnly();
 			} else if (dotPath[1] == "requestAddress") {
-				const auto& requestAddress = *incomingCall.getRequestAddress();
+				const auto& requestAddress = incomingCall.getRequestAddress();
 				if (dotPath[2] == "user") {
-					return requestAddress.getUsername();
+					return requestAddress->getUsername();
 				} else if (dotPath[2] == "uriParameters") {
-					auto params = SipUri{requestAddress.asStringUriOnly()}.getParams();
+					auto params = SipUri{requestAddress->asStringUriOnly()}.getParams();
 					if (!params.empty()) {
 						params = ";" + params;
 					}
@@ -60,6 +63,9 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 		}
 		throw std::runtime_error{"unimplemented"};
 	}};
+	if (mFromHeader) {
+		outgoingCallParams.setFromHeader(mFromHeader->format(variableResolver));
+	}
 	return incomingCall.getCore()->createAddress(mToHeader.format(variableResolver));
 }
 

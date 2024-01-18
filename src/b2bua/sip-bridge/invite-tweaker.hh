@@ -22,6 +22,7 @@ public:
 private:
 	/// The address to send the INVITE to
 	StringFormatter mToHeader;
+	std::optional<StringFormatter> mFromHeader;
 	std::optional<bool> mAvpfOverride;
 	std::optional<linphone::MediaEncryption> mEncryptionOverride;
 };

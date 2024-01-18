@@ -44,17 +44,19 @@ void test() {
 	caller.invite(b2bua);
 	BC_HARD_ASSERT_TRUE(b2bua.hasReceivedCallFrom(caller));
 	const auto forgedCall = ClientCall::getLinphoneCall(*b2bua.getCurrentCall());
-	const auto& requestAddress = forgedCall->getRequestAddress();
-	BC_HARD_ASSERT(requestAddress != nullptr);
-	BC_ASSERT_CPP_EQUAL(requestAddress->getUsername(), "expected-request-uri");
-	BC_ASSERT_CPP_EQUAL(requestAddress->getUriParam("custom-param"), "RequestUri");
-	const auto& toAddress = forgedCall->getToAddress();
-	BC_HARD_ASSERT(toAddress != nullptr);
-	BC_ASSERT_CPP_EQUAL(toAddress->getUsername(), "expected-to");
-	BC_ASSERT_CPP_EQUAL(toAddress->getUriParam("custom-param"), "To");
-	const auto& fromAddress = forgedCall->getRemoteAddress();
-	BC_ASSERT_CPP_EQUAL(fromAddress->getUsername(), "expected-from");
-	BC_ASSERT_CPP_EQUAL(fromAddress->getUriParam("custom-param"), "From");
+	{
+		const auto& requestAddress = forgedCall->getRequestAddress();
+		BC_HARD_ASSERT(requestAddress != nullptr);
+		BC_ASSERT_CPP_EQUAL(requestAddress->getUsername(), "expected-request-uri");
+		BC_ASSERT_CPP_EQUAL(requestAddress->getUriParam("custom-param"), "RequestUri");
+		const auto& toAddress = forgedCall->getToAddress();
+		BC_HARD_ASSERT(toAddress != nullptr);
+		BC_ASSERT_CPP_EQUAL(toAddress->getUsername(), "expected-to");
+		BC_ASSERT_CPP_EQUAL(toAddress->getUriParam("custom-param"), "To");
+		const auto& fromAddress = forgedCall->getRemoteAddress();
+		BC_ASSERT_CPP_EQUAL(fromAddress->getUsername(), "expected-from");
+		BC_ASSERT_CPP_EQUAL(fromAddress->getUriParam("custom-param"), "From");
+	}
 	Account forgedAccount{b2bua.getAccount(), 0x7E57};
 
 	{
@@ -63,6 +65,7 @@ void test() {
 		    InviteTweaker{{.to = "sip:{incoming.requestAddress.user}@stub.example.org"}}.tweakInvite(
 		        *forgedCall, forgedAccount, *outgoingCallParams);
 		BC_ASSERT_CPP_EQUAL(toAddress->asStringUriOnly(), "sip:expected-request-uri@stub.example.org");
+		BC_ASSERT_CPP_EQUAL(outgoingCallParams->getFromHeader(), "");
 	}
 
 	{
@@ -70,6 +73,13 @@ void test() {
 		const auto& toAddress =
 		    InviteTweaker{{.to = "{incoming.to}"}}.tweakInvite(*forgedCall, forgedAccount, *outgoingCallParams);
 		BC_ASSERT_CPP_EQUAL(toAddress->asStringUriOnly(), expectedToAddress.str());
+	}
+
+	{
+		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);
+		std::ignore = InviteTweaker{{.to = "sip:stub@example.org", .from = "{incoming.from}"}}.tweakInvite(
+		    *forgedCall, forgedAccount, *outgoingCallParams);
+		BC_ASSERT_CPP_EQUAL(outgoingCallParams->getFromHeader(), "sip:expected-from@sip.example.org;custom-param=From");
 	}
 }
 
