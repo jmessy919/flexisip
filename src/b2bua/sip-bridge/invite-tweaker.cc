@@ -12,6 +12,41 @@
 #include "flexisip/utils/sip-uri.hh"
 
 namespace flexisip::b2bua::bridge {
+namespace variable_resolution {
+
+class Address {
+public:
+	using SubResolver = std::string (*)(const std::shared_ptr<const linphone::Address>&);
+
+	constexpr static std::pair<std::string_view, SubResolver> kFields[] = {
+	    {"user", [](const auto& address) { return address->getUsername(); }},
+	    {"uriParameters",
+	     [](const auto& address) {
+		     auto params = SipUri{address->asStringUriOnly()}.getParams();
+		     if (!params.empty()) {
+			     params = ";" + params;
+		     }
+		     return params;
+	     }},
+	};
+
+	explicit Address(std::shared_ptr<const linphone::Address> address) : mAddress(address) {
+	}
+
+	std::string resolve(std::string_view varName) {
+		for (const auto& [name, resolver] : kFields) {
+			if (name == varName) {
+				return resolver(mAddress);
+			}
+		}
+		throw std::runtime_error{"unsupported variable name"};
+	}
+
+private:
+	std::shared_ptr<const linphone::Address> mAddress;
+};
+
+} // namespace variable_resolution
 
 InviteTweaker::InviteTweaker(const config::v2::OutgoingInvite& config)
     : mToHeader(config.to), mFromHeader(config.from.empty() ? std::nullopt : decltype(mFromHeader){config.from}),
@@ -37,16 +72,7 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 			} else if (dotPath[1] == "from") {
 				return incomingCall.getRemoteAddress()->asStringUriOnly();
 			} else if (dotPath[1] == "requestAddress") {
-				const auto& requestAddress = incomingCall.getRequestAddress();
-				if (dotPath[2] == "user") {
-					return requestAddress->getUsername();
-				} else if (dotPath[2] == "uriParameters") {
-					auto params = SipUri{requestAddress->asStringUriOnly()}.getParams();
-					if (!params.empty()) {
-						params = ";" + params;
-					}
-					return params;
-				}
+				return variable_resolution::Address(incomingCall.getRequestAddress()).resolve(dotPath[2]);
 			}
 		} else if (dotPath[0] == "account") {
 			if (dotPath[1] == "sipIdentity") {
