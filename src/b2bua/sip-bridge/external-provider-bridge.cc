@@ -15,6 +15,7 @@
     You should have received a copy of the GNU Affero General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
+#include "external-provider-bridge.hh"
 
 #include <fstream>
 #include <iostream>
@@ -27,7 +28,8 @@
 #include "linphone++/linphone.hh"
 #include "linphone/misc.h"
 
-#include "external-provider-bridge.hh"
+#include "b2bua/sip-bridge/accounts/static-account-pool.hh"
+#include "utils/variant-utils.hh"
 
 using namespace std;
 
@@ -70,10 +72,10 @@ Here is a template of what should be in this file:
 ExternalSipProvider::ExternalSipProvider(decltype(ExternalSipProvider::mTriggerStrat)&& triggerStrat,
                                          decltype(mOnAccountNotFound) onAccountNotFound,
                                          InviteTweaker&& inviteTweaker,
-                                         vector<Account>&& accounts,
+                                         const std::shared_ptr<AccountPool>& accountPool,
                                          string&& name)
     : mTriggerStrat(std::move(triggerStrat)), mOnAccountNotFound(onAccountNotFound),
-      mInviteTweaker(std::move(inviteTweaker)), accounts(std::move(accounts)), name(std::move(name)) {
+      mInviteTweaker(std::move(inviteTweaker)), mAccountPool(accountPool), name(std::move(name)) {
 }
 
 std::optional<b2bua::Application::ActionToTake>
@@ -106,22 +108,66 @@ ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
 
 Account* ExternalSipProvider::findAccountToMakeTheCall() {
 	// Pick a random account then keep iterating if unavailable
-	const int max = accounts.size();
-	const int seed = rand() % max;
-	for (int i = seed; i < (seed + max); i++) {
-		auto& account = accounts[i % max];
-		if (account.isAvailable()) {
-			return &account;
+
+	//	const int max = mAccountPool->size();
+	//	const int seed = rand() % max;
+	//	for (int i = seed; i < (seed + max); i++) {
+	//		auto& account = mAccountPool->getAccounts()->;
+	//		if (account.isAvailable()) {
+	//			return &account;
+	//		}
+	//	} TODO
+
+	for (const auto& [_, account] : mAccountPool->getAccounts()) {
+		if (account->isAvailable()) {
+			return account.get();
 		}
 	}
 	return nullptr;
 }
 
-void SipBridge::initFromDescs(linphone::Core& core, config::v2::Root&& provDescs) {
-	providers.reserve(provDescs.providers.size());
-	const auto factory = linphone::Factory::get();
+AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
+                                                        const config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
+	auto accountPoolMap = AccountPoolImplMap();
 	auto params = core.createAccountParams();
-	for (auto& provDesc : provDescs.providers) {
+
+	for (const auto& [poolNameIt, poolIt] : accountPoolConfigMap) {
+		// Until C++ 20 this is needed. Because poolNameIt and poolIt can't be captured.
+		const auto& poolName = poolNameIt;
+		const auto& pool = poolIt;
+
+		if (pool.outboundProxy.empty()) {
+			LOGF("Please provide an `outboundProxy` for AccountPool '%s'", poolName.c_str());
+		}
+		if (pool.maxCallsPerLine == 0) {
+			SLOGW << "AccountPool '" << poolName
+			      << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
+		}
+		const auto route = core.createAddress(pool.outboundProxy);
+		params->setServerAddress(route);
+		params->setRoutesAddresses({route});
+		params->enableRegister(pool.registrationRequired);
+
+		Match(pool.loader)
+		    .against(
+		        [&accountPoolMap, &poolName, &params, &core, &pool](const config::v2::StaticLoader& staticPool) {
+			        if (staticPool.empty()) {
+				        SLOGW << "AccountPool '" << poolName
+				              << "' has no `accounts` and will not be used to bridge calls";
+			        }
+			        accountPoolMap.try_emplace(
+			            poolName, make_shared<StaticAccountPool>(core, params, poolName, pool, staticPool));
+		        },
+		        [](const config::v2::SQLLoader&) { LOGF("Not yet implemented"); });
+	}
+
+	return accountPoolMap;
+}
+
+void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) {
+	const auto accountPools = getAccountPoolsFromConfig(core, root.accountPools);
+	providers.reserve(root.providers.size());
+	for (auto& provDesc : root.providers) {
 		if (provDesc.name.empty()) {
 			LOGF("One of your external SIP providers has an empty `name`");
 		}
@@ -129,53 +175,23 @@ void SipBridge::initFromDescs(linphone::Core& core, config::v2::Root&& provDescs
 		if (triggerCond.pattern.empty()) {
 			LOGF("Please provide a `pattern` for provider '%s'", provDesc.name.c_str());
 		}
-		if (provDesc.outboundProxy.empty()) {
-			LOGF("Please provide an `outboundProxy` for provider '%s'", provDesc.name.c_str());
-		}
-		if (provDesc.maxCallsPerLine == 0) {
-			SLOGW << "Provider '" << provDesc.name
-			      << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
-		}
-		auto& accountPool = std::get<config::v2::StaticPool>(provDescs.accountPools.at(provDesc.accountPool));
-		if (accountPool.empty()) {
-			SLOGW << "Provider '" << provDesc.name << "' has no `accounts` and will not be used to bridge calls";
-		}
 
-		const auto route = core.createAddress(provDesc.outboundProxy);
-		params->setServerAddress(route);
-		params->setRoutesAddresses({route});
-		params->enableRegister(provDesc.registrationRequired);
-
-		auto accounts = vector<Account>();
-		accounts.reserve(accountPool.size());
-		for (const auto& accountDesc : accountPool) {
-			if (accountDesc.uri.empty()) {
-				LOGF("An account of provider '%s' is missing a `uri` field", provDesc.name.c_str());
-			}
-			const auto address = core.createAddress(accountDesc.uri);
-			params->setIdentityAddress(address);
-			auto account = core.createAccount(params->clone());
-			core.addAccount(account);
-
-			if (!accountDesc.password.empty()) {
-				core.addAuthInfo(factory->createAuthInfo(address->getUsername(), accountDesc.userid,
-				                                         accountDesc.password, "", "", address->getDomain()));
-			}
-
-			accounts.emplace_back(Account(std::move(account), std::move(provDesc.maxCallsPerLine)));
+		const auto& accountPoolIt = accountPools.find(provDesc.accountPool);
+		if (accountPoolIt == accountPools.cend()) {
+			LOGF("Please provide an existing `accountPools` for provider '%s'", provDesc.name.c_str());
 		}
 		providers.emplace_back(ExternalSipProvider{
 		    std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)),
 		    provDesc.onAccountNotFound,
 		    InviteTweaker(std::move(provDesc.outgoingInvite)),
-		    std::move(accounts),
+		    accountPoolIt->second,
 		    std::move(provDesc.name),
 		});
 	}
 }
 
 SipBridge::SipBridge(linphone::Core& core, config::v2::Root&& provDescs) {
-	initFromDescs(core, std::move(provDescs));
+	initFromRootConfig(core, std::move(provDescs));
 }
 
 void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) {
@@ -196,7 +212,7 @@ void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::Gen
 	nlohmann::json j;
 	fileStream >> j;
 
-	initFromDescs(*core, [&j]() {
+	initFromRootConfig(*core, [&j]() {
 		if (j.is_array()) {
 			return config::v2::fromV1(j.get<config::v1::Root>());
 		}
@@ -238,8 +254,8 @@ string SipBridge::handleCommand(const string& command, const vector<string>& arg
 	auto providerArr = Json::Value();
 	for (const auto& provider : providers) {
 		auto accountsArr = Json::Value();
-		for (const auto& bridge_account : provider.accounts) {
-			const auto account = bridge_account.account;
+		for (const auto& [_, bridgeAccount] : provider.mAccountPool->getAccounts()) {
+			const auto account = bridgeAccount->account;
 			const auto params = account->getParams();
 			const auto registerEnabled = params->registerEnabled();
 			const auto status = [registerEnabled, account]() {
@@ -269,7 +285,7 @@ string SipBridge::handleCommand(const string& command, const vector<string>& arg
 
 			if (status == "OK") {
 				accountObj["registerEnabled"] = registerEnabled;
-				accountObj["freeSlots"] = bridge_account.freeSlots;
+				accountObj["freeSlots"] = bridgeAccount->freeSlots;
 			}
 
 			accountsArr.append(accountObj);

@@ -57,7 +57,7 @@ void test() {
 		BC_ASSERT_CPP_EQUAL(fromAddress->getUsername(), "expected-from");
 		BC_ASSERT_CPP_EQUAL(fromAddress->getUriParam("custom-param"), "From");
 	}
-	Account forgedAccount{b2bua.getAccount(), 0x7E57};
+	Account forgedAccount{b2bua.getAccount(), 0x7E57, "an alias"};
 
 	{
 		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);

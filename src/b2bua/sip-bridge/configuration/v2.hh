@@ -109,7 +109,7 @@ NLOHMANN_JSON_SERIALIZE_ENUM(OnAccountNotFound,
 
 struct OutgoingInvite {
 	std::string to;
-	std::string from = "";
+	std::string from;
 	std::optional<bool> enableAvpf = std::nullopt;
 	std::optional<linphone::MediaEncryption> mediaEncryption = std::nullopt;
 };
@@ -123,20 +123,14 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, OutgoingInvite& nl
 
 struct Provider {
 	std::string name;
-	std::string outboundProxy;
-	bool registrationRequired;
-	uint32_t maxCallsPerLine;
 	AccountPoolName accountPool;
 	TriggerCondition triggerCondition;
 	AccountToUse accountToUse;
-	OnAccountNotFound onAccountNotFound;
+	OnAccountNotFound onAccountNotFound{OnAccountNotFound::NextProvider};
 	OutgoingInvite outgoingInvite;
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, Provider& nlohmann_json_t) {
 	NLOHMANN_JSON_FROM(name)
-	NLOHMANN_JSON_FROM(outboundProxy)
-	NLOHMANN_JSON_FROM(registrationRequired)
-	NLOHMANN_JSON_FROM(maxCallsPerLine)
 	NLOHMANN_JSON_FROM(accountPool)
 	NLOHMANN_JSON_FROM(triggerCondition)
 	NLOHMANN_JSON_FROM(accountToUse)
@@ -146,9 +140,9 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, Provider& nlohmann
 
 struct Account {
 	std::string uri;
-	std::string userid = "";
-	std::string password = "";
-	std::string alias = "";
+	std::string userid;
+	std::string password;
+	std::string alias;
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, Account& nlohmann_json_t) {
 	Account nlohmann_json_default_obj;
@@ -158,34 +152,45 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, Account& nlohmann_
 	NLOHMANN_JSON_FROM_WITH_DEFAULT(alias)
 };
 
-struct SQLPool {
+struct SQLLoader {
 	std::string initQuery;
 	std::string updateQuery;
 	std::string connection;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SQLPool, initQuery, updateQuery, connection);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SQLLoader, initQuery, updateQuery, connection);
 
-using StaticPool = std::vector<Account>;
+using StaticLoader = std::vector<Account>;
 
-using AccountPool = std::variant<StaticPool, SQLPool>;
-inline void from_json(const nlohmann ::json& j, AccountPool& pool) {
+using AccountPoolLoader = std::variant<StaticLoader, SQLLoader>;
+inline void from_json(const nlohmann ::json& j, AccountPoolLoader& pool) {
 	if (j.is_array()) {
-		pool = j.get<StaticPool>();
+		pool = j.get<StaticLoader>();
 	} else {
-		pool = j.get<SQLPool>();
+		pool = j.get<SQLLoader>();
 	}
 }
 
+struct AccountPool {
+	std::string outboundProxy;
+	bool registrationRequired = false;
+	uint32_t maxCallsPerLine = 0;
+	AccountPoolLoader loader;
+};
+inline void from_json(const nlohmann ::json& nlohmann_json_j, AccountPool& nlohmann_json_t) {
+	NLOHMANN_JSON_FROM(outboundProxy)
+	NLOHMANN_JSON_FROM(registrationRequired)
+	NLOHMANN_JSON_FROM(maxCallsPerLine)
+	NLOHMANN_JSON_FROM(loader)
+}
+
+using AccountPoolConfigMap = std::unordered_map<AccountPoolName, AccountPool>;
 struct Root {
 	unsigned int schemaVersion;
 	std::vector<Provider> providers;
-	std::unordered_map<AccountPoolName, AccountPool> accountPools;
+	AccountPoolConfigMap accountPools;
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, Root& nlohmann_json_t) {
-	NLOHMANN_JSON_FROM(schemaVersion);
-	NLOHMANN_JSON_FROM(providers);
-	NLOHMANN_JSON_FROM(accountPools);
-}
+    NLOHMANN_JSON_FROM(schemaVersion) NLOHMANN_JSON_FROM(providers) NLOHMANN_JSON_FROM(accountPools)}
 
 Root fromV1(v1::Root&&);
 

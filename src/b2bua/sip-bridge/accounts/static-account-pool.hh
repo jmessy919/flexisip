@@ -17,34 +17,24 @@
 */
 
 #include <memory>
+#include <unordered_map>
 
-#include "linphone++/linphone.hh"
+#include "linphone++/account_params.hh"
+
+#include "b2bua/sip-bridge/accounts/account-pool.hh"
+#include "b2bua/sip-bridge/configuration/v2.hh"
 
 #pragma once
 
 namespace flexisip::b2bua::bridge {
 
-class Account {
-	friend class SipBridge;
-	friend class ExternalSipProvider;
-	friend class InviteTweaker;
-
+class StaticAccountPool : public AccountPool {
 public:
-	Account(const std::shared_ptr<linphone::Account>& account, uint16_t freeSlots, std::string_view alias);
-
-	// Move constructor
-	Account(Account&& other) = default;
-
-private:
-	// Disable copy semantics
-	Account(const Account&) = delete;
-	Account& operator=(const Account&) = delete;
-
-	bool isAvailable() const;
-
-	std::shared_ptr<linphone::Account> account;
-	uint16_t freeSlots = 0;
-	std::string mAlias{};
+	explicit StaticAccountPool(linphone::Core& core,
+	                           const std::shared_ptr<linphone::AccountParams>& params,
+	                           const config::v2::AccountPoolName& poolName,
+	                           const config::v2::AccountPool& pool,
+	                           const config::v2::StaticLoader& loader);
 };
 
 } // namespace flexisip::b2bua::bridge

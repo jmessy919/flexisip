@@ -27,16 +27,21 @@ namespace flexisip::b2bua::bridge {
 
 class AccountPool {
 public:
+	AccountPool() = default;
+
 	// Disable copy semantics
 	AccountPool(const AccountPool&) = delete;
 	AccountPool& operator=(const AccountPool&) = delete;
 
-	const std::unordered_map<std::string, std::shared_ptr<Account>>& getAll() const {
-		return accounts;
+	size_t size() const {
+		return mAccounts.size();
+	}
+	const std::unordered_map<std::string, std::shared_ptr<Account>>& getAccounts() const {
+		return mAccounts;
 	}
 
-private:
-	std::unordered_map<std::string, std::shared_ptr<Account>> accounts;
+protected:
+	std::unordered_map<std::string, std::shared_ptr<Account>> mAccounts;
 };
 
 } // namespace flexisip::b2bua::bridge

@@ -26,6 +26,7 @@ target_sources(flexisip PRIVATE
         b2bua-server.cc b2bua-server.hh
         sip-bridge/accounts/account-pool.hh
         sip-bridge/accounts/account.cc sip-bridge/accounts/account.hh
+        sip-bridge/accounts/static-account-pool.cc sip-bridge/accounts/static-account-pool.hh
         sip-bridge/configuration/media-encryption.hh
         sip-bridge/configuration/v1.hh
         sip-bridge/configuration/v2.cc sip-bridge/configuration/v2.hh

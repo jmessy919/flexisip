@@ -31,6 +31,7 @@
 #include "linphone++/linphone.hh"
 
 #include "b2bua/b2bua-server.hh"
+#include "b2bua/sip-bridge/accounts/account-pool.hh"
 #include "b2bua/sip-bridge/accounts/account.hh"
 #include "cli.hh"
 #include "configuration/v2.hh"
@@ -55,7 +56,7 @@ private:
 	ExternalSipProvider(std::unique_ptr<trigger_strat::TriggerStrategy>&& triggerStrat,
 	                    config::v2::OnAccountNotFound onAccountNotFound,
 	                    InviteTweaker&& inviteTweaker,
-	                    std::vector<Account>&& accounts,
+	                    const std::shared_ptr<AccountPool>& accountPool,
 	                    std::string&& name);
 
 	Account* findAccountToMakeTheCall();
@@ -63,7 +64,7 @@ private:
 	std::unique_ptr<trigger_strat::TriggerStrategy> mTriggerStrat;
 	config::v2::OnAccountNotFound mOnAccountNotFound;
 	InviteTweaker mInviteTweaker;
-	std::vector<Account> accounts;
+	std::shared_ptr<AccountPool> mAccountPool;
 	std::string name;
 
 	// Disable copy semantics
@@ -71,6 +72,7 @@ private:
 	ExternalSipProvider& operator=(const ExternalSipProvider&) = delete;
 };
 
+using AccountPoolImplMap = std::unordered_map<config::v2::AccountPoolName, std::shared_ptr<AccountPool>>;
 class SipBridge : public b2bua::Application, public CliHandler {
 public:
 	SipBridge() = default;
@@ -84,10 +86,12 @@ public:
 	std::string handleCommand(const std::string& command, const std::vector<std::string>& args) override;
 
 private:
+	static AccountPoolImplMap getAccountPoolsFromConfig(linphone::Core& core,
+	                                                    const config::v2::AccountPoolConfigMap& accountPoolConfigMap);
+	void initFromRootConfig(linphone::Core& core, config::v2::Root rootConfig);
+
 	std::vector<ExternalSipProvider> providers;
 	std::unordered_map<std::string, Account*> occupiedSlots;
-
-	void initFromDescs(linphone::Core&, config::v2::Root&&);
 };
 
 } // namespace flexisip::b2bua::bridge

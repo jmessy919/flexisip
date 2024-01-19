@@ -21,8 +21,8 @@
 namespace flexisip::b2bua::bridge {
 using namespace std;
 
-Account::Account(const std::shared_ptr<linphone::Account>& account, uint16_t freeSlots)
-    : account(account), freeSlots(freeSlots) {
+Account::Account(const std::shared_ptr<linphone::Account>& account, uint16_t freeSlots, std::string_view alias)
+    : account(account), freeSlots(freeSlots), mAlias(alias) {
 }
 
 bool Account::isAvailable() const {

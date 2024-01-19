@@ -16,9 +16,6 @@ Root fromV1(v1::Root&& v1) {
 		auto poolName = "Account pool - " + provider.name;
 		providers.push_back(Provider{
 		    .name = std::move(provider.name),
-		    .outboundProxy = std::move(provider.outboundProxy),
-		    .registrationRequired = provider.registrationRequired,
-		    .maxCallsPerLine = provider.maxCallsPerLine,
 		    .accountPool = poolName,
 		    .triggerCondition =
 		        trigger_cond::MatchRegex{
@@ -35,16 +32,23 @@ Root fromV1(v1::Root&& v1) {
 		            .mediaEncryption = provider.mediaEncryption,
 		        },
 		});
-		StaticPool accounts{};
-		accounts.reserve(provider.accounts.size());
+
+		auto staticLoader = StaticLoader{};
+		staticLoader.reserve(provider.accounts.size());
 		for (auto& account : provider.accounts) {
-			accounts.push_back({
+			staticLoader.push_back({
 			    .uri = std::move(account.uri),
 			    .userid = std::move(account.userid),
 			    .password = std::move(account.password),
 			});
 		}
-		accountPools.emplace(std::move(poolName), std::move(accounts));
+		AccountPool accountPool{
+		    .outboundProxy = std::move(provider.outboundProxy),
+		    .registrationRequired = provider.registrationRequired,
+		    .maxCallsPerLine = provider.maxCallsPerLine,
+		    .loader = std::move(staticLoader),
+		};
+		accountPools.try_emplace(std::move(poolName), std::move(accountPool));
 	}
 
 	return {
