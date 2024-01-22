@@ -502,26 +502,25 @@ static void external_provider_bridge__parse_register_authenticate() {
 			"accounts" : 
 			[
 				{
-					"address" : "sip:wrongpassword@auth.provider1.com",
-					"status" : "Registration failed: Bad credentials"
+					"address" : "sip:registered@auth.provider1.com",
+					"freeSlots" : 0,
+					"registerEnabled" : true,
+					"status" : "OK"
 				},
 				{
 					"address" : "sip:unregistered@auth.provider1.com",
 					"status" : "Registration failed: Bad credentials"
 				},
 				{
-					"address" : "sip:registered@auth.provider1.com",
-					"freeSlots" : 0,
-					"registerEnabled" : true,
-					"status" : "OK"
+					"address" : "sip:wrongpassword@auth.provider1.com",
+					"status" : "Registration failed: Bad credentials"
 				}
 			],
 			"name" : "provider1"
 		}
 	]
 })";
-	SLOGD << "SIP BRIDGE INFO: " << info;
-	BC_ASSERT_TRUE(info == expected);
+	BC_ASSERT_CPP_EQUAL(info, expected);
 
 	intercom.endCurrentCall(phone);
 }
