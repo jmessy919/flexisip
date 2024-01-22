@@ -496,31 +496,31 @@ static void external_provider_bridge__parse_register_authenticate() {
 
 	const auto info = sipBridge.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
 	const auto expected = R"({
-	"providers" : 
-	[
-		{
-			"accounts" : 
-			[
-				{
-					"address" : "sip:registered@auth.provider1.com",
-					"freeSlots" : 0,
-					"registerEnabled" : true,
-					"status" : "OK"
-				},
-				{
-					"address" : "sip:unregistered@auth.provider1.com",
-					"status" : "Registration failed: Bad credentials"
-				},
-				{
-					"address" : "sip:wrongpassword@auth.provider1.com",
-					"status" : "Registration failed: Bad credentials"
-				}
-			],
-			"name" : "provider1"
-		}
-	]
-})";
-	BC_ASSERT_CPP_EQUAL(info, expected);
+		"providers" : 
+		[
+			{
+				"accounts" : 
+				[
+					{
+						"address" : "sip:registered@auth.provider1.com",
+						"freeSlots" : 0,
+						"registerEnabled" : true,
+						"status" : "OK"
+					},
+					{
+						"address" : "sip:unregistered@auth.provider1.com",
+						"status" : "Registration failed: Bad credentials"
+					},
+					{
+						"address" : "sip:wrongpassword@auth.provider1.com",
+						"status" : "Registration failed: Bad credentials"
+					}
+				],
+				"name" : "provider1"
+			}
+		]
+	})"_json;
+	BC_ASSERT_CPP_EQUAL(nlohmann::json::parse(info), expected);
 
 	intercom.endCurrentCall(phone);
 }
