@@ -64,7 +64,8 @@ void test() {
 	forgedAccountParams->setIdentityAddress(forgedAccountAddress);
 	auto forgedLinphoneAccount = b2bua.getCore()->createAccount(forgedAccountParams);
 	BC_HARD_ASSERT(forgedLinphoneAccount != nullptr);
-	Account forgedAccount{forgedLinphoneAccount, 0x7E57, "an alias"};
+	const std::string_view expectedAlias{"sip:expected-alias@alias.example.org;custom-param=Alias"};
+	Account forgedAccount{forgedLinphoneAccount, 0x7E57, expectedAlias};
 
 	{
 		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);
@@ -98,6 +99,13 @@ void test() {
 		    InviteTweaker{{.to = "sip:{account.sipIdentity.user}@{incoming.to.hostport}{incoming.from.uriParameters}"}}
 		        .tweakInvite(*forgedCall, forgedAccount, *outgoingCallParams);
 		BC_ASSERT_CPP_EQUAL(toAddress->asStringUriOnly(), "sip:expected-account@to.example.org:666;custom-param=From");
+	}
+
+	{
+		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);
+		const auto& toAddress =
+		    InviteTweaker{{.to = "{account.alias}"}}.tweakInvite(*forgedCall, forgedAccount, *outgoingCallParams);
+		BC_ASSERT_CPP_EQUAL(toAddress->asStringUriOnly(), expectedAlias);
 	}
 
 	{

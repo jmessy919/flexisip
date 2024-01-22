@@ -103,6 +103,8 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 				const auto subVarName = varName == end ? "" : *varName;
 				return variable_resolution::Address(account.account->getParams()->getIdentityAddress())
 				    .resolve(subVarName);
+			} else if (*varName == "alias") {
+				return account.mAlias;
 			}
 		}
 		throw std::runtime_error{"unimplemented"};
