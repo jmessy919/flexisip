@@ -107,29 +107,13 @@ ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
 }
 
 Account* ExternalSipProvider::findAccountToMakeTheCall() {
-	// Pick a random account then keep iterating if unavailable
-
-	//	const int max = mAccountPool->size();
-	//	const int seed = rand() % max;
-	//	for (int i = seed; i < (seed + max); i++) {
-	//		auto& account = mAccountPool->getAccounts()->;
-	//		if (account.isAvailable()) {
-	//			return &account;
-	//		}
-	//	} TODO
-
-	for (const auto& [_, account] : mAccountPool->getAccounts()) {
-		if (account->isAvailable()) {
-			return account.get();
-		}
-	}
+	if (const auto& account = mAccountPool->getAccountRandomly(); account) return account.get();
 	return nullptr;
 }
 
 AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
                                                         const config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
 	auto accountPoolMap = AccountPoolImplMap();
-	auto params = core.createAccountParams();
 
 	for (const auto& [poolNameIt, poolIt] : accountPoolConfigMap) {
 		// Until C++ 20 this is needed. Because poolNameIt and poolIt can't be captured.
@@ -143,7 +127,9 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 			SLOGW << "AccountPool '" << poolName
 			      << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
 		}
+
 		const auto route = core.createAddress(pool.outboundProxy);
+		const auto params = core.createAccountParams();
 		params->setServerAddress(route);
 		params->setRoutesAddresses({route});
 		params->enableRegister(pool.registrationRequired);
@@ -254,7 +240,7 @@ string SipBridge::handleCommand(const string& command, const vector<string>& arg
 	auto providerArr = Json::Value();
 	for (const auto& provider : providers) {
 		auto accountsArr = Json::Value();
-		for (const auto& [_, bridgeAccount] : provider.mAccountPool->getAccounts()) {
+		for (const auto& [_, bridgeAccount] : *provider.mAccountPool) {
 			const auto account = bridgeAccount->account;
 			const auto params = account->getParams();
 			const auto registerEnabled = params->registerEnabled();

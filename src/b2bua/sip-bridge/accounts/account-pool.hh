@@ -33,15 +33,27 @@ public:
 	AccountPool(const AccountPool&) = delete;
 	AccountPool& operator=(const AccountPool&) = delete;
 
-	size_t size() const {
-		return mAccounts.size();
+	std::shared_ptr<Account> getAccountByUri(const std::string& uri) const;
+	std::shared_ptr<Account> getAccountByAlias(const std::string& alias) const;
+	std::shared_ptr<Account> getAccountRandomly() const;
+
+	auto size() const {
+		return mAccountsByUri.size();
 	}
-	const std::unordered_map<std::string, std::shared_ptr<Account>>& getAccounts() const {
-		return mAccounts;
+	auto begin() const {
+		return mAccountsByUri.begin();
+	}
+	auto end() const {
+		return mAccountsByUri.end();
 	}
 
 protected:
-	std::unordered_map<std::string, std::shared_ptr<Account>> mAccounts;
+	void reserve(size_t sizeToReserve);
+	void try_emplace(const std::string& uri, const std::string& alias, const std::shared_ptr<Account>& account);
+
+private:
+	std::unordered_map<std::string, std::shared_ptr<Account>> mAccountsByUri;
+	std::unordered_map<std::string, std::shared_ptr<Account>> mAccountsByAlias;
 };
 
 } // namespace flexisip::b2bua::bridge

@@ -35,12 +35,12 @@ public:
 	// Move constructor
 	Account(Account&& other) = default;
 
+	bool isAvailable() const;
+
 private:
 	// Disable copy semantics
 	Account(const Account&) = delete;
 	Account& operator=(const Account&) = delete;
-
-	bool isAvailable() const;
 
 	std::shared_ptr<linphone::Account> account;
 	uint16_t freeSlots = 0;

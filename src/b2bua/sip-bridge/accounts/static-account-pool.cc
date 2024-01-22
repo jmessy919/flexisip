@@ -29,14 +29,14 @@ StaticAccountPool::StaticAccountPool(linphone::Core& core,
                                      const config::v2::AccountPool& pool,
                                      const config::v2::StaticLoader& loader) {
 	const auto factory = linphone::Factory::get();
-	mAccounts.reserve(loader.size());
+	reserve(loader.size());
 	for (const auto& accountDesc : loader) {
 		if (accountDesc.uri.empty()) {
 			LOGF("An account of account pool '%s' is missing a `uri` field", poolName.c_str());
 		}
 		const auto address = core.createAddress(accountDesc.uri);
 		params->setIdentityAddress(address);
-		auto account = core.createAccount(params->clone());
+		auto account = core.createAccount(params);
 		core.addAccount(account);
 
 		if (!accountDesc.password.empty()) {
@@ -44,7 +44,8 @@ StaticAccountPool::StaticAccountPool(linphone::Core& core,
 			                                         "", "", address->getDomain()));
 		}
 
-		mAccounts.try_emplace(accountDesc.uri, make_shared<Account>(account, pool.maxCallsPerLine, accountDesc.alias));
+		try_emplace(accountDesc.uri, accountDesc.alias,
+		            make_shared<Account>(account, pool.maxCallsPerLine, accountDesc.alias));
 	}
 }
 } // namespace flexisip::b2bua::bridge
