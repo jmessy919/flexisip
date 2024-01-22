@@ -76,18 +76,33 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 
 	StringFormatter::TranslationFunc variableResolver{[&incomingCall, &account](const std::string& variableName) {
 		const auto dotPath = StringUtils::split(std::string_view(variableName), ".");
-		if (dotPath[0] == "incoming") {
-			if (dotPath[1] == "to") {
-				return variable_resolution::Address(incomingCall.getToAddress()).resolve("");
-			} else if (dotPath[1] == "from") {
-				return variable_resolution::Address(incomingCall.getRemoteAddress()).resolve("");
-			} else if (dotPath[1] == "requestAddress") {
-				return variable_resolution::Address(incomingCall.getRequestAddress()).resolve(dotPath[2]);
+		auto varName = dotPath.begin();
+		const auto end = dotPath.end();
+
+		if (*varName == "incoming") {
+			++varName;
+			if (*varName == "to") {
+				++varName;
+				const auto subVarName = varName == end ? "" : *varName;
+				return variable_resolution::Address(incomingCall.getToAddress()).resolve(subVarName);
+
+			} else if (*varName == "from") {
+				++varName;
+				const auto subVarName = varName == end ? "" : *varName;
+				return variable_resolution::Address(incomingCall.getRemoteAddress()).resolve(subVarName);
+
+			} else if (*varName == "requestAddress") {
+				++varName;
+				const auto subVarName = varName == end ? "" : *varName;
+				return variable_resolution::Address(incomingCall.getRequestAddress()).resolve(subVarName);
 			}
-		} else if (dotPath[0] == "account") {
-			if (dotPath[1] == "sipIdentity") {
+		} else if (*varName == "account") {
+			++varName;
+			if (*varName == "sipIdentity") {
+				++varName;
+				const auto subVarName = varName == end ? "" : *varName;
 				return variable_resolution::Address(account.account->getParams()->getIdentityAddress())
-				    .resolve(dotPath[2]);
+				    .resolve(subVarName);
 			}
 		}
 		throw std::runtime_error{"unimplemented"};

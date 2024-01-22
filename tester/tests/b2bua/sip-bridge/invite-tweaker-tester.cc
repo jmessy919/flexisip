@@ -19,7 +19,7 @@ using namespace flexisip::b2bua::bridge;
 using namespace std::chrono_literals;
 
 void test() {
-	const SipUri expectedToAddress{"sip:expected-to@to.example.org;custom-param=To"};
+	const SipUri expectedToAddress{"sip:expected-to@to.example.org:666;custom-param=To"};
 	InjectedHooks hooks{{
 	    .onRequest =
 	        [&expectedToAddress](const std::shared_ptr<RequestSipEvent>& requestEvent) {
@@ -57,7 +57,14 @@ void test() {
 		BC_ASSERT_CPP_EQUAL(fromAddress->getUsername(), "expected-from");
 		BC_ASSERT_CPP_EQUAL(fromAddress->getUriParam("custom-param"), "From");
 	}
-	Account forgedAccount{b2bua.getAccount(), 0x7E57, "an alias"};
+	auto forgedAccountAddress = b2bua.getCore()->createAddress("sip:expected-account@account.example.org");
+	BC_HARD_ASSERT(forgedAccountAddress != nullptr);
+	auto forgedAccountParams = b2bua.getCore()->createAccountParams();
+	BC_HARD_ASSERT(forgedAccountParams != nullptr);
+	forgedAccountParams->setIdentityAddress(forgedAccountAddress);
+	auto forgedLinphoneAccount = b2bua.getCore()->createAccount(forgedAccountParams);
+	BC_HARD_ASSERT(forgedLinphoneAccount != nullptr);
+	Account forgedAccount{forgedLinphoneAccount, 0x7E57, "an alias"};
 
 	{
 		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);
@@ -75,6 +82,22 @@ void test() {
 		const auto& toAddress =
 		    InviteTweaker{{.to = "{incoming.to}"}}.tweakInvite(*forgedCall, forgedAccount, *outgoingCallParams);
 		BC_ASSERT_CPP_EQUAL(toAddress->asStringUriOnly(), expectedToAddress.str());
+	}
+
+	{
+		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);
+		const auto& toAddress = InviteTweaker{{.to = "{incoming.requestAddress}"}}.tweakInvite(
+		    *forgedCall, forgedAccount, *outgoingCallParams);
+		BC_ASSERT_CPP_EQUAL(toAddress->getUsername(), "expected-request-uri");
+		BC_ASSERT_CPP_EQUAL(toAddress->getDomain(), "127.0.0.1");
+	}
+
+	{
+		const auto& outgoingCallParams = b2bua.getCore()->createCallParams(forgedCall);
+		const auto& toAddress =
+		    InviteTweaker{{.to = "sip:{account.sipIdentity.user}@{incoming.to.hostport}{incoming.from.uriParameters}"}}
+		        .tweakInvite(*forgedCall, forgedAccount, *outgoingCallParams);
+		BC_ASSERT_CPP_EQUAL(toAddress->asStringUriOnly(), "sip:expected-account@to.example.org:666;custom-param=From");
 	}
 
 	{
