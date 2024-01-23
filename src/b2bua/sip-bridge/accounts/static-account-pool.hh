@@ -31,7 +31,7 @@ namespace flexisip::b2bua::bridge {
 class StaticAccountPool : public AccountPool {
 public:
 	explicit StaticAccountPool(linphone::Core& core,
-	                           const std::shared_ptr<linphone::AccountParams>& params,
+	                           const linphone::AccountParams& templateParams,
 	                           const config::v2::AccountPoolName& poolName,
 	                           const config::v2::AccountPool& pool,
 	                           const config::v2::StaticLoader& loader);

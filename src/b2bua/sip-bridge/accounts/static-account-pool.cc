@@ -24,7 +24,7 @@ namespace flexisip::b2bua::bridge {
 using namespace std;
 
 StaticAccountPool::StaticAccountPool(linphone::Core& core,
-                                     const std::shared_ptr<linphone::AccountParams>& params,
+                                     const linphone::AccountParams& templateParams,
                                      const config::v2::AccountPoolName& poolName,
                                      const config::v2::AccountPool& pool,
                                      const config::v2::StaticLoader& loader) {
@@ -35,8 +35,9 @@ StaticAccountPool::StaticAccountPool(linphone::Core& core,
 			LOGF("An account of account pool '%s' is missing a `uri` field", poolName.c_str());
 		}
 		const auto address = core.createAddress(accountDesc.uri);
-		params->setIdentityAddress(address);
-		auto account = core.createAccount(params);
+		const auto accountParams = templateParams.clone();
+		accountParams->setIdentityAddress(address);
+		auto account = core.createAccount(accountParams);
 		core.addAccount(account);
 
 		if (!accountDesc.password.empty()) {

@@ -114,6 +114,7 @@ Account* ExternalSipProvider::findAccountToMakeTheCall() {
 AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
                                                         const config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
 	auto accountPoolMap = AccountPoolImplMap();
+	const auto templateParams = core.createAccountParams();
 
 	for (const auto& [poolNameIt, poolIt] : accountPoolConfigMap) {
 		// Until C++ 20 this is needed. Because poolNameIt and poolIt can't be captured.
@@ -129,20 +130,20 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 		}
 
 		const auto route = core.createAddress(pool.outboundProxy);
-		const auto params = core.createAccountParams();
-		params->setServerAddress(route);
-		params->setRoutesAddresses({route});
-		params->enableRegister(pool.registrationRequired);
+		templateParams->setServerAddress(route);
+		templateParams->setRoutesAddresses({route});
+		templateParams->enableRegister(pool.registrationRequired);
 
 		Match(pool.loader)
 		    .against(
-		        [&accountPoolMap, &poolName, &params, &core, &pool](const config::v2::StaticLoader& staticPool) {
+		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core,
+		         &pool](const config::v2::StaticLoader& staticPool) {
 			        if (staticPool.empty()) {
 				        SLOGW << "AccountPool '" << poolName
 				              << "' has no `accounts` and will not be used to bridge calls";
 			        }
 			        accountPoolMap.try_emplace(
-			            poolName, make_shared<StaticAccountPool>(core, params, poolName, pool, staticPool));
+			            poolName, make_shared<StaticAccountPool>(core, templateParams, poolName, pool, staticPool));
 		        },
 		        [](const config::v2::SQLLoader&) { LOGF("Not yet implemented"); });
 	}
