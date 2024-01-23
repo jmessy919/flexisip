@@ -14,11 +14,19 @@
 namespace flexisip::b2bua::bridge {
 namespace variable_resolution {
 
-class Address {
+std::pair<std::string_view, std::string_view> popVarName(std::string_view dotPath) {
+	const auto split = StringUtils::splitOnce(dotPath, ".");
+	if (!split) return {dotPath, ""};
+
+	const auto [head, tail] = *split;
+	return {head, tail};
+}
+
+class LinphoneAddress {
 public:
 	using SubResolver = std::string (*)(const std::shared_ptr<const linphone::Address>&);
 
-	constexpr static std::pair<std::string_view, SubResolver> kFields[] = {
+	constexpr static std::initializer_list<std::pair<std::string_view, SubResolver>> kFields = {
 	    {"", [](const auto& address) { return address->asStringUriOnly(); }},
 	    {"user", [](const auto& address) { return address->getUsername(); }},
 	    {"hostport",
@@ -40,10 +48,10 @@ public:
 	     }},
 	};
 
-	explicit Address(std::shared_ptr<const linphone::Address> address) : mAddress(address) {
+	explicit LinphoneAddress(std::shared_ptr<const linphone::Address> address) : mAddress(address) {
 	}
 
-	std::string resolve(std::string_view varName) {
+	std::string resolve(std::string_view varName) const {
 		for (const auto& [name, resolver] : kFields) {
 			if (name == varName) {
 				return resolver(mAddress);
@@ -56,6 +64,56 @@ private:
 	std::shared_ptr<const linphone::Address> mAddress;
 };
 
+namespace linphone_call {
+
+using SubResolver = std::string (*)(const linphone::Call&, std::string_view);
+
+constexpr std::initializer_list<std::pair<std::string_view, SubResolver>> kFields = {
+    {"to", [](const auto& call,
+              const auto furtherPath) { return LinphoneAddress(call.getToAddress()).resolve(furtherPath); }},
+    {"from", [](const auto& call,
+                const auto furtherPath) { return LinphoneAddress(call.getRemoteAddress()).resolve(furtherPath); }},
+    {"requestAddress",
+     [](const auto& call, const auto furtherPath) {
+	     return LinphoneAddress(call.getRequestAddress()).resolve(furtherPath);
+     }},
+};
+
+std::string resolve(const linphone::Call& call, std::string_view dotPath) {
+	const auto [varName, furtherPath] = variable_resolution::popVarName(dotPath);
+	for (const auto& [name, resolver] : kFields) {
+		if (name == varName) {
+			return resolver(call, furtherPath);
+		}
+	}
+	throw std::runtime_error{"unsupported variable name"};
+}
+
+} // namespace linphone_call
+
+namespace account {
+
+using SubResolver = std::string (*)(const Account&, std::string_view);
+
+constexpr std::initializer_list<std::pair<std::string_view, SubResolver>> kFields = {
+    {"sipIdentity",
+     [](const auto& account, const auto furtherPath) {
+	     return LinphoneAddress(account.getLinphoneAccount()->getParams()->getIdentityAddress()).resolve(furtherPath);
+     }},
+    {"alias", [](const auto& account, const auto) { return account.getAlias(); }},
+};
+
+std::string resolve(const Account& account, std::string_view dotPath) {
+	const auto [varName, furtherPath] = variable_resolution::popVarName(dotPath);
+	for (const auto& [name, resolver] : kFields) {
+		if (name == varName) {
+			return resolver(account, furtherPath);
+		}
+	}
+	throw std::runtime_error{"unsupported variable name"};
+}
+
+} // namespace account
 } // namespace variable_resolution
 
 InviteTweaker::InviteTweaker(const config::v2::OutgoingInvite& config)
@@ -75,37 +133,12 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 	}
 
 	StringFormatter::TranslationFunc variableResolver{[&incomingCall, &account](const std::string& variableName) {
-		const auto dotPath = StringUtils::split(std::string_view(variableName), ".");
-		auto varName = dotPath.begin();
-		const auto end = dotPath.end();
+		const auto [varName, furtherPath] = variable_resolution::popVarName(variableName);
 
-		if (*varName == "incoming") {
-			++varName;
-			if (*varName == "to") {
-				++varName;
-				const auto subVarName = varName == end ? "" : *varName;
-				return variable_resolution::Address(incomingCall.getToAddress()).resolve(subVarName);
-
-			} else if (*varName == "from") {
-				++varName;
-				const auto subVarName = varName == end ? "" : *varName;
-				return variable_resolution::Address(incomingCall.getRemoteAddress()).resolve(subVarName);
-
-			} else if (*varName == "requestAddress") {
-				++varName;
-				const auto subVarName = varName == end ? "" : *varName;
-				return variable_resolution::Address(incomingCall.getRequestAddress()).resolve(subVarName);
-			}
-		} else if (*varName == "account") {
-			++varName;
-			if (*varName == "sipIdentity") {
-				++varName;
-				const auto subVarName = varName == end ? "" : *varName;
-				return variable_resolution::Address(account.account->getParams()->getIdentityAddress())
-				    .resolve(subVarName);
-			} else if (*varName == "alias") {
-				return account.mAlias;
-			}
+		if (varName == "incoming") {
+			return variable_resolution::linphone_call::resolve(incomingCall, furtherPath);
+		} else if (varName == "account") {
+			return variable_resolution::account::resolve(account, furtherPath);
 		}
 		throw std::runtime_error{"unimplemented"};
 	}};

@@ -35,4 +35,11 @@ bool Account::isAvailable() const {
 	return true;
 }
 
+const std::shared_ptr<linphone::Account>& Account::getLinphoneAccount() const {
+	return account;
+}
+const std::string& Account::getAlias() const {
+	return mAlias;
+}
+
 } // namespace flexisip::b2bua::bridge

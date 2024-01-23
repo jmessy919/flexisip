@@ -36,6 +36,8 @@ public:
 	Account(Account&& other) = default;
 
 	bool isAvailable() const;
+	const std::shared_ptr<linphone::Account>& getLinphoneAccount() const;
+	const std::string& getAlias() const;
 
 private:
 	// Disable copy semantics

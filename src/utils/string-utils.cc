@@ -46,6 +46,13 @@ vector<string_view> StringUtils::split(string_view str, string_view delimiter) n
 	return out;
 }
 
+optional<pair<string_view, string_view>> StringUtils::splitOnce(string_view str, string_view delimiter) noexcept {
+	const auto pos = str.find(delimiter);
+	if (pos == string_view::npos) return nullopt;
+
+	return {{str.substr(0, pos), str.substr(pos + delimiter.size())}};
+}
+
 std::string StringUtils::strip(const char* str, char c) noexcept {
 	auto start = str, end = const_cast<const char*>(index(str, '\0'));
 	strip(start, end, c);
