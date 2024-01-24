@@ -23,11 +23,21 @@ namespace account_selection {
 
 struct Random {};
 
+enum struct AccountLookUp : std::uint8_t {
+	ByUri,
+	ByAlias,
+};
+NLOHMANN_JSON_SERIALIZE_ENUM(AccountLookUp,
+                             {
+                                 {AccountLookUp::ByUri, "sipIdentity"},
+                                 {AccountLookUp::ByAlias, "alias"},
+                             })
+
 struct FindInPool {
-	std::string key;
+	AccountLookUp by{AccountLookUp::ByUri};
 	std::string source;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FindInPool, key, source);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FindInPool, by, source);
 
 } // namespace account_selection
 using AccountToUse = std::variant<account_selection::Random, account_selection::FindInPool>;
@@ -97,7 +107,7 @@ namespace flexisip::b2bua::bridge::config::v2 {
 
 using AccountPoolName = std::string;
 
-enum struct OnAccountNotFound {
+enum struct OnAccountNotFound : std::uint8_t {
 	NextProvider,
 	Decline,
 };
@@ -189,7 +199,7 @@ struct Root {
 	std::vector<Provider> providers;
 	AccountPoolConfigMap accountPools;
 };
-inline void from_json(const nlohmann ::json& nlohmann_json_j, Root& nlohmann_json_t) {
+inline void from_json(const nlohmann ::json& nlohmann_json_j, Root& nlohmann_json_t){
     NLOHMANN_JSON_FROM(schemaVersion) NLOHMANN_JSON_FROM(providers) NLOHMANN_JSON_FROM(accountPools)}
 
 Root fromV1(v1::Root&&);

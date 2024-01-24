@@ -79,7 +79,7 @@ void AccountPool::try_emplace(const string& uri, const string& alias, const shar
 	}
 
 	if (alias.empty()) return;
-	auto [__, isInsertedAlias] = mAccountsByUri.try_emplace(uri, account);
+	auto [__, isInsertedAlias] = mAccountsByAlias.try_emplace(alias, account);
 	if (!isInsertedAlias) {
 		SLOGE << "AccountPool::try_emplace uri[" << alias << "] already present, account only inserted by uri.";
 	}

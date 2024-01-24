@@ -12,7 +12,7 @@ namespace flexisip::b2bua::bridge::account_strat {
 
 class AccountSelectionStrategy {
 public:
-	AccountSelectionStrategy(std::shared_ptr<AccountPool> accountPool) : mAccountPool(accountPool) {
+	explicit AccountSelectionStrategy(std::shared_ptr<AccountPool> accountPool) : mAccountPool(accountPool) {
 	}
 	virtual ~AccountSelectionStrategy() = default;
 

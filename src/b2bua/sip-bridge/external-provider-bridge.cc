@@ -99,6 +99,7 @@ ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
 			}
 		}
 	}
+	// TODO: what if the account is unavailable?
 
 	occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;
 	account->freeSlots--;
