@@ -495,32 +495,39 @@ static void external_provider_bridge__parse_register_authenticate() {
 	BC_ASSERT_FALSE(other_phone.hasReceivedCallFrom(other_intercom));
 
 	const auto info = sipBridge.handleCommand("SIP_BRIDGE", vector<string>{"INFO"});
-	const auto expected = R"({
+	auto parsed = nlohmann::json::parse(info);
+	auto& accounts = parsed["providers"][0]["accounts"];
+	const std::unordered_set<nlohmann::json> parsedAccountSet{accounts.begin(), accounts.end()};
+	accounts.clear();
+
+	BC_ASSERT_CPP_EQUAL(parsed, R"({
 		"providers" : 
 		[
 			{
-				"accounts" : 
-				[
-					{
-						"address" : "sip:registered@auth.provider1.com",
-						"freeSlots" : 0,
-						"registerEnabled" : true,
-						"status" : "OK"
-					},
-					{
-						"address" : "sip:unregistered@auth.provider1.com",
-						"status" : "Registration failed: Bad credentials"
-					},
-					{
-						"address" : "sip:wrongpassword@auth.provider1.com",
-						"status" : "Registration failed: Bad credentials"
-					}
-				],
+				"accounts" : [ ],
 				"name" : "provider1"
 			}
 		]
-	})"_json;
-	BC_ASSERT_CPP_EQUAL(nlohmann::json::parse(info), expected);
+	})"_json);
+
+	const auto expectedAccounts = R"([
+		{
+			"address" : "sip:registered@auth.provider1.com",
+			"freeSlots" : 0,
+			"registerEnabled" : true,
+			"status" : "OK"
+		},
+		{
+			"address" : "sip:unregistered@auth.provider1.com",
+			"status" : "Registration failed: Bad credentials"
+		},
+		{
+			"address" : "sip:wrongpassword@auth.provider1.com",
+			"status" : "Registration failed: Bad credentials"
+		}
+	])"_json;
+	decltype(parsedAccountSet) expectedAccountSet{expectedAccounts.begin(), expectedAccounts.end()};
+	BC_ASSERT_CPP_EQUAL(parsedAccountSet, expectedAccountSet);
 
 	intercom.endCurrentCall(phone);
 }
