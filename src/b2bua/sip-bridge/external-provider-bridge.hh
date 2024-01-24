@@ -31,12 +31,12 @@
 #include "linphone++/linphone.hh"
 
 #include "b2bua/b2bua-server.hh"
-#include "b2bua/sip-bridge/accounts/account-pool.hh"
 #include "b2bua/sip-bridge/accounts/account.hh"
+#include "b2bua/sip-bridge/accounts/selection-strategy/account-selection-strategy.hh"
+#include "b2bua/sip-bridge/configuration/v2.hh"
+#include "b2bua/sip-bridge/invite-tweaker.hh"
+#include "b2bua/sip-bridge/trigger-strategy.hh"
 #include "cli.hh"
-#include "configuration/v2.hh"
-#include "invite-tweaker.hh"
-#include "trigger-strategy.hh"
 
 namespace flexisip::b2bua::bridge {
 
@@ -50,21 +50,19 @@ public:
 	std::optional<b2bua::Application::ActionToTake>
 	onCallCreate(const linphone::Call& incomingCall,
 	             linphone::CallParams& outgoingCallParams,
-	             std::unordered_map<std::string, Account*>& occupiedSlots);
+	             std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots);
 
 private:
 	ExternalSipProvider(std::unique_ptr<trigger_strat::TriggerStrategy>&& triggerStrat,
+	                    std::unique_ptr<account_strat::AccountSelectionStrategy>&& accountStrat,
 	                    config::v2::OnAccountNotFound onAccountNotFound,
 	                    InviteTweaker&& inviteTweaker,
-	                    const std::shared_ptr<AccountPool>& accountPool,
 	                    std::string&& name);
 
-	Account* findAccountToMakeTheCall();
-
 	std::unique_ptr<trigger_strat::TriggerStrategy> mTriggerStrat;
+	std::unique_ptr<account_strat::AccountSelectionStrategy> mAccountStrat;
 	config::v2::OnAccountNotFound mOnAccountNotFound;
 	InviteTweaker mInviteTweaker;
-	std::shared_ptr<AccountPool> mAccountPool;
 	std::string name;
 
 	// Disable copy semantics
@@ -91,7 +89,7 @@ private:
 	void initFromRootConfig(linphone::Core& core, config::v2::Root rootConfig);
 
 	std::vector<ExternalSipProvider> providers;
-	std::unordered_map<std::string, Account*> occupiedSlots;
+	std::unordered_map<std::string, std::weak_ptr<Account>> occupiedSlots;
 };
 
 } // namespace flexisip::b2bua::bridge

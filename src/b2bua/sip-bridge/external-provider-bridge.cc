@@ -28,6 +28,7 @@
 #include "linphone++/linphone.hh"
 #include "linphone/misc.h"
 
+#include "b2bua/sip-bridge/accounts/selection-strategy/pick-random-in-pool.hh"
 #include "b2bua/sip-bridge/accounts/static-account-pool.hh"
 #include "utils/variant-utils.hh"
 
@@ -70,30 +71,30 @@ Here is a template of what should be in this file:
 } // namespace
 
 ExternalSipProvider::ExternalSipProvider(decltype(ExternalSipProvider::mTriggerStrat)&& triggerStrat,
+                                         decltype(ExternalSipProvider::mAccountStrat)&& accountStrat,
                                          decltype(mOnAccountNotFound) onAccountNotFound,
                                          InviteTweaker&& inviteTweaker,
-                                         const std::shared_ptr<AccountPool>& accountPool,
                                          string&& name)
-    : mTriggerStrat(std::move(triggerStrat)), mOnAccountNotFound(onAccountNotFound),
-      mInviteTweaker(std::move(inviteTweaker)), mAccountPool(accountPool), name(std::move(name)) {
+    : mTriggerStrat(std::move(triggerStrat)), mAccountStrat(std::move(accountStrat)),
+      mOnAccountNotFound(onAccountNotFound), mInviteTweaker(std::move(inviteTweaker)), name(std::move(name)) {
 }
 
 std::optional<b2bua::Application::ActionToTake>
 ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
                                   linphone::CallParams& outgoingCallParams,
-                                  std::unordered_map<std::string, Account*>& occupiedSlots) {
+                                  std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots) {
 	if (!mTriggerStrat->shouldHandleThisCall(incomingCall)) {
 		return std::nullopt;
 	}
 
-	const auto requestAddress = incomingCall.getRequestAddress();
-	auto* account = findAccountToMakeTheCall();
+	const auto account = mAccountStrat->chooseAccountForThisCall(incomingCall);
 	if (!account) {
 		switch (mOnAccountNotFound) {
 			case config::v2::OnAccountNotFound::NextProvider:
 				return std::nullopt;
 			case config::v2::OnAccountNotFound::Decline: {
-				SLOGD << "No external accounts available to bridge the call to " << requestAddress->asStringUriOnly();
+				SLOGD << "No external accounts available to bridge the call to "
+				      << incomingCall.getRequestAddress()->asStringUriOnly();
 				return linphone::Reason::NotAcceptable;
 			}
 		}
@@ -104,11 +105,6 @@ ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
 
 	outgoingCallParams.setAccount(account->account);
 	return mInviteTweaker.tweakInvite(incomingCall, *account, outgoingCallParams);
-}
-
-Account* ExternalSipProvider::findAccountToMakeTheCall() {
-	if (const auto& account = mAccountPool->getAccountRandomly(); account) return account.get();
-	return nullptr;
 }
 
 AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
@@ -169,9 +165,9 @@ void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) 
 		}
 		providers.emplace_back(ExternalSipProvider{
 		    std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)),
+		    std::make_unique<account_strat::PickRandomInPool>(accountPoolIt->second),
 		    provDesc.onAccountNotFound,
 		    InviteTweaker(std::move(provDesc.outgoingInvite)),
-		    accountPoolIt->second,
 		    std::move(provDesc.name),
 		});
 	}
@@ -221,10 +217,11 @@ b2bua::Application::ActionToTake SipBridge::onCallCreate(const linphone::Call& i
 
 void SipBridge::onCallEnd(const linphone::Call& call) {
 	const auto it = occupiedSlots.find(call.getCallLog()->getCallId());
-	if (it == occupiedSlots.end()) {
-		return;
+	if (it == occupiedSlots.end()) return;
+
+	if (const auto account = it->second.lock()) {
+		account->freeSlots++;
 	}
-	it->second->freeSlots++;
 	occupiedSlots.erase(it);
 }
 
@@ -241,7 +238,7 @@ string SipBridge::handleCommand(const string& command, const vector<string>& arg
 	auto providerArr = Json::Value();
 	for (const auto& provider : providers) {
 		auto accountsArr = Json::Value();
-		for (const auto& [_, bridgeAccount] : *provider.mAccountPool) {
+		for (const auto& [_, bridgeAccount] : *provider.mAccountStrat->getAccountPool()) {
 			const auto account = bridgeAccount->account;
 			const auto params = account->getParams();
 			const auto registerEnabled = params->registerEnabled();
