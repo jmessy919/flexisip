@@ -41,5 +41,15 @@ const std::shared_ptr<linphone::Account>& Account::getLinphoneAccount() const {
 const std::string& Account::getAlias() const {
 	return mAlias;
 }
+decltype(Account::freeSlots) Account::getFreeSlotsCount() const {
+	return freeSlots;
+}
+
+void Account::takeASlot() {
+	--freeSlots;
+}
+void Account::releaseASlot() {
+	++freeSlots;
+}
 
 } // namespace flexisip::b2bua::bridge

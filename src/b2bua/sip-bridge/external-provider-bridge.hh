@@ -40,12 +40,12 @@
 
 namespace flexisip::b2bua::bridge {
 
-class ExternalSipProvider {
+class SipProvider {
 	friend class SipBridge;
 
 public:
 	// Move constructor
-	ExternalSipProvider(ExternalSipProvider&& other) = default;
+	SipProvider(SipProvider&& other) = default;
 
 	std::optional<b2bua::Application::ActionToTake>
 	onCallCreate(const linphone::Call& incomingCall,
@@ -53,7 +53,7 @@ public:
 	             std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots);
 
 private:
-	ExternalSipProvider(std::unique_ptr<trigger_strat::TriggerStrategy>&& triggerStrat,
+	SipProvider(std::unique_ptr<trigger_strat::TriggerStrategy>&& triggerStrat,
 	                    std::unique_ptr<account_strat::AccountSelectionStrategy>&& accountStrat,
 	                    config::v2::OnAccountNotFound onAccountNotFound,
 	                    InviteTweaker&& inviteTweaker,
@@ -66,8 +66,8 @@ private:
 	std::string name;
 
 	// Disable copy semantics
-	ExternalSipProvider(const ExternalSipProvider&) = delete;
-	ExternalSipProvider& operator=(const ExternalSipProvider&) = delete;
+	SipProvider(const SipProvider&) = delete;
+	SipProvider& operator=(const SipProvider&) = delete;
 };
 
 using AccountPoolImplMap = std::unordered_map<config::v2::AccountPoolName, std::shared_ptr<AccountPool>>;
@@ -88,7 +88,7 @@ private:
 	                                                    const config::v2::AccountPoolConfigMap& accountPoolConfigMap);
 	void initFromRootConfig(linphone::Core& core, config::v2::Root rootConfig);
 
-	std::vector<ExternalSipProvider> providers;
+	std::vector<SipProvider> providers;
 	std::unordered_map<std::string, std::weak_ptr<Account>> occupiedSlots;
 };
 

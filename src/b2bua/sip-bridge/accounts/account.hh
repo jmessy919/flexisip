@@ -25,10 +25,6 @@
 namespace flexisip::b2bua::bridge {
 
 class Account {
-	friend class SipBridge;
-	friend class ExternalSipProvider;
-	friend class InviteTweaker;
-
 public:
 	Account(const std::shared_ptr<linphone::Account>& account, uint16_t freeSlots, std::string_view alias);
 
@@ -38,6 +34,10 @@ public:
 	bool isAvailable() const;
 	const std::shared_ptr<linphone::Account>& getLinphoneAccount() const;
 	const std::string& getAlias() const;
+	uint16_t getFreeSlotsCount() const;
+
+	void takeASlot();
+	void releaseASlot();
 
 private:
 	// Disable copy semantics

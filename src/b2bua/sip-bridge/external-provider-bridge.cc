@@ -70,19 +70,19 @@ Here is a template of what should be in this file:
 }();
 } // namespace
 
-ExternalSipProvider::ExternalSipProvider(decltype(ExternalSipProvider::mTriggerStrat)&& triggerStrat,
-                                         decltype(ExternalSipProvider::mAccountStrat)&& accountStrat,
-                                         decltype(mOnAccountNotFound) onAccountNotFound,
-                                         InviteTweaker&& inviteTweaker,
-                                         string&& name)
+SipProvider::SipProvider(decltype(SipProvider::mTriggerStrat)&& triggerStrat,
+                         decltype(SipProvider::mAccountStrat)&& accountStrat,
+                         decltype(mOnAccountNotFound) onAccountNotFound,
+                         InviteTweaker&& inviteTweaker,
+                         string&& name)
     : mTriggerStrat(std::move(triggerStrat)), mAccountStrat(std::move(accountStrat)),
       mOnAccountNotFound(onAccountNotFound), mInviteTweaker(std::move(inviteTweaker)), name(std::move(name)) {
 }
 
 std::optional<b2bua::Application::ActionToTake>
-ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
-                                  linphone::CallParams& outgoingCallParams,
-                                  std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots) {
+SipProvider::onCallCreate(const linphone::Call& incomingCall,
+                          linphone::CallParams& outgoingCallParams,
+                          std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots) {
 	if (!mTriggerStrat->shouldHandleThisCall(incomingCall)) {
 		return std::nullopt;
 	}
@@ -102,9 +102,9 @@ ExternalSipProvider::onCallCreate(const linphone::Call& incomingCall,
 	// TODO: what if the account is unavailable?
 
 	occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;
-	account->freeSlots--;
+	account->takeASlot();
 
-	outgoingCallParams.setAccount(account->account);
+	outgoingCallParams.setAccount(account->getLinphoneAccount());
 	return mInviteTweaker.tweakInvite(incomingCall, *account, outgoingCallParams);
 }
 
@@ -164,7 +164,7 @@ void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) 
 		if (accountPoolIt == accountPools.cend()) {
 			LOGF("Please provide an existing `accountPools` for provider '%s'", provDesc.name.c_str());
 		}
-		providers.emplace_back(ExternalSipProvider{
+		providers.emplace_back(SipProvider{
 		    std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)),
 		    std::make_unique<account_strat::PickRandomInPool>(accountPoolIt->second),
 		    provDesc.onAccountNotFound,
@@ -221,7 +221,7 @@ void SipBridge::onCallEnd(const linphone::Call& call) {
 	if (it == occupiedSlots.end()) return;
 
 	if (const auto account = it->second.lock()) {
-		account->freeSlots++;
+		account->releaseASlot();
 	}
 	occupiedSlots.erase(it);
 }
@@ -240,7 +240,7 @@ string SipBridge::handleCommand(const string& command, const vector<string>& arg
 	for (const auto& provider : providers) {
 		auto accountsArr = Json::Value();
 		for (const auto& [_, bridgeAccount] : *provider.mAccountStrat->getAccountPool()) {
-			const auto account = bridgeAccount->account;
+			const auto account = bridgeAccount->getLinphoneAccount();
 			const auto params = account->getParams();
 			const auto registerEnabled = params->registerEnabled();
 			const auto status = [registerEnabled, account]() {
@@ -270,7 +270,7 @@ string SipBridge::handleCommand(const string& command, const vector<string>& arg
 
 			if (status == "OK") {
 				accountObj["registerEnabled"] = registerEnabled;
-				accountObj["freeSlots"] = bridgeAccount->freeSlots;
+				accountObj["freeSlots"] = bridgeAccount->getFreeSlotsCount();
 			}
 
 			accountsArr.append(accountObj);
