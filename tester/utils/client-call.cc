@@ -37,6 +37,9 @@ linphone::Call::State ClientCall::getState() const {
 linphone::Reason ClientCall::getReason() const {
 	return mCall->getReason();
 }
+std::shared_ptr<const linphone::Address> ClientCall::getRemoteAddress() const {
+	return mCall->getRemoteAddress();
+}
 
 const bool& ClientCall::videoFrameDecoded() {
 	if (mListener) {

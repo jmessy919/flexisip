@@ -51,13 +51,15 @@ public:
 	onCallCreate(const linphone::Call& incomingCall,
 	             linphone::CallParams& outgoingCallParams,
 	             std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots);
+	
+	const account_strat::AccountSelectionStrategy& getAccountSelectionStrategy() const;
 
 private:
 	SipProvider(std::unique_ptr<trigger_strat::TriggerStrategy>&& triggerStrat,
-	                    std::unique_ptr<account_strat::AccountSelectionStrategy>&& accountStrat,
-	                    config::v2::OnAccountNotFound onAccountNotFound,
-	                    InviteTweaker&& inviteTweaker,
-	                    std::string&& name);
+	            std::unique_ptr<account_strat::AccountSelectionStrategy>&& accountStrat,
+	            config::v2::OnAccountNotFound onAccountNotFound,
+	            InviteTweaker&& inviteTweaker,
+	            std::string&& name);
 
 	std::unique_ptr<trigger_strat::TriggerStrategy> mTriggerStrat;
 	std::unique_ptr<account_strat::AccountSelectionStrategy> mAccountStrat;
@@ -82,6 +84,10 @@ public:
 	void onCallEnd(const linphone::Call& call) override;
 
 	std::string handleCommand(const std::string& command, const std::vector<std::string>& args) override;
+
+	const std::vector<SipProvider>& getProviders() const {
+		return providers;
+	}
 
 private:
 	static AccountPoolImplMap getAccountPoolsFromConfig(linphone::Core& core,

@@ -117,7 +117,7 @@ void test() {
 }
 
 TestSuite _{
-    "b2bua::sip-bridge::InviteTweaker",
+    "b2bua::bridge::InviteTweaker",
     {
         CLASSY_TEST(test),
     },

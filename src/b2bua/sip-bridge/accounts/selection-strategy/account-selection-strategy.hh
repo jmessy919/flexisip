@@ -18,8 +18,8 @@ public:
 
 	virtual std::shared_ptr<Account> chooseAccountForThisCall(const linphone::Call&) const = 0;
 
-	const std::shared_ptr<AccountPool>& getAccountPool() const {
-		return mAccountPool;
+	const AccountPool& getAccountPool() const {
+		return *mAccountPool;
 	}
 
 private:

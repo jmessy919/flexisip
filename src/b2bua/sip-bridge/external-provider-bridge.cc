@@ -30,6 +30,7 @@
 
 #include "b2bua/sip-bridge/accounts/loaders/sql-account-loader.hh"
 #include "b2bua/sip-bridge/accounts/loaders/static-account-loader.hh"
+#include "b2bua/sip-bridge/accounts/selection-strategy/find-in-pool.hh"
 #include "b2bua/sip-bridge/accounts/selection-strategy/pick-random-in-pool.hh"
 #include "utils/variant-utils.hh"
 
@@ -109,6 +110,10 @@ SipProvider::onCallCreate(const linphone::Call& incomingCall,
 	return mInviteTweaker.tweakInvite(incomingCall, *account, outgoingCallParams);
 }
 
+const account_strat::AccountSelectionStrategy& SipProvider::getAccountSelectionStrategy() const {
+	return *mAccountStrat;
+}
+
 AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
                                                         config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
 	auto accountPoolMap = AccountPoolImplMap();
@@ -162,18 +167,38 @@ void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) 
 		if (provDesc.name.empty()) {
 			LOGF("One of your external SIP providers has an empty `name`");
 		}
-		auto& triggerCond = std::get<config::v2::trigger_cond::MatchRegex>(provDesc.triggerCondition);
-		if (triggerCond.pattern.empty()) {
-			LOGF("Please provide a `pattern` for provider '%s'", provDesc.name.c_str());
-		}
-
+		auto triggerCond =
+		    Match(provDesc.triggerCondition)
+		        .against(
+		            [](config::v2::trigger_cond::Always) -> std::unique_ptr<trigger_strat::TriggerStrategy> {
+			            return std::make_unique<trigger_strat::Always>();
+		            },
+		            [&providerName = provDesc.name](const config::v2::trigger_cond::MatchRegex& matchRegex)
+		                -> std::unique_ptr<trigger_strat::TriggerStrategy> {
+			            if (matchRegex.pattern.empty()) {
+				            LOGF("Please provide a `pattern` for provider '%s'", providerName.c_str());
+			            }
+			            return std::make_unique<trigger_strat::MatchRegex>(matchRegex);
+		            });
 		const auto& accountPoolIt = accountPools.find(provDesc.accountPool);
 		if (accountPoolIt == accountPools.cend()) {
 			LOGF("Please provide an existing `accountPools` for provider '%s'", provDesc.name.c_str());
 		}
+		auto accountStrat =
+		    Match(provDesc.accountToUse)
+		        .against(
+		            [&pool = accountPoolIt->second](config::v2::account_selection::Random)
+		                -> std::unique_ptr<account_strat::AccountSelectionStrategy> {
+			            return std::make_unique<account_strat::PickRandomInPool>(pool);
+		            },
+		            [pool = accountPoolIt->second](const config::v2::account_selection::FindInPool& findInPool)
+		                -> std::unique_ptr<account_strat::AccountSelectionStrategy> {
+			            return std::make_unique<account_strat::FindInPool>(pool, findInPool);
+		            });
+
 		providers.emplace_back(SipProvider{
-		    std::make_unique<trigger_strat::MatchRegex>(std::move(triggerCond)),
-		    std::make_unique<account_strat::PickRandomInPool>(accountPoolIt->second),
+		    std::move(triggerCond),
+		    std::move(accountStrat),
 		    provDesc.onAccountNotFound,
 		    InviteTweaker(std::move(provDesc.outgoingInvite)),
 		    std::move(provDesc.name),
@@ -246,7 +271,7 @@ string SipBridge::handleCommand(const string& command, const vector<string>& arg
 	auto providerArr = Json::Value();
 	for (const auto& provider : providers) {
 		auto accountsArr = Json::Value();
-		for (const auto& [_, bridgeAccount] : *provider.mAccountStrat->getAccountPool()) {
+		for (const auto& [_, bridgeAccount] : provider.mAccountStrat->getAccountPool()) {
 			const auto account = bridgeAccount->getLinphoneAccount();
 			const auto params = account->getParams();
 			const auto registerEnabled = params->registerEnabled();

@@ -30,7 +30,7 @@ public:
 
 class MatchRegex : public TriggerStrategy {
 public:
-	MatchRegex(conf::MatchRegex&&);
+	MatchRegex(const conf::MatchRegex&);
 
 	bool shouldHandleThisCall(const linphone::Call&) override;
 

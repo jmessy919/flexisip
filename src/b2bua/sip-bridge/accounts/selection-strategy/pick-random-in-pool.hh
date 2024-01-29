@@ -14,7 +14,7 @@ public:
 	}
 
 	std::shared_ptr<Account> chooseAccountForThisCall(const linphone::Call&) const override {
-		return getAccountPool()->getAccountRandomly();
+		return getAccountPool().getAccountRandomly();
 	}
 };
 

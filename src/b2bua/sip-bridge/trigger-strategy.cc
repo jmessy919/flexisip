@@ -10,7 +10,7 @@
 
 namespace flexisip::b2bua::bridge::trigger_strat {
 
-MatchRegex::MatchRegex(conf::MatchRegex&& config) : mPattern(std::move(config.pattern)) {
+MatchRegex::MatchRegex(const conf::MatchRegex& config) : mPattern(config.pattern) {
 }
 
 bool MatchRegex::shouldHandleThisCall(const linphone::Call& call) {

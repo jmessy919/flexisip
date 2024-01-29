@@ -55,8 +55,7 @@ public:
 	 * @return		a reason to abort the bridging and decline the incoming call. Reason::None if the call should go
 	 *through.
 	 **/
-	virtual ActionToTake onCallCreate(const linphone::Call& incomingCall,
-	                                                              linphone::CallParams& outgoingCallParams) = 0;
+	virtual ActionToTake onCallCreate(const linphone::Call& incomingCall, linphone::CallParams& outgoingCallParams) = 0;
 	virtual void onCallEnd([[maybe_unused]] const linphone::Call& call) {
 	}
 	virtual ~Application() = default;
@@ -87,6 +86,10 @@ public:
 
 	int getTcpPort() const {
 		return mCore->getTransportsUsed()->getTcpPort();
+	}
+
+	const b2bua::Application& getApplication() const {
+		return *mApplication;
 	}
 
 protected:

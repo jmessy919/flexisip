@@ -14,7 +14,7 @@ FindInPool::FindInPool(std::shared_ptr<AccountPool> accountPool,
 }
 
 std::shared_ptr<Account> FindInPool::chooseAccountForThisCall(const linphone::Call& incomingCall) const {
-	const auto& pool = *getAccountPool();
+	const auto& pool = getAccountPool();
 	StringFormatter::TranslationFunc variableResolver{[&incomingCall](const std::string& varName) {
 		using namespace variable_substitution;
 		return resolve(linphone_call::kFields, incomingCall, varName);

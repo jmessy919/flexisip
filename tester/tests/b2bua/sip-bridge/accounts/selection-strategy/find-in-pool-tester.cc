@@ -2,10 +2,11 @@
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+#include "b2bua/sip-bridge/accounts/selection-strategy/find-in-pool.hh"
+
 #include <linphone/misc.h>
 
 #include "b2bua/sip-bridge/accounts/loaders/static-account-loader.hh"
-#include "b2bua/sip-bridge/accounts/selection-strategy/find-in-pool.hh"
 #include "utils/client-builder.hh"
 #include "utils/client-call.hh"
 #include "utils/client-core.hh"
