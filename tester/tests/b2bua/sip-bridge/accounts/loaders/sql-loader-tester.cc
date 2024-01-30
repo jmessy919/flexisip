@@ -1,0 +1,122 @@
+/** Copyright (C) 2010-2024 Belledonne Communications SARL
+ *  SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+#include <soci/session.h>
+#include <soci/sqlite3/soci-sqlite3.h>
+
+#include "b2bua/sip-bridge/accounts/loaders/sql-account-loader.hh"
+#include "soci-helper.hh"
+#include "utils/test-patterns/test.hh"
+#include "utils/test-suite.hh"
+#include "utils/tmp-dir.hh"
+
+namespace flexisip::tester {
+using namespace std;
+using namespace flexisip::b2bua::bridge;
+using namespace flexisip::b2bua::bridge::config::v2;
+using namespace soci;
+
+void nominalInitialSqlLoadTest() {
+	auto expectedAccounts = R"([
+			{
+				"uri": "sip:account1@some.provider.example.com",
+				"alias": "sip:expected-from@sip.example.org"
+			},
+			{
+				"uri": "sip:account2@some.provider.example.com",
+				"userid": "userID",
+				"password": "p@$sword",
+				"outboundProxy": "sip.linphone.org"
+			}
+		]
+	)"_json.get<std::vector<Account>>();
+
+	auto sqlLoaderConf = R"({
+			"dbBackend": "sqlite3",
+			"initQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users",
+			"updateQuery": "not yet implemented",
+			"connection": "database_filename"
+		}
+	)"_json.get<SQLLoader>();
+
+	SqlAccountLoader loader{sqlLoaderConf};
+	auto actualAccounts = loader.initialLoad();
+
+	BC_ASSERT_CPP_EQUAL(expectedAccounts, actualAccounts);
+}
+
+void initialSqlLoadTestWithEmptyFields() {
+	auto expectedAccounts = R"([
+			{
+				"uri": "sip:account1@some.provider.example.com",
+				"alias": "sip:expected-from@sip.example.org"
+			},
+			{
+				"uri": "sip:account2@some.provider.example.com"
+			}
+		]
+	)"_json.get<std::vector<Account>>();
+
+	auto sqlLoaderConf = R"({
+			"dbBackend": "sqlite3",
+			"initQuery": "SELECT uriInDb as uri,\"\" as user_id, \"\" as password, alias, NULL as outbound_proxy from users",
+			"updateQuery": "not yet implemented",
+			"connection": "database_filename"
+		}
+	)"_json.get<SQLLoader>();
+
+	SqlAccountLoader loader{sqlLoaderConf};
+	auto actualAccounts = loader.initialLoad();
+
+	BC_ASSERT_CPP_EQUAL(expectedAccounts, actualAccounts);
+
+	std::remove("database_filename");
+}
+
+void initialSqlLoadTestUriCantBeNull() {
+	auto sqlLoaderConf = R"({
+			"dbBackend": "sqlite3",
+			"initQuery": "SELECT NULL as uri,\"\" as user_id, \"\" as password, alias, NULL as outbound_proxy from users",
+			"updateQuery": "not yet implemented",
+			"connection": "database_filename"
+		}
+	)"_json.get<SQLLoader>();
+
+	SqlAccountLoader loader{sqlLoaderConf};
+	BC_ASSERT_THROWN(loader.initialLoad(), SociHelper::DatabaseException);
+}
+
+namespace {
+TestSuite _{
+    "SQL account loader unit tests",
+    {
+        CLASSY_TEST(nominalInitialSqlLoadTest),
+        CLASSY_TEST(initialSqlLoadTestWithEmptyFields),
+        CLASSY_TEST(initialSqlLoadTestUriCantBeNull),
+    },
+    Hooks()
+        .beforeSuite([] {
+	        try {
+		        session sql(sqlite3, "database_filename");
+		        sql << R"sql(CREATE TABLE users (
+						uriInDb TEXT PRIMARY KEY,
+						userid TEXT,
+						passwordInDb TEXT,
+						alias TEXT,
+						outboundProxyInDb TEXT))sql";
+		        sql << R"sql(INSERT INTO users VALUES ("sip:account1@some.provider.example.com", "", "", "sip:expected-from@sip.example.org", ""))sql";
+		        sql << R"sql(INSERT INTO users VALUES ("sip:account2@some.provider.example.com", "userID", "p@$sword", "", "sip.linphone.org"))sql";
+	        } catch (const soci_error& e) {
+		        auto msg = "Error initiating DB : "s + e.what();
+		        BC_HARD_FAIL(msg.c_str());
+	        }
+	        return 0;
+        })
+        .afterSuite([] {
+	        std::remove("database_filename");
+	        return 0;
+        })};
+
+} // namespace
+} // namespace flexisip::tester

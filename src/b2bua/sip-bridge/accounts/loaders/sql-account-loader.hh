@@ -16,25 +16,34 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include <memory>
-#include <unordered_map>
-
-#include "linphone++/account_params.hh"
-
-#include "b2bua/sip-bridge/accounts/account-pool.hh"
-#include "b2bua/sip-bridge/configuration/v2.hh"
-
 #pragma once
 
-namespace flexisip::b2bua::bridge {
+#include <vector>
 
-class StaticAccountPool : public AccountPool {
+#include <soci/connection-pool.h>
+
+#include "b2bua/sip-bridge/accounts/loaders/loader.hh"
+#include "b2bua/sip-bridge/configuration/v2/v2.hh"
+#include "utils/thread/auto-thread-pool.hh"
+
+namespace flexisip::b2bua::bridge {
+class SqlAccountLoader : public Loader {
 public:
-	explicit StaticAccountPool(linphone::Core& core,
-	                           const linphone::AccountParams& templateParams,
-	                           const config::v2::AccountPoolName& poolName,
-	                           const config::v2::AccountPool& pool,
-	                           const config::v2::StaticLoader& loader);
+	explicit SqlAccountLoader(const config::v2::SQLLoader& loaderConf);
+
+	std::vector<config::v2::Account>&& initialLoad() override;
+
+private:
+	// TODO hardcoded size, is this ok ?
+	AutoThreadPool mThreadPool{50, 100};
+	soci::connection_pool mSociConnectionPool{50};
+	std::string mInitQuery;
+	std::string mUpdateQuery;
+
+	/**
+	 * WARNING is moved after SqlAccountLoader::initialLoad
+	 */
+	std::vector<config::v2::Account> mAccountsLoaded;
 };
 
 } // namespace flexisip::b2bua::bridge

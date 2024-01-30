@@ -33,7 +33,7 @@
 #include "b2bua/b2bua-server.hh"
 #include "b2bua/sip-bridge/accounts/account.hh"
 #include "b2bua/sip-bridge/accounts/selection-strategy/account-selection-strategy.hh"
-#include "b2bua/sip-bridge/configuration/v2.hh"
+#include "b2bua/sip-bridge/configuration/v2/v2.hh"
 #include "b2bua/sip-bridge/invite-tweaker.hh"
 #include "b2bua/sip-bridge/trigger-strategy.hh"
 #include "cli.hh"
@@ -85,7 +85,7 @@ public:
 
 private:
 	static AccountPoolImplMap getAccountPoolsFromConfig(linphone::Core& core,
-	                                                    const config::v2::AccountPoolConfigMap& accountPoolConfigMap);
+	                                                    config::v2::AccountPoolConfigMap& accountPoolConfigMap);
 	void initFromRootConfig(linphone::Core& core, config::v2::Root rootConfig);
 
 	std::vector<SipProvider> providers;

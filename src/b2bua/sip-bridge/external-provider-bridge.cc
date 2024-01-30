@@ -28,8 +28,9 @@
 #include "linphone++/linphone.hh"
 #include "linphone/misc.h"
 
+#include "b2bua/sip-bridge/accounts/loaders/sql-account-loader.hh"
+#include "b2bua/sip-bridge/accounts/loaders/static-account-loader.hh"
 #include "b2bua/sip-bridge/accounts/selection-strategy/pick-random-in-pool.hh"
-#include "b2bua/sip-bridge/accounts/static-account-pool.hh"
 #include "utils/variant-utils.hh"
 
 using namespace std;
@@ -109,14 +110,14 @@ SipProvider::onCallCreate(const linphone::Call& incomingCall,
 }
 
 AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
-                                                        const config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
+                                                        config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
 	auto accountPoolMap = AccountPoolImplMap();
 	const auto templateParams = core.createAccountParams();
 
-	for (const auto& [poolNameIt, poolIt] : accountPoolConfigMap) {
+	for (auto& [poolNameIt, poolIt] : accountPoolConfigMap) {
 		// Until C++ 20 this is needed. Because poolNameIt and poolIt can't be captured.
 		const auto& poolName = poolNameIt;
-		const auto& pool = poolIt;
+		auto& pool = poolIt;
 
 		if (pool.outboundProxy.empty()) {
 			LOGF("Please provide an `outboundProxy` for AccountPool '%s'", poolName.c_str());
@@ -134,15 +135,21 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 		Match(pool.loader)
 		    .against(
 		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core,
-		         &pool](const config::v2::StaticLoader& staticPool) {
+		         &pool](config::v2::StaticLoader& staticPool) {
 			        if (staticPool.empty()) {
 				        SLOGW << "AccountPool '" << poolName
 				              << "' has no `accounts` and will not be used to bridge calls";
 			        }
 			        accountPoolMap.try_emplace(
-			            poolName, make_shared<StaticAccountPool>(core, templateParams, poolName, pool, staticPool));
+			            poolName, make_shared<AccountPool>(core, templateParams, poolName, pool,
+			                                               make_unique<StaticAccountLoader>(std::move(staticPool))));
 		        },
-		        [](const config::v2::SQLLoader&) { LOGF("Not yet implemented"); });
+		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core,
+		         &pool](config::v2::SQLLoader& sqlLoaderConf) {
+			        accountPoolMap.try_emplace(poolName,
+			                                   make_shared<AccountPool>(core, templateParams, poolName, pool,
+			                                                            make_unique<SqlAccountLoader>(sqlLoaderConf)));
+		        });
 	}
 
 	return accountPoolMap;

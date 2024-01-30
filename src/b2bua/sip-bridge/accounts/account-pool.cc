@@ -23,20 +23,56 @@
 namespace flexisip::b2bua::bridge {
 using namespace std;
 
-std::shared_ptr<Account> AccountPool::getAccountByUri(const std::string& uri) const {
-	try {
-		return mAccountsByUri.at(uri);
-	} catch (out_of_range&) {
-		return nullptr;
+AccountPool::AccountPool(linphone::Core& core,
+                         const linphone::AccountParams& templateParams,
+                         const config::v2::AccountPoolName& poolName,
+                         const config::v2::AccountPool& pool,
+                         unique_ptr<Loader>&& loader)
+    : mLoader{std::move(loader)} {
+	const auto factory = linphone::Factory::get();
+	const auto accountsDesc = mLoader->initialLoad();
+
+	reserve(accountsDesc.size());
+	for (const auto& accountDesc : accountsDesc) {
+		if (accountDesc.uri.empty()) {
+			LOGF("An account of account pool '%s' is missing a `uri` field", poolName.c_str());
+		}
+		const auto address = core.createAddress(accountDesc.uri);
+		const auto accountParams = templateParams.clone();
+		accountParams->setIdentityAddress(address);
+
+		if (!accountDesc.outboundProxy.empty()) {
+			// Override global pool config if outboundProxy is present
+			const auto route = core.createAddress(pool.outboundProxy);
+			accountParams->setServerAddress(route);
+			accountParams->setRoutesAddresses({route});
+		}
+
+		auto account = core.createAccount(accountParams);
+		core.addAccount(account);
+
+		if (!accountDesc.password.empty()) {
+			core.addAuthInfo(factory->createAuthInfo(address->getUsername(), accountDesc.userid, accountDesc.password,
+			                                         "", "", address->getDomain()));
+		}
+
+		try_emplace(accountDesc.uri, accountDesc.alias,
+		            make_shared<Account>(account, pool.maxCallsPerLine, accountDesc.alias));
 	}
 }
 
-std::shared_ptr<Account> AccountPool::getAccountByAlias(const string& alias) const {
-	try {
-		return mAccountsByAlias.at(alias);
-	} catch (out_of_range&) {
-		return nullptr;
+std::shared_ptr<Account> AccountPool::getAccountByUri(const std::string& uri) const {
+	if (const auto it = mAccountsByUri.find(uri); it != mAccountsByUri.cend()) {
+		return it->second;
 	}
+	return nullptr;
+}
+
+std::shared_ptr<Account> AccountPool::getAccountByAlias(const string& alias) const {
+	if (const auto it = mAccountsByAlias.find(alias); it != mAccountsByAlias.cend()) {
+		return it->second;
+	}
+	return nullptr;
 }
 
 std::shared_ptr<Account> AccountPool::getAccountRandomly() const {

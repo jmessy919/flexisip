@@ -2,7 +2,7 @@
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-#include "b2bua/sip-bridge/configuration/v2.hh"
+#include "b2bua/sip-bridge/configuration/v2/v2.hh"
 
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"

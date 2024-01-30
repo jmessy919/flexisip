@@ -20,6 +20,7 @@
 #include <unordered_map>
 
 #include "b2bua/sip-bridge/accounts/account.hh"
+#include "b2bua/sip-bridge/accounts/loaders/loader.hh"
 
 #pragma once
 
@@ -27,7 +28,11 @@ namespace flexisip::b2bua::bridge {
 
 class AccountPool {
 public:
-	AccountPool() = default;
+	AccountPool(linphone::Core& core,
+	            const linphone::AccountParams& templateParams,
+	            const config::v2::AccountPoolName& poolName,
+	            const config::v2::AccountPool& pool,
+	            std::unique_ptr<Loader>&& loader);
 
 	// Disable copy semantics
 	AccountPool(const AccountPool&) = delete;
@@ -52,6 +57,7 @@ protected:
 	void try_emplace(const std::string& uri, const std::string& alias, const std::shared_ptr<Account>& account);
 
 private:
+	std::unique_ptr<Loader> mLoader;
 	std::unordered_map<std::string, std::shared_ptr<Account>> mAccountsByUri;
 	std::unordered_map<std::string, std::shared_ptr<Account>> mAccountsByAlias;
 };

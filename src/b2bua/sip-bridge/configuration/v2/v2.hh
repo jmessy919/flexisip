@@ -14,9 +14,10 @@
 
 #include "lib/nlohmann-json-3-11-2/json.hpp"
 
+#include "b2bua/sip-bridge/configuration/media-encryption.hh"
+#include "b2bua/sip-bridge/configuration/v1.hh"
+#include "b2bua/sip-bridge/configuration/v2/account.hh"
 #include "flexiapi/schemas/optional-json.hh"
-#include "media-encryption.hh"
-#include "v1.hh"
 
 namespace flexisip::b2bua::bridge::config::v2 {
 namespace account_selection {
@@ -148,26 +149,13 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, Provider& nlohmann
 	NLOHMANN_JSON_FROM(outgoingInvite)
 }
 
-struct Account {
-	std::string uri;
-	std::string userid;
-	std::string password;
-	std::string alias;
-};
-inline void from_json(const nlohmann ::json& nlohmann_json_j, Account& nlohmann_json_t) {
-	Account nlohmann_json_default_obj;
-	NLOHMANN_JSON_FROM(uri)
-	NLOHMANN_JSON_FROM_WITH_DEFAULT(userid)
-	NLOHMANN_JSON_FROM_WITH_DEFAULT(password)
-	NLOHMANN_JSON_FROM_WITH_DEFAULT(alias)
-};
-
 struct SQLLoader {
+	std::string dbBackend;
 	std::string initQuery;
 	std::string updateQuery;
 	std::string connection;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SQLLoader, initQuery, updateQuery, connection);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SQLLoader, dbBackend, initQuery, updateQuery, connection);
 
 using StaticLoader = std::vector<Account>;
 

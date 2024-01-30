@@ -4,8 +4,8 @@
 
 #include <linphone/misc.h>
 
+#include "b2bua/sip-bridge/accounts/loaders/static-account-loader.hh"
 #include "b2bua/sip-bridge/accounts/selection-strategy/find-in-pool.hh"
-#include "b2bua/sip-bridge/accounts/static-account-pool.hh"
 #include "utils/client-builder.hh"
 #include "utils/client-call.hh"
 #include "utils/client-core.hh"
@@ -15,6 +15,7 @@
 
 namespace flexisip::tester {
 namespace {
+using namespace std;
 using namespace flexisip::b2bua::bridge;
 using namespace flexisip::b2bua::bridge::account_strat;
 
@@ -46,7 +47,7 @@ void test() {
 	BC_HARD_ASSERT_TRUE(b2bua.hasReceivedCallFrom(caller));
 	const auto forgedCall = ClientCall::getLinphoneCall(*b2bua.getCurrentCall());
 	auto& b2buaCore = *b2bua.getCore();
-	const auto poolConfig = R"({
+	auto poolConfig = R"({
 		"outboundProxy": "<sip:some.provider.example.com;transport=tls>",
 		"registrationRequired": false,
 		"maxCallsPerLine": 55,
@@ -65,8 +66,9 @@ void test() {
 		]
 	})"_json.get<config::v2::AccountPool>();
 	const auto templateParams = b2buaCore.createAccountParams();
-	const auto pool = std::make_shared<StaticAccountPool>(b2buaCore, *templateParams, "test account pool", poolConfig,
-	                                                      std::get<config::v2::StaticLoader>(poolConfig.loader));
+	auto& staticLoader = get<config::v2::StaticLoader>(poolConfig.loader);
+	const auto pool = make_shared<AccountPool>(b2buaCore, *templateParams, "test account pool", poolConfig,
+	                                           make_unique<StaticAccountLoader>(std::move(staticLoader)));
 
 	{
 		const auto account =

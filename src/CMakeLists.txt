@@ -328,7 +328,7 @@ if (ENABLE_SOCI)
 		fork-context/fork-message-context-db-proxy.cc fork-context/fork-message-context-db-proxy.hh
 		soci-helper.cc soci-helper.hh
 	)
-	target_link_libraries(flexisip PUBLIC soci_core soci_mysql)
+	target_link_libraries(flexisip PUBLIC soci_core soci_mysql soci_sqlite3)
 	if(HAS_GCC_BUG_105562)
 		set_source_files_properties(
 			auth/db/authdb-soci.cc

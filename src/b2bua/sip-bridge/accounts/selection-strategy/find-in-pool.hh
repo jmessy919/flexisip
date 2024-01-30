@@ -6,7 +6,7 @@
 
 #include "account-selection-strategy.hh"
 
-#include "b2bua/sip-bridge/configuration/v2.hh"
+#include "b2bua/sip-bridge/configuration/v2/v2.hh"
 #include "utils/string-formatter.hh"
 
 namespace flexisip::b2bua::bridge::account_strat {

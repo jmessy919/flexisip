@@ -26,11 +26,14 @@ target_sources(flexisip PRIVATE
         b2bua-server.cc b2bua-server.hh
         sip-bridge/accounts/account-pool.cc sip-bridge/accounts/account-pool.hh
         sip-bridge/accounts/account.cc sip-bridge/accounts/account.hh
+        sip-bridge/accounts/loaders/loader.hh
+        sip-bridge/accounts/loaders/sql-account-loader.cc sip-bridge/accounts/loaders/sql-account-loader.hh
+        sip-bridge/accounts/loaders/static-account-loader.hh
         sip-bridge/accounts/selection-strategy/find-in-pool.cc sip-bridge/accounts/selection-strategy/find-in-pool.hh
-        sip-bridge/accounts/static-account-pool.cc sip-bridge/accounts/static-account-pool.hh
         sip-bridge/configuration/media-encryption.hh
         sip-bridge/configuration/v1.hh
-        sip-bridge/configuration/v2.cc sip-bridge/configuration/v2.hh
+        sip-bridge/configuration/v2/account.hh
+        sip-bridge/configuration/v2/v2.cc sip-bridge/configuration/v2/v2.hh
         sip-bridge/external-provider-bridge.cc sip-bridge/external-provider-bridge.hh
         sip-bridge/invite-tweaker.cc sip-bridge/invite-tweaker.hh
         sip-bridge/trigger-strategy.cc sip-bridge/trigger-strategy.hh
