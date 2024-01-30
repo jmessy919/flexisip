@@ -81,7 +81,8 @@ void bidirectionalBridging() {
 				"onAccountNotFound": "nextProvider",
 				"outgoingInvite": {
 					"to": "{account.alias}",
-					"from": "sip:{incoming.from.user}@{account.alias.hostport}{incoming.from.uriParameters}"
+					"from": "sip:{incoming.from.user}@{account.alias.hostport}{incoming.from.uriParameters}",
+					"outboundProxy": "<sip:127.0.0.1:port;transport=tcp>"
 				},
 				"accountPool": "FlockOfJabirus"
 			}

@@ -15,7 +15,7 @@ namespace flexisip::b2bua::bridge {
 
 class InviteTweaker {
 public:
-	explicit InviteTweaker(const config::v2::OutgoingInvite&);
+	explicit InviteTweaker(const config::v2::OutgoingInvite&, linphone::Core&);
 
 	std::shared_ptr<linphone::Address> tweakInvite(const linphone::Call&, const Account&, linphone::CallParams&) const;
 
@@ -23,6 +23,7 @@ private:
 	/// The address to send the INVITE to
 	StringFormatter mToHeader;
 	std::optional<StringFormatter> mFromHeader;
+	std::shared_ptr<linphone::Address> mOutboundProxyOverride;
 	std::optional<bool> mAvpfOverride;
 	std::optional<linphone::MediaEncryption> mEncryptionOverride;
 };

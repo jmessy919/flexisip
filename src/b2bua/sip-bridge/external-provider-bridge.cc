@@ -106,7 +106,6 @@ SipProvider::onCallCreate(const linphone::Call& incomingCall,
 	occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;
 	account->takeASlot();
 
-	outgoingCallParams.setAccount(account->getLinphoneAccount());
 	return mInviteTweaker.tweakInvite(incomingCall, *account, outgoingCallParams);
 }
 
@@ -200,7 +199,7 @@ void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) 
 		    std::move(triggerCond),
 		    std::move(accountStrat),
 		    provDesc.onAccountNotFound,
-		    InviteTweaker(std::move(provDesc.outgoingInvite)),
+		    InviteTweaker(std::move(provDesc.outgoingInvite), core),
 		    std::move(provDesc.name),
 		});
 	}

@@ -13,14 +13,24 @@
 
 namespace flexisip::b2bua::bridge {
 
-InviteTweaker::InviteTweaker(const config::v2::OutgoingInvite& config)
+InviteTweaker::InviteTweaker(const config::v2::OutgoingInvite& config, linphone::Core& core)
     : mToHeader(config.to), mFromHeader(config.from.empty() ? std::nullopt : decltype(mFromHeader){config.from}),
+      mOutboundProxyOverride(config.outboundProxy ? core.createAddress(*config.outboundProxy) : nullptr),
       mAvpfOverride(config.enableAvpf), mEncryptionOverride(config.mediaEncryption) {
 }
 
 std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Call& incomingCall,
                                                               const Account& account,
                                                               linphone::CallParams& outgoingCallParams) const {
+
+	auto linphoneAccount = account.getLinphoneAccount();
+	if (mOutboundProxyOverride) {
+		const auto& accountParams = linphoneAccount->getParams()->clone();
+		accountParams->setServerAddress(mOutboundProxyOverride);
+		accountParams->setRoutesAddresses({mOutboundProxyOverride});
+		linphoneAccount = linphoneAccount->getCore()->createAccount(accountParams);
+	}
+	outgoingCallParams.setAccount(linphoneAccount);
 
 	if (const auto& mediaEncryption = mEncryptionOverride) {
 		outgoingCallParams.setMediaEncryption(*mediaEncryption);
