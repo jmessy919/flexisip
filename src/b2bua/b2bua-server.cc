@@ -320,6 +320,7 @@ void B2buaServer::_init() {
 	// make sure the videostream can be started when using unsupported codec
 	configLinphone->setBool("video", "fallback_to_dummy_codec", true);
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
+	mCore->setLabel("Flexisip B2BUA");
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
 	mCore->setUseFiles(true); // No sound card shall be used in calls
