@@ -16,11 +16,13 @@
     along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#pragma once
+
 #include <memory>
 
 #include "linphone++/linphone.hh"
 
-#pragma once
+#include "flexisip/utils/sip-uri.hh"
 
 namespace flexisip::b2bua::bridge {
 
@@ -33,7 +35,7 @@ public:
 
 	bool isAvailable() const;
 	const std::shared_ptr<linphone::Account>& getLinphoneAccount() const;
-	const std::string& getAlias() const;
+	const SipUri& getAlias() const;
 	uint16_t getFreeSlotsCount() const;
 
 	void takeASlot();
@@ -46,7 +48,7 @@ private:
 
 	std::shared_ptr<linphone::Account> account;
 	uint16_t freeSlots = 0;
-	std::string mAlias{};
+	SipUri mAlias{};
 };
 
 } // namespace flexisip::b2bua::bridge

@@ -84,6 +84,31 @@ constexpr FieldsOf<linphone::Call> kFields = {
 
 } // namespace linphone_call
 
+namespace sofia_uri {
+
+constexpr static FieldsOf<SipUri> kFields = {
+    {"", [](const auto& uri, const auto) { return uri.str(); }},
+    {"user", [](const auto& uri, const auto) { return uri.getUser(); }},
+    {"hostport",
+     [](const auto& uri, const auto) {
+	     auto hostport = uri.getHost();
+	     if (const auto port = uri.getPort(); port != "") {
+		     hostport += ":" + port;
+	     }
+	     return hostport;
+     }},
+    {"uriParameters",
+     [](const auto& uri, const auto) {
+	     auto params = uri.getParams();
+	     if (!params.empty()) {
+		     params = ";" + params;
+	     }
+	     return params;
+     }},
+};
+
+}
+
 namespace account {
 
 constexpr FieldsOf<Account> kFields = {
@@ -91,7 +116,8 @@ constexpr FieldsOf<Account> kFields = {
      [](const auto& account, const auto furtherPath) {
 	     return linphone_address::resolve(account.getLinphoneAccount()->getParams()->getIdentityAddress(), furtherPath);
      }},
-    {"alias", [](const auto& account, const auto) { return account.getAlias(); }},
+    {"alias", [](const auto& account,
+                 const auto furtherPath) { return resolve(sofia_uri::kFields, account.getAlias(), furtherPath); }},
 };
 
 } // namespace account

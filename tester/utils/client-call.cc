@@ -30,6 +30,9 @@ linphone::Status ClientCall::acceptEarlyMedia() const {
 linphone::Status ClientCall::decline(linphone::Reason reason) const {
 	return mCall->decline(reason);
 }
+linphone::Status ClientCall::terminate() const {
+	return mCall->terminate();
+}
 
 linphone::Call::State ClientCall::getState() const {
 	return mCall->getState();

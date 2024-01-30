@@ -22,12 +22,37 @@ namespace {
 
 using namespace std::chrono_literals;
 
-void test() {
+/*
+    Test bridging to *and* from an external sip provider/domain. (Arbitrarily called "Jabiru")
+    We configure 2 providers, one for each direction.
+
+    The first, "Outbound" provider will attempt to find an external account matching the caller, and bridge the call
+    using that account.
+    The second, "Inbound" provider will attempt to find the external account that received the call to determine the uri
+    to call in the internal domain, and send the invite to the flexisip proxy.
+
+    We'll need a user registered to the internal Flexisip proxy. Let's call him Felix <sip:felix@flexisip.example.org>.
+    Felix will need an account on the external Jabiru proxy, with a potentially different username than the one he uses
+    on Flexisip: <sip:definitely-not-felix@jabiru.example.org>. That account will be provisioned in the B2BUA's account
+    pool.
+    Then we'll need a user registered to the Jabiru proxy, let's call him Jasper <sip:jasper@jabiru.example.org>.
+
+    Felix will first attempt to call Jasper as if he was in the same domain as him, using the address
+    <sip:jasper@flexisip.example.org>. Jasper should receive a bridged call coming from
+    <sip:definitely-not-felix@jabiru.example.org>, Felix's external account managed by the B2BUA.
+
+    Then Jasper will in turn attempt to call Felix's external account, <sip:definitely-not-felix@jabiru.example.org>,
+    and Felix should receive a call form Jasper that should look like it's coming from within the same domain as him:
+    <sip:jasper@flexisip.example.org>
+*/
+// TODO: There should really be 2 different proxies, to test that the Inbound provider can correctly send invites to the
+// Flexisip proxy and not the `outboundProxy` configured on the B2BUA account.
+void bidirectionalBridging() {
 	StringFormatter jsonConfig{R"json({
 		"schemaVersion": 2,
 		"providers": [
 			{
-				"name": "Flexisip -> Jabiru",
+				"name": "Flexisip -> Jabiru (Outbound)",
 				"triggerCondition": {
 					"strategy": "Always"
 				},
@@ -44,7 +69,7 @@ void test() {
 				"accountPool": "FlockOfJabirus"
 			},
 			{
-				"name": "Jabiru -> Flexisip",
+				"name": "Jabiru -> Flexisip (Inbound)",
 				"triggerCondition": {
 					"strategy": "Always"
 				},
@@ -56,7 +81,7 @@ void test() {
 				"onAccountNotFound": "nextProvider",
 				"outgoingInvite": {
 					"to": "{account.alias}",
-					"from": "{incoming.from}"
+					"from": "sip:{incoming.from.user}@{account.alias.hostport}{incoming.from.uriParameters}"
 				},
 				"accountPool": "FlockOfJabirus"
 			}
@@ -68,7 +93,7 @@ void test() {
 				"maxCallsPerLine": 3125,
 				"loader": [
 					{
-						"uri": "sip:felix@jabiru.example.org",
+						"uri": "sip:definitely-not-felix@jabiru.example.org",
 						"alias": "sip:felix@flexisip.example.org"
 					}
 				]
@@ -103,7 +128,7 @@ void test() {
 	CoreAssert asserter{proxy, *b2buaLoop};
 	asserter
 	    .iterateUpTo(
-	        1,
+	        3,
 	        [&sipProviders =
 	             dynamic_cast<const b2bua::bridge::SipBridge&>(b2buaServer->getApplication()).getProviders()] {
 		        for (const auto& provider : sipProviders) {
@@ -114,59 +139,73 @@ void test() {
 		        // b2bua accounts registered
 		        return ASSERTION_PASSED();
 	        },
-	        5s)
+	        40ms)
 	    .assert_passed();
 	asserter.registerSteppable(felix);
 	asserter.registerSteppable(jasper);
 
 	// Flexisip -> Jabiru
 	felix.invite("jasper@flexisip.example.org");
+	BC_HARD_ASSERT(asserter
+	                   .iterateUpTo(
+	                       3,
+	                       [&jasper] {
+		                       const auto& current_call = jasper.getCurrentCall();
+		                       FAIL_IF(current_call == std::nullopt);
+		                       FAIL_IF(current_call->getState() != linphone::Call::State::IncomingReceived);
+		                       // invite received
+		                       return ASSERTION_PASSED();
+	                       },
+	                       300ms)
+	                   .assert_passed());
+	BC_ASSERT_CPP_EQUAL(jasper.getCurrentCall()->getRemoteAddress()->asStringUriOnly(),
+	                    "sip:definitely-not-felix@jabiru.example.org");
+
+	// cleanup
+	jasper.getCurrentCall()->accept();
+	jasper.getCurrentCall()->terminate();
 	asserter
 	    .iterateUpTo(
-	        1,
-	        [&jasper] {
-		        const auto& current_call = jasper.getCurrentCall();
-		        FAIL_IF(current_call == std::nullopt);
-		        FAIL_IF(current_call->getState() != linphone::Call::State::IncomingReceived);
+	        2,
+	        [&felix] {
+		        const auto& current_call = felix.getCurrentCall();
+		        FAIL_IF(current_call != std::nullopt);
 		        // invite received
 		        return ASSERTION_PASSED();
 	        },
-	        5s)
+	        90ms)
 	    .assert_passed();
-	BC_ASSERT_CPP_EQUAL(jasper.getCurrentCall()->getRemoteAddress()->asStringUriOnly(), "sip:felix@jabiru.example.org");
 
 	// Jabiru -> Flexisip
-	jasper.getCurrentCall()->decline(linphone::Reason::Gone);
-	jasper.invite("felix@jabiru.example.org");
+	jasper.invite("definitely-not-felix@jabiru.example.org");
 	BC_HARD_ASSERT(asserter
 	                   .iterateUpTo(
-	                       1,
+	                       2,
 	                       [&felix] {
 		                       const auto& current_call = felix.getCurrentCall();
 		                       FAIL_IF(current_call == std::nullopt);
 		                       FAIL_IF(current_call->getState() != linphone::Call::State::IncomingReceived);
-		                       FAIL_IF(current_call->getRemoteAddress()->asStringUriOnly() !=
-		                               "sip:jasper@flexisip.example.org");
 		                       // invite received
 		                       return ASSERTION_PASSED();
 	                       },
-	                       5s)
+	                       400ms)
 	                   .assert_passed());
 	BC_ASSERT_CPP_EQUAL(felix.getCurrentCall()->getRemoteAddress()->asStringUriOnly(),
 	                    "sip:jasper@flexisip.example.org");
 
 	// shutdown / cleanup
-	felix.getCurrentCall()->decline(linphone::Reason::Gone);
+	felix.getCurrentCall()->accept();
+	felix.getCurrentCall()->terminate();
 	asserter
 	    .iterateUpTo(
-	        1,
+	        2,
 	        [&jasper] {
 		        const auto& current_call = jasper.getCurrentCall();
 		        FAIL_IF(current_call != std::nullopt);
 		        // invite received
 		        return ASSERTION_PASSED();
 	        },
-	        5s)
+	        400ms)
 	    .assert_passed();
 	b2buaServer->stop();
 }
@@ -174,7 +213,7 @@ void test() {
 TestSuite _{
     "b2bua::bridge",
     {
-        CLASSY_TEST(test),
+        CLASSY_TEST(bidirectionalBridging),
     },
 };
 } // namespace

@@ -77,7 +77,7 @@ void test() {
 		               R"({"by": "alias", "source": "{from}"})"_json.get<config::v2::account_selection::FindInPool>())
 		        .chooseAccountForThisCall(*forgedCall);
 		BC_HARD_ASSERT(account != nullptr);
-		BC_ASSERT_CPP_EQUAL(account->getAlias(), incomingFrom);
+		BC_ASSERT_CPP_EQUAL(account->getAlias().str(), incomingFrom);
 	}
 
 	{
@@ -97,7 +97,7 @@ void test() {
 		                         .get<config::v2::account_selection::FindInPool>())
 		        .chooseAccountForThisCall(*forgedCall);
 		BC_HARD_ASSERT(account != nullptr);
-		BC_ASSERT_CPP_EQUAL(account->getAlias(), "sip:no-placeholder@static.example.com");
+		BC_ASSERT_CPP_EQUAL(account->getAlias().str(), "sip:no-placeholder@static.example.com");
 	}
 }
 

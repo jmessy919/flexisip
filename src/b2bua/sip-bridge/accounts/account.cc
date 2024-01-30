@@ -38,7 +38,7 @@ bool Account::isAvailable() const {
 const std::shared_ptr<linphone::Account>& Account::getLinphoneAccount() const {
 	return account;
 }
-const std::string& Account::getAlias() const {
+const SipUri& Account::getAlias() const {
 	return mAlias;
 }
 decltype(Account::freeSlots) Account::getFreeSlotsCount() const {
