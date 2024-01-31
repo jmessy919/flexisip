@@ -47,7 +47,7 @@ std::string resolve(const FieldsOf<TContext>& fields, const TContext& context, s
 
 namespace linphone_address {
 
-constexpr static FieldsOf<std::shared_ptr<const linphone::Address>> kFields = {
+static const FieldsOf<std::shared_ptr<const linphone::Address>> kFields = {
     {"", [](const auto& address, const auto) { return address->asStringUriOnly(); }},
     {"user", [](const auto& address, const auto) { return address->getUsername(); }},
     {"hostport",
@@ -77,7 +77,7 @@ inline std::string resolve(const std::shared_ptr<const linphone::Address>& addre
 
 namespace linphone_call {
 
-constexpr FieldsOf<linphone::Call> kFields = {
+static const FieldsOf<linphone::Call> kFields = {
     {"to", [](const auto& call,
               const auto furtherPath) { return linphone_address::resolve(call.getToAddress(), furtherPath); }},
     {"from", [](const auto& call,
@@ -92,7 +92,7 @@ constexpr FieldsOf<linphone::Call> kFields = {
 
 namespace sofia_uri {
 
-constexpr static FieldsOf<SipUri> kFields = {
+static const FieldsOf<SipUri> kFields = {
     {"", [](const auto& uri, const auto) { return uri.str(); }},
     {"user", [](const auto& uri, const auto) { return uri.getUser(); }},
     {"hostport",
@@ -117,7 +117,7 @@ constexpr static FieldsOf<SipUri> kFields = {
 
 namespace account {
 
-constexpr FieldsOf<Account> kFields = {
+static const FieldsOf<Account> kFields = {
     {"sipIdentity",
      [](const auto& account, const auto furtherPath) {
 	     return linphone_address::resolve(account.getLinphoneAccount()->getParams()->getIdentityAddress(), furtherPath);
