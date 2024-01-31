@@ -18,13 +18,7 @@ template <typename TContext>
 using Resolver = std::string (*)(const TContext&, std::string_view);
 
 template <typename TContext>
-struct FieldOf {
-	const std::string_view name;
-	const Resolver<TContext> resolver;
-};
-
-template <typename TContext>
-using FieldsOf = std::initializer_list<const FieldOf<TContext>>;
+using FieldsOf = std::initializer_list<std::pair<std::string_view, Resolver<TContext>>>;
 
 inline std::pair<std::string_view, std::string_view> popVarName(std::string_view dotPath) {
 	const auto split = StringUtils::splitOnce(dotPath, ".");
