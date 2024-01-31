@@ -42,25 +42,25 @@ std::string resolve(const FieldsOf<TContext>& fields, const TContext& context, s
 namespace linphone_address {
 
 constexpr static FieldsOf<std::shared_ptr<const linphone::Address>> kFields = {
-    {"", [](const auto& address, const auto) { return address->asStringUriOnly(); }},
-    {"user", [](const auto& address, const auto) { return address->getUsername(); }},
-    {"hostport",
-     [](const auto& address, const auto) {
-	     auto hostport = address->getDomain();
-	     const auto port = address->getPort();
-	     if (port != 0) {
-		     hostport += ":" + std::to_string(port);
-	     }
-	     return hostport;
-     }},
-    {"uriParameters",
-     [](const auto& address, const auto) {
-	     auto params = SipUri{address->asStringUriOnly()}.getParams();
-	     if (!params.empty()) {
-		     params = ";" + params;
-	     }
-	     return params;
-     }},
+    std::pair{"", [](const auto& address, const auto) { return address->asStringUriOnly(); }},
+    std::pair{"user", [](const auto& address, const auto) { return address->getUsername(); }},
+    std::pair{"hostport",
+              [](const auto& address, const auto) {
+	              auto hostport = address->getDomain();
+	              const auto port = address->getPort();
+	              if (port != 0) {
+		              hostport += ":" + std::to_string(port);
+	              }
+	              return hostport;
+              }},
+    std::pair{"uriParameters",
+              [](const auto& address, const auto) {
+	              auto params = SipUri{address->asStringUriOnly()}.getParams();
+	              if (!params.empty()) {
+		              params = ";" + params;
+	              }
+	              return params;
+              }},
 };
 
 inline std::string resolve(const std::shared_ptr<const linphone::Address>& address, std::string_view varName) {
@@ -72,14 +72,16 @@ inline std::string resolve(const std::shared_ptr<const linphone::Address>& addre
 namespace linphone_call {
 
 constexpr FieldsOf<linphone::Call> kFields = {
-    {"to", [](const auto& call,
-              const auto furtherPath) { return linphone_address::resolve(call.getToAddress(), furtherPath); }},
-    {"from", [](const auto& call,
-                const auto furtherPath) { return linphone_address::resolve(call.getRemoteAddress(), furtherPath); }},
-    {"requestAddress",
-     [](const auto& call, const auto furtherPath) {
-	     return linphone_address::resolve(call.getRequestAddress(), furtherPath);
-     }},
+    std::pair{"to", [](const auto& call,
+                       const auto furtherPath) { return linphone_address::resolve(call.getToAddress(), furtherPath); }},
+    std::pair{"from",
+              [](const auto& call, const auto furtherPath) {
+	              return linphone_address::resolve(call.getRemoteAddress(), furtherPath);
+              }},
+    std::pair{"requestAddress",
+              [](const auto& call, const auto furtherPath) {
+	              return linphone_address::resolve(call.getRequestAddress(), furtherPath);
+              }},
 };
 
 } // namespace linphone_call
@@ -87,24 +89,24 @@ constexpr FieldsOf<linphone::Call> kFields = {
 namespace sofia_uri {
 
 constexpr static FieldsOf<SipUri> kFields = {
-    {"", [](const auto& uri, const auto) { return uri.str(); }},
-    {"user", [](const auto& uri, const auto) { return uri.getUser(); }},
-    {"hostport",
-     [](const auto& uri, const auto) {
-	     auto hostport = uri.getHost();
-	     if (const auto port = uri.getPort(); port != "") {
-		     hostport += ":" + port;
-	     }
-	     return hostport;
-     }},
-    {"uriParameters",
-     [](const auto& uri, const auto) {
-	     auto params = uri.getParams();
-	     if (!params.empty()) {
-		     params = ";" + params;
-	     }
-	     return params;
-     }},
+    std::pair{"", [](const auto& uri, const auto) { return uri.str(); }},
+    std::pair{"user", [](const auto& uri, const auto) { return uri.getUser(); }},
+    std::pair{"hostport",
+              [](const auto& uri, const auto) {
+	              auto hostport = uri.getHost();
+	              if (const auto port = uri.getPort(); port != "") {
+		              hostport += ":" + port;
+	              }
+	              return hostport;
+              }},
+    std::pair{"uriParameters",
+              [](const auto& uri, const auto) {
+	              auto params = uri.getParams();
+	              if (!params.empty()) {
+		              params = ";" + params;
+	              }
+	              return params;
+              }},
 };
 
 }
@@ -112,12 +114,15 @@ constexpr static FieldsOf<SipUri> kFields = {
 namespace account {
 
 constexpr FieldsOf<Account> kFields = {
-    {"sipIdentity",
-     [](const auto& account, const auto furtherPath) {
-	     return linphone_address::resolve(account.getLinphoneAccount()->getParams()->getIdentityAddress(), furtherPath);
-     }},
-    {"alias", [](const auto& account,
-                 const auto furtherPath) { return resolve(sofia_uri::kFields, account.getAlias(), furtherPath); }},
+    std::pair{"sipIdentity",
+              [](const auto& account, const auto furtherPath) {
+	              return linphone_address::resolve(account.getLinphoneAccount()->getParams()->getIdentityAddress(),
+	                                               furtherPath);
+              }},
+    std::pair{"alias",
+              [](const auto& account, const auto furtherPath) {
+	              return resolve(sofia_uri::kFields, account.getAlias(), furtherPath);
+              }},
 };
 
 } // namespace account
