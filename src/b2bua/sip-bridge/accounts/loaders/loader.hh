@@ -27,6 +27,6 @@ class Loader {
 public:
 	virtual ~Loader() = default;
 
-	virtual std::vector<config::v2::Account>&& initialLoad() = 0;
+	virtual std::vector<config::v2::Account> initialLoad() = 0;
 };
 } // namespace flexisip::b2bua::bridge

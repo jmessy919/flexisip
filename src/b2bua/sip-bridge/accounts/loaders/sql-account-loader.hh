@@ -31,7 +31,7 @@ class SqlAccountLoader : public Loader {
 public:
 	explicit SqlAccountLoader(const config::v2::SQLLoader& loaderConf);
 
-	std::vector<config::v2::Account>&& initialLoad() override;
+	std::vector<config::v2::Account> initialLoad() override;
 
 private:
 	// TODO hardcoded size, is this ok ?
@@ -39,11 +39,6 @@ private:
 	soci::connection_pool mSociConnectionPool{50};
 	std::string mInitQuery;
 	std::string mUpdateQuery;
-
-	/**
-	 * WARNING is moved after SqlAccountLoader::initialLoad
-	 */
-	std::vector<config::v2::Account> mAccountsLoaded;
 };
 
 } // namespace flexisip::b2bua::bridge

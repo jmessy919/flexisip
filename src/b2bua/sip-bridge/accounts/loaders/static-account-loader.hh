@@ -24,20 +24,21 @@
 
 #include "b2bua/sip-bridge/accounts/loaders/loader.hh"
 #include "b2bua/sip-bridge/configuration/v2/v2.hh"
-#include "utils/thread/auto-thread-pool.hh"
 
 namespace flexisip::b2bua::bridge {
 class StaticAccountLoader : public Loader {
 public:
 	explicit StaticAccountLoader(config::v2::StaticLoader&& loaderConf) : mLoaderConf{std::move(loaderConf)} {};
 
-	std::vector<config::v2::Account>&& initialLoad() override {
+	std::vector<config::v2::Account> initialLoad() override {
+		// "After the move, [mLoaderConf] is guaranteed to be empty()."
+		// https://en.cppreference.com/w/cpp/container/vector/vector
 		return std::move(mLoaderConf);
 	};
 
 private:
 	/**
-	 * WARNING is moved after StaticAccountLoader::initialLoad
+	 * WARNING will be empty after calling StaticAccountLoader::initialLoad();
 	 */
 	config::v2::StaticLoader mLoaderConf;
 };

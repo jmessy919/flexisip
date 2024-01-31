@@ -36,7 +36,10 @@ void nominalInitialLoadTest() {
 
 	auto actualAccounts = loader.initialLoad();
 
-	BC_ASSERT_CPP_EQUAL(expectedAccounts, actualAccounts);
+	BC_ASSERT_CPP_EQUAL(actualAccounts, expectedAccounts);
+
+	// Calling again returns an empty vector. This is not necessarily wanted behaviour, but it's better to document it.
+	BC_ASSERT_CPP_EQUAL(loader.initialLoad(), decltype(expectedAccounts){});
 }
 
 namespace {

@@ -34,18 +34,19 @@ SqlAccountLoader::SqlAccountLoader(const config::v2::SQLLoader& loaderConf)
 	}
 }
 
-std::vector<config::v2::Account>&& SqlAccountLoader::initialLoad() {
+std::vector<config::v2::Account> SqlAccountLoader::initialLoad() {
+	std::vector<config::v2::Account> accountsLoaded{};
 	SociHelper helper{mSociConnectionPool};
-	helper.execute([this](auto& sql) {
+	helper.execute([&initQuery = mInitQuery, &accountsLoaded](auto& sql) {
 		config::v2::Account account;
-		soci::statement statement = (sql.prepare << mInitQuery, into(account));
+		soci::statement statement = (sql.prepare << initQuery, into(account));
 		statement.execute();
 		while (statement.fetch()) {
-			mAccountsLoaded.push_back(account);
+			accountsLoaded.push_back(account);
 		}
 	});
 
-	return std::move(mAccountsLoaded);
+	return accountsLoaded;
 }
 
 } // namespace flexisip::b2bua::bridge
