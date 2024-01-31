@@ -6,6 +6,9 @@
 
 #include <chrono>
 
+#include "soci/session.h"
+#include "soci/sqlite3/soci-sqlite3.h"
+
 #include "b2bua/b2bua-server.hh"
 #include "utils/client-builder.hh"
 #include "utils/client-call.hh"
@@ -16,11 +19,13 @@
 #include "utils/temp-file.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
+#include "utils/tmp-dir.hh"
 
 namespace flexisip::tester {
 namespace {
 
 using namespace std::chrono_literals;
+using namespace std::string_literals;
 
 /*
     Test bridging to *and* from an external sip provider/domain. (Arbitrarily called "Jabiru")
@@ -211,10 +216,116 @@ void bidirectionalBridging() {
 	b2buaServer->stop();
 }
 
+void loadAccountsFromSQL() {
+	TmpDir sqliteDbDir{"b2bua::bridge::loadAccountsFromSQL"};
+	const auto& sqliteDbFilePath = sqliteDbDir.path() / "db.sqlite";
+	const auto& providersConfigPath = sqliteDbDir.path() / "providers.json";
+	try {
+		soci::session sql(soci::sqlite3, sqliteDbFilePath);
+		sql << R"sql(CREATE TABLE users (
+						uriInDb TEXT PRIMARY KEY,
+						userid TEXT,
+						passwordInDb TEXT,
+						alias TEXT,
+						outboundProxyInDb TEXT))sql";
+		sql << R"sql(INSERT INTO users VALUES ("sip:account1@some.provider.example.com", "", "", "sip:alias@sip.example.org", ""))sql";
+		sql << R"sql(INSERT INTO users VALUES ("sip:account2@some.provider.example.com", "test-userID", "p@$sword", "", "sip.linphone.org"))sql";
+		sql << R"sql(INSERT INTO users VALUES ("sip:account3@some.provider.example.com", "", "", "", ""))sql";
+	} catch (const soci::soci_error& e) {
+		auto msg = "Error initiating DB : "s + e.what();
+		BC_HARD_FAIL(msg.c_str());
+	}
+	StringFormatter jsonConfig{R"json({
+		"schemaVersion": 2,
+		"providers": [
+			{
+				"name": "Stub Provider",
+				"triggerCondition": { "strategy": "Always" },
+				"accountToUse": { "strategy": "Random" },
+				"onAccountNotFound": "decline",
+				"outgoingInvite": { "to": "{incoming.to}" },
+				"accountPool": "FlockOfJabirus"
+			}
+		],
+		"accountPools": {
+			"FlockOfJabirus": {
+				"outboundProxy": "<sip:127.0.0.1:port;transport=tcp>",
+				"registrationRequired": true,
+				"maxCallsPerLine": 3125,
+				"loader": {
+					"dbBackend": "sqlite3",
+					"initQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users",
+					"updateQuery": "not yet implemented",
+					"connection": "db-file-path"
+				}
+			}
+		}
+	})json",
+	                           '', ''};
+	Server proxy{{
+	    // Requesting bind on port 0 to let the kernel find any available port
+	    {"global/transports", "sip:127.0.0.1:0;transport=tcp"},
+	    {"module::Registrar/enabled", "true"},
+	    {"module::Registrar/reg-domains", "some.provider.example.com"},
+	    {"b2bua-server/application", "sip-bridge"},
+	    {"b2bua-server/transport", "sip:127.0.0.1:0;transport=tcp"},
+	    {"b2bua-server::sip-bridge/providers", providersConfigPath},
+	}};
+	proxy.start();
+	std::ofstream{providersConfigPath} << jsonConfig.format({
+	    {"port", proxy.getFirstPort()},
+	    {"db-file-path", sqliteDbFilePath},
+	});
+	const auto b2buaLoop = std::make_shared<sofiasip::SuRoot>();
+	const auto b2buaServer = std::make_shared<B2buaServer>(b2buaLoop);
+	b2buaServer->init();
+	CoreAssert asserter{proxy, *b2buaLoop};
+
+	const auto& sipProviders =
+	    dynamic_cast<const b2bua::bridge::SipBridge&>(b2buaServer->getApplication()).getProviders();
+	asserter
+	    .iterateUpTo(
+	        3,
+	        [&sipProviders] {
+		        for (const auto& provider : sipProviders) {
+			        for (const auto& [_, account] : provider.getAccountSelectionStrategy().getAccountPool()) {
+				        FAIL_IF(!account->isAvailable());
+			        }
+		        }
+		        // b2bua accounts registered
+		        return ASSERTION_PASSED();
+	        },
+	        40ms)
+	    .assert_passed();
+
+	BC_HARD_ASSERT_CPP_EQUAL(sipProviders.size(), 1);
+	const auto& accountPool = sipProviders[0].getAccountSelectionStrategy().getAccountPool();
+	BC_HARD_ASSERT_CPP_EQUAL(accountPool.size(), 3);
+	auto account = accountPool.begin();
+	BC_ASSERT_CPP_EQUAL(account->second->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly(),
+	                    "sip:account3@some.provider.example.com");
+	++account;
+	BC_ASSERT_CPP_EQUAL(account->second->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly(),
+	                    "sip:account2@some.provider.example.com");
+	const auto& authInfo =
+	    account->second->getLinphoneAccount()->getCore()->findAuthInfo("", "account2", "some.provider.example.com");
+	BC_HARD_ASSERT(authInfo != nullptr);
+	BC_ASSERT_CPP_EQUAL(authInfo->getUserid(), "test-userID");
+	BC_ASSERT_CPP_EQUAL(authInfo->getPassword(), "p@$sword");
+	++account;
+	BC_ASSERT_CPP_EQUAL(account->second->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly(),
+	                    "sip:account1@some.provider.example.com");
+	BC_ASSERT_CPP_EQUAL(account->second->getAlias().str(), "sip:alias@sip.example.org");
+
+	// shutdown / cleanup
+	b2buaServer->stop();
+}
+
 TestSuite _{
     "b2bua::bridge",
     {
         CLASSY_TEST(bidirectionalBridging),
+        CLASSY_TEST(loadAccountsFromSQL),
     },
 };
 } // namespace
