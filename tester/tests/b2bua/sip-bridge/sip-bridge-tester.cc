@@ -229,7 +229,7 @@ void loadAccountsFromSQL() {
 						alias TEXT,
 						outboundProxyInDb TEXT))sql";
 		sql << R"sql(INSERT INTO users VALUES ("sip:account1@some.provider.example.com", "", "", "sip:alias@sip.example.org", ""))sql";
-		sql << R"sql(INSERT INTO users VALUES ("sip:account2@some.provider.example.com", "test-userID", "p@$sword", "", "sip.linphone.org"))sql";
+		sql << R"sql(INSERT INTO users VALUES ("sip:account2@some.provider.example.com", "test-userID", "clear text passphrase", "", "sip.linphone.org"))sql";
 		sql << R"sql(INSERT INTO users VALUES ("sip:account3@some.provider.example.com", "", "", "", ""))sql";
 	} catch (const soci::soci_error& e) {
 		auto msg = "Error initiating DB : "s + e.what();
@@ -301,21 +301,21 @@ void loadAccountsFromSQL() {
 	BC_HARD_ASSERT_CPP_EQUAL(sipProviders.size(), 1);
 	const auto& accountPool = sipProviders[0].getAccountSelectionStrategy().getAccountPool();
 	BC_HARD_ASSERT_CPP_EQUAL(accountPool.size(), 3);
-	auto account = accountPool.begin();
-	BC_ASSERT_CPP_EQUAL(account->second->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly(),
-	                    "sip:account3@some.provider.example.com");
-	++account;
-	BC_ASSERT_CPP_EQUAL(account->second->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly(),
-	                    "sip:account2@some.provider.example.com");
-	const auto& authInfo =
-	    account->second->getLinphoneAccount()->getCore()->findAuthInfo("", "account2", "some.provider.example.com");
-	BC_HARD_ASSERT(authInfo != nullptr);
-	BC_ASSERT_CPP_EQUAL(authInfo->getUserid(), "test-userID");
-	BC_ASSERT_CPP_EQUAL(authInfo->getPassword(), "p@$sword");
-	++account;
-	BC_ASSERT_CPP_EQUAL(account->second->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly(),
-	                    "sip:account1@some.provider.example.com");
-	BC_ASSERT_CPP_EQUAL(account->second->getAlias().str(), "sip:alias@sip.example.org");
+	{
+		const auto& account = accountPool.getAccountByUri("sip:account1@some.provider.example.com");
+		BC_HARD_ASSERT(account != nullptr);
+		BC_ASSERT_CPP_EQUAL(account->getAlias().str(), "sip:alias@sip.example.org");
+	}
+	{
+		const auto& account = accountPool.getAccountByUri("sip:account2@some.provider.example.com");
+		BC_HARD_ASSERT(account != nullptr);
+		const auto& authInfo =
+		    account->getLinphoneAccount()->getCore()->findAuthInfo("", "account2", "some.provider.example.com");
+		BC_HARD_ASSERT(authInfo != nullptr);
+		BC_ASSERT_CPP_EQUAL(authInfo->getUserid(), "test-userID");
+		BC_ASSERT_CPP_EQUAL(authInfo->getPassword(), "clear text passphrase");
+	}
+	BC_HARD_ASSERT(accountPool.getAccountByUri("sip:account3@some.provider.example.com") != nullptr);
 
 	// shutdown / cleanup
 	b2buaServer->stop();
