@@ -7,15 +7,24 @@
 
 #include "b2bua/sip-bridge/accounts/loaders/sql-account-loader.hh"
 #include "soci-helper.hh"
+#include "utils/string-formatter.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
 #include "utils/tmp-dir.hh"
 
 namespace flexisip::tester {
 using namespace std;
+using namespace soci;
+using namespace nlohmann;
 using namespace flexisip::b2bua::bridge;
 using namespace flexisip::b2bua::bridge::config::v2;
-using namespace soci;
+
+struct SuiteScope {
+	const TmpDir tmpDir{"tmpDirForSqlLoader"};
+	const std::string tmpDbFileName = tmpDir.path().string() + "/database_filename";
+};
+
+std::optional<SuiteScope> SUITE_SCOPE;
 
 void nominalInitialSqlLoadTest() {
 	auto expectedAccounts = R"([
@@ -32,15 +41,20 @@ void nominalInitialSqlLoadTest() {
 		]
 	)"_json.get<std::vector<Account>>();
 
-	auto sqlLoaderConf = R"({
+	// clang-format off
+	auto sqlLoaderConf = nlohmann::json::parse(StringFormatter{
+		R"({
 			"dbBackend": "sqlite3",
 			"initQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users",
 			"updateQuery": "not yet implemented",
-			"connection": "database_filename"
+			"connection": "@database_filename@"
 		}
-	)"_json.get<SQLLoader>();
+	)",'@', '@'}
+	.format({{"database_filename", SUITE_SCOPE->tmpDbFileName}}))
+	.get<SQLLoader>();
+	// clang-format on
 
-	SqlAccountLoader loader{sqlLoaderConf};
+	SQLAccountLoader loader{sqlLoaderConf};
 	auto actualAccounts = loader.initialLoad();
 
 	BC_ASSERT_CPP_EQUAL(expectedAccounts, actualAccounts);
@@ -58,15 +72,21 @@ void initialSqlLoadTestWithEmptyFields() {
 		]
 	)"_json.get<std::vector<Account>>();
 
-	auto sqlLoaderConf = R"({
+	// clang-format off
+	auto sqlLoaderConf = nlohmann::json::parse(StringFormatter{
+	    R"({
 			"dbBackend": "sqlite3",
 			"initQuery": "SELECT uriInDb as uri,\"\" as user_id, \"\" as password, alias, NULL as outbound_proxy from users",
 			"updateQuery": "not yet implemented",
-			"connection": "database_filename"
+			"connection": "@database_filename@"
 		}
-	)"_json.get<SQLLoader>();
+	)",'@', '@'}
+	.format({{"database_filename", SUITE_SCOPE->tmpDbFileName}}))
+	.get<SQLLoader>();
+	// clang-format on
 
-	SqlAccountLoader loader{sqlLoaderConf};
+	SQLAccountLoader loader{sqlLoaderConf};
+
 	auto actualAccounts = loader.initialLoad();
 
 	BC_ASSERT_CPP_EQUAL(expectedAccounts, actualAccounts);
@@ -75,21 +95,26 @@ void initialSqlLoadTestWithEmptyFields() {
 }
 
 void initialSqlLoadTestUriCantBeNull() {
-	auto sqlLoaderConf = R"({
+	// clang-format off
+	auto sqlLoaderConf = nlohmann::json::parse(StringFormatter{
+	    R"({
 			"dbBackend": "sqlite3",
 			"initQuery": "SELECT NULL as uri,\"\" as user_id, \"\" as password, alias, NULL as outbound_proxy from users",
 			"updateQuery": "not yet implemented",
-			"connection": "database_filename"
+			"connection": "@database_filename@"
 		}
-	)"_json.get<SQLLoader>();
+	)",'@', '@'}
+	.format({{"database_filename", SUITE_SCOPE->tmpDbFileName}}))
+	.get<SQLLoader>();
+	// clang-format on
 
-	SqlAccountLoader loader{sqlLoaderConf};
-	BC_ASSERT_THROWN(loader.initialLoad(), SociHelper::DatabaseException);
+	SQLAccountLoader loader{sqlLoaderConf};
+	BC_ASSERT_THROWN(loader.initialLoad(), SociHelper::DatabaseException)
 }
 
 namespace {
-TestSuite _{
-    "SQL account loader unit tests",
+const TestSuite _{
+    "b2bua::bridge::account::SQLAccountLoader",
     {
         CLASSY_TEST(nominalInitialSqlLoadTest),
         CLASSY_TEST(initialSqlLoadTestWithEmptyFields),
@@ -97,8 +122,9 @@ TestSuite _{
     },
     Hooks()
         .beforeSuite([] {
+	        SUITE_SCOPE.emplace();
 	        try {
-		        session sql(sqlite3, "database_filename");
+		        session sql(sqlite3, SUITE_SCOPE->tmpDbFileName);
 		        sql << R"sql(CREATE TABLE users (
 						uriInDb TEXT PRIMARY KEY,
 						userid TEXT,
@@ -114,7 +140,7 @@ TestSuite _{
 	        return 0;
         })
         .afterSuite([] {
-	        std::remove("database_filename");
+	        SUITE_SCOPE.reset();
 	        return 0;
         })};
 

@@ -152,7 +152,7 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 		         &pool](config::v2::SQLLoader& sqlLoaderConf) {
 			        accountPoolMap.try_emplace(poolName,
 			                                   make_shared<AccountPool>(core, templateParams, poolName, pool,
-			                                                            make_unique<SqlAccountLoader>(sqlLoaderConf)));
+			                                                            make_unique<SQLAccountLoader>(sqlLoaderConf)));
 		        });
 	}
 

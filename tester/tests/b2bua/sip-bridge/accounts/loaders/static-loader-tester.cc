@@ -43,8 +43,8 @@ void nominalInitialLoadTest() {
 }
 
 namespace {
-TestSuite _{
-    "Static account loader unit tests",
+const TestSuite _{
+    "b2bua::bridge::account::StaticAccountLoader",
     {
         CLASSY_TEST(nominalInitialLoadTest),
     },

@@ -27,15 +27,15 @@
 #include "utils/thread/auto-thread-pool.hh"
 
 namespace flexisip::b2bua::bridge {
-class SqlAccountLoader : public Loader {
+class SQLAccountLoader : public Loader {
 public:
-	explicit SqlAccountLoader(const config::v2::SQLLoader& loaderConf);
+	explicit SQLAccountLoader(const config::v2::SQLLoader& loaderConf);
 
 	std::vector<config::v2::Account> initialLoad() override;
 
 private:
-	// TODO hardcoded size, is this ok ?
-	AutoThreadPool mThreadPool{50, 100};
+	// TODO hardcoded size, setup env variable.
+	AutoThreadPool mThreadPool{50, 0};
 	soci::connection_pool mSociConnectionPool{50};
 	std::string mInitQuery;
 	std::string mUpdateQuery;

@@ -26,7 +26,7 @@ namespace flexisip::b2bua::bridge {
 using namespace std;
 using namespace soci;
 
-SqlAccountLoader::SqlAccountLoader(const config::v2::SQLLoader& loaderConf)
+SQLAccountLoader::SQLAccountLoader(const config::v2::SQLLoader& loaderConf)
     : mInitQuery{loaderConf.initQuery}, mUpdateQuery{loaderConf.updateQuery} {
 	for (auto i = 0; i < 50; ++i) {
 		session& sql = mSociConnectionPool.at(i);
@@ -34,7 +34,7 @@ SqlAccountLoader::SqlAccountLoader(const config::v2::SQLLoader& loaderConf)
 	}
 }
 
-std::vector<config::v2::Account> SqlAccountLoader::initialLoad() {
+std::vector<config::v2::Account> SQLAccountLoader::initialLoad() {
 	std::vector<config::v2::Account> accountsLoaded{};
 	SociHelper helper{mSociConnectionPool};
 	helper.execute([&initQuery = mInitQuery, &accountsLoaded](auto& sql) {
