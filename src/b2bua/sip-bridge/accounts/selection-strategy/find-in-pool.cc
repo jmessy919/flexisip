@@ -7,20 +7,20 @@
 #include "b2bua/sip-bridge/variable-substitution.hh"
 
 namespace flexisip::b2bua::bridge::account_strat {
+using namespace utils::string_interpolation;
+using namespace variable_substitution;
 
 FindInPool::FindInPool(std::shared_ptr<AccountPool> accountPool,
                        const config::v2::account_selection::FindInPool& config)
-    : AccountSelectionStrategy(accountPool), mLookUpField(config.by), mSource(config.source) {
+    : AccountSelectionStrategy(accountPool), mLookUpField(config.by),
+      mSourceTemplate(InterpolatedString(config.source, "{", "}"),
+              resolve([](const auto& call) -> const linphone::Call& { return call; }, linphone_call::kFields)) {
 }
 
 std::shared_ptr<Account> FindInPool::chooseAccountForThisCall(const linphone::Call& incomingCall) const {
+	using namespace variable_substitution;
+	const auto& source = mSourceTemplate.format(incomingCall);
 	const auto& pool = getAccountPool();
-	StringFormatter::TranslationFunc variableResolver{[&incomingCall](const std::string& varName) {
-		using namespace variable_substitution;
-		return resolve(linphone_call::kFields, incomingCall, varName);
-	}};
-	const auto source = mSource.format(variableResolver);
-
 	switch (mLookUpField) {
 		using namespace config::v2::account_selection;
 		case AccountLookUp::ByUri: {

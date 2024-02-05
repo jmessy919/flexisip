@@ -208,7 +208,6 @@ void bidirectionalBridging() {
 	        [&jasper] {
 		        const auto& current_call = jasper.getCurrentCall();
 		        FAIL_IF(current_call != std::nullopt);
-		        // invite received
 		        return ASSERTION_PASSED();
 	        },
 	        400ms)

@@ -23,6 +23,7 @@
 target_sources(flexisip PRIVATE
 	cast-to-const.hh
 	digest.cc digest.hh
+	string-interpolation/interpolated-string.cc string-interpolation/interpolated-string.hh
 	observable.hh
 	pipe.cc pipe.hh
 	posix-process.cc posix-process.hh

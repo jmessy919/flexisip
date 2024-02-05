@@ -7,7 +7,7 @@
 #include "account-selection-strategy.hh"
 
 #include "b2bua/sip-bridge/configuration/v2/v2.hh"
-#include "utils/string-formatter.hh"
+#include "utils/string-interpolation/preprocessed-interpolated-string.hh"
 
 namespace flexisip::b2bua::bridge::account_strat {
 
@@ -19,7 +19,7 @@ public:
 
 private:
 	config::v2::account_selection::AccountLookUp mLookUpField;
-	StringFormatter mSource;
+	utils::string_interpolation::PreprocessedInterpolatedString<const linphone::Call&> mSourceTemplate;
 };
 
 } // namespace flexisip::b2bua::bridge::account_strat

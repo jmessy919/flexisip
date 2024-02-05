@@ -3,22 +3,38 @@
  */
 
 #include <string>
+#include <variant>
 
 #include <linphone++/address.hh>
 #include <linphone++/call.hh>
 
-#include "b2bua/sip-bridge/accounts/account.hh"
 #include "flexisip/utils/sip-uri.hh"
 
+#include "b2bua/sip-bridge/accounts/account.hh"
+#include "utils/string-interpolation/exceptions.hh"
 #include "utils/string-utils.hh"
 
 namespace flexisip::b2bua::bridge::variable_substitution {
 
-template <typename TContext>
-using Resolver = std::string (*)(const TContext&, std::string_view);
+template <typename... Args>
+using Substituter = std::function<std::string(const Args&...)>;
 
-template <typename TContext>
-using FieldsOf = std::initializer_list<std::pair<std::string_view, Resolver<TContext>>>;
+template <typename... Args>
+using Resolver = std::function<Substituter<Args...>(std::string_view)>;
+
+template <typename... Args>
+using FieldsOf = std::unordered_map<std::string_view, Resolver<Args...>>;
+
+template <typename TSubstituter>
+constexpr auto leaf(TSubstituter substituter) {
+	return [substituter](std::string_view furtherPath) {
+		if (furtherPath != "") {
+			throw utils::string_interpolation::ContextlessResolutionError(furtherPath);
+		}
+
+		return substituter;
+	};
+}
 
 inline std::pair<std::string_view, std::string_view> popVarName(std::string_view dotPath) {
 	const auto split = StringUtils::splitOnce(dotPath, ".");
@@ -28,58 +44,51 @@ inline std::pair<std::string_view, std::string_view> popVarName(std::string_view
 	return {head, tail};
 }
 
-template <typename TContext>
-std::string resolve(const FieldsOf<TContext>& fields, const TContext& context, std::string_view dotPath) {
-	const auto [varName, furtherPath] = popVarName(dotPath);
-	for (const auto& [name, resolver] : fields) {
-		if (name == varName) {
-			return resolver(context, furtherPath);
+template <typename Transformer, typename TFields>
+constexpr auto resolve(Transformer transformer, const TFields& fields) {
+	return [transformer, &fields](const auto dotPath) {
+		const auto [varName, furtherPath] = popVarName(dotPath);
+		const auto resolver = fields.find(varName);
+		if (resolver == fields.end()) {
+			throw utils::string_interpolation::ContextlessResolutionError(varName);
 		}
-	}
-	throw std::runtime_error{"unsupported variable name"};
+
+		const auto substituter = resolver->second(furtherPath);
+
+		return [substituter, transformer](const auto&... args) { return substituter(transformer(args...)); };
+	};
 }
 
 namespace linphone_address {
 
 static const FieldsOf<std::shared_ptr<const linphone::Address>> kFields = {
-    {"", [](const auto& address, const auto) { return address->asStringUriOnly(); }},
-    {"user", [](const auto& address, const auto) { return address->getUsername(); }},
-    {"hostport",
-     [](const auto& address, const auto) {
+    {"", leaf([](const auto& address) { return address->asStringUriOnly(); })},
+    {"user", leaf([](const std::shared_ptr<const linphone::Address>& address) { return address->getUsername(); })},
+    {"hostport", leaf([](const auto& address) {
 	     auto hostport = address->getDomain();
 	     const auto port = address->getPort();
 	     if (port != 0) {
 		     hostport += ":" + std::to_string(port);
 	     }
 	     return hostport;
-     }},
-    {"uriParameters",
-     [](const auto& address, const auto) {
+     })},
+    {"uriParameters", leaf([](const auto& address) {
 	     auto params = SipUri{address->asStringUriOnly()}.getParams();
 	     if (!params.empty()) {
 		     params = ";" + params;
 	     }
 	     return params;
-     }},
+     })},
 };
-
-inline std::string resolve(const std::shared_ptr<const linphone::Address>& address, std::string_view varName) {
-	return variable_substitution::resolve(kFields, address, varName);
-}
 
 } // namespace linphone_address
 
 namespace linphone_call {
 
 static const FieldsOf<linphone::Call> kFields = {
-    {"to", [](const auto& call,
-              const auto furtherPath) { return linphone_address::resolve(call.getToAddress(), furtherPath); }},
-    {"from", [](const auto& call,
-                const auto furtherPath) { return linphone_address::resolve(call.getRemoteAddress(), furtherPath); }},
-    {"requestAddress",
-     [](const auto& call, const auto furtherPath) {
-	     return linphone_address::resolve(call.getRequestAddress(), furtherPath);
-     }},
+    {"to", resolve([](const auto& call) { return call.getToAddress(); }, linphone_address::kFields)},
+    {"from", resolve([](const auto& call) { return call.getRemoteAddress(); }, linphone_address::kFields)},
+    {"requestAddress", resolve([](const auto& call) { return call.getRequestAddress(); }, linphone_address::kFields)},
 };
 
 } // namespace linphone_call
@@ -87,24 +96,22 @@ static const FieldsOf<linphone::Call> kFields = {
 namespace sofia_uri {
 
 static const FieldsOf<SipUri> kFields = {
-    {"", [](const auto& uri, const auto) { return uri.str(); }},
-    {"user", [](const auto& uri, const auto) { return uri.getUser(); }},
-    {"hostport",
-     [](const auto& uri, const auto) {
+    {"", leaf([](const auto& uri) { return uri.str(); })},
+    {"user", leaf([](const auto& uri) { return uri.getUser(); })},
+    {"hostport", leaf([](const auto& uri) {
 	     auto hostport = uri.getHost();
 	     if (const auto port = uri.getPort(); port != "") {
 		     hostport += ":" + port;
 	     }
 	     return hostport;
-     }},
-    {"uriParameters",
-     [](const auto& uri, const auto) {
+     })},
+    {"uriParameters", leaf([](const auto& uri) {
 	     auto params = uri.getParams();
 	     if (!params.empty()) {
 		     params = ";" + params;
 	     }
 	     return params;
-     }},
+     })},
 };
 
 }
@@ -113,13 +120,10 @@ namespace account {
 
 static const FieldsOf<Account> kFields = {
     {"sipIdentity",
-     [](const auto& account, const auto furtherPath) {
-	     return linphone_address::resolve(account.getLinphoneAccount()->getParams()->getIdentityAddress(), furtherPath);
-     }},
-    {"alias", [](const auto& account,
-                 const auto furtherPath) { return resolve(sofia_uri::kFields, account.getAlias(), furtherPath); }},
+     resolve([](const auto& account) { return account.getLinphoneAccount()->getParams()->getIdentityAddress(); },
+             linphone_address::kFields)},
+    {"alias", resolve([](const auto& account) { return account.getAlias(); }, sofia_uri::kFields)},
 };
 
-} // namespace account
-
+}
 } // namespace flexisip::b2bua::bridge::variable_substitution
