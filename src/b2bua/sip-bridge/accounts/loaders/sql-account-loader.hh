@@ -22,6 +22,8 @@
 
 #include <soci/connection-pool.h>
 
+#include "flexisip/sofia-wrapper/su-root.hh"
+
 #include "b2bua/sip-bridge/accounts/loaders/loader.hh"
 #include "b2bua/sip-bridge/configuration/v2/v2.hh"
 #include "utils/thread/auto-thread-pool.hh"
@@ -29,12 +31,18 @@
 namespace flexisip::b2bua::bridge {
 class SQLAccountLoader : public Loader {
 public:
-	explicit SQLAccountLoader(const config::v2::SQLLoader& loaderConf);
+	explicit SQLAccountLoader(const std::shared_ptr<sofiasip::SuRoot>& suRoot, const config::v2::SQLLoader& loaderConf);
 
 	std::vector<config::v2::Account> initialLoad() override;
 
+	void accountUpdateNeeded(const std::string& username,
+	                         const std::string& domain,
+	                         const std::string& identifier,
+	                         const OnAccountUpdateCB& cb) override;
+
 private:
 	// TODO hardcoded size, setup env variable.
+	std::shared_ptr<sofiasip::SuRoot> mSuRoot;
 	AutoThreadPool mThreadPool{50, 0};
 	soci::connection_pool mSociConnectionPool{50};
 	std::string mInitQuery;

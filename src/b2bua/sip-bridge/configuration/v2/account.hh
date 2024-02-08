@@ -22,6 +22,9 @@ public:
 		return a.uri == b.uri && a.outboundProxy == b.outboundProxy && a.alias == b.alias && a.password == b.password &&
 		       a.userid == b.userid;
 	};
+	friend bool operator!=(const Account& a, const Account& b) {
+		return !(a == b);
+	};
 };
 
 inline void from_json(const nlohmann::json& nlohmann_json_j, Account& nlohmann_json_t) {

@@ -7,6 +7,7 @@
 
 #include "b2bua/sip-bridge/accounts/loaders/sql-account-loader.hh"
 #include "soci-helper.hh"
+#include "utils/core-assert.hh"
 #include "utils/string-formatter.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
@@ -46,7 +47,7 @@ void nominalInitialSqlLoadTest() {
 		R"({
 			"dbBackend": "sqlite3",
 			"initQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users",
-			"updateQuery": "not yet implemented",
+			"updateQuery": "not tested here",
 			"connection": "@database_filename@"
 		}
 	)",'@', '@'}
@@ -54,7 +55,7 @@ void nominalInitialSqlLoadTest() {
 	.get<SQLLoader>();
 	// clang-format on
 
-	SQLAccountLoader loader{sqlLoaderConf};
+	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf};
 	auto actualAccounts = loader.initialLoad();
 
 	BC_ASSERT_CPP_EQUAL(expectedAccounts, actualAccounts);
@@ -77,7 +78,7 @@ void initialSqlLoadTestWithEmptyFields() {
 	    R"({
 			"dbBackend": "sqlite3",
 			"initQuery": "SELECT uriInDb as uri,\"\" as user_id, \"\" as password, alias, NULL as outbound_proxy from users",
-			"updateQuery": "not yet implemented",
+			"updateQuery": "not tested here",
 			"connection": "@database_filename@"
 		}
 	)",'@', '@'}
@@ -85,13 +86,11 @@ void initialSqlLoadTestWithEmptyFields() {
 	.get<SQLLoader>();
 	// clang-format on
 
-	SQLAccountLoader loader{sqlLoaderConf};
+	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf};
 
 	auto actualAccounts = loader.initialLoad();
 
 	BC_ASSERT_CPP_EQUAL(expectedAccounts, actualAccounts);
-
-	std::remove("database_filename");
 }
 
 void initialSqlLoadTestUriCantBeNull() {
@@ -100,7 +99,7 @@ void initialSqlLoadTestUriCantBeNull() {
 	    R"({
 			"dbBackend": "sqlite3",
 			"initQuery": "SELECT NULL as uri,\"\" as user_id, \"\" as password, alias, NULL as outbound_proxy from users",
-			"updateQuery": "not yet implemented",
+			"updateQuery": "not tested here",
 			"connection": "@database_filename@"
 		}
 	)",'@', '@'}
@@ -108,8 +107,48 @@ void initialSqlLoadTestUriCantBeNull() {
 	.get<SQLLoader>();
 	// clang-format on
 
-	SQLAccountLoader loader{sqlLoaderConf};
+	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf};
 	BC_ASSERT_THROWN(loader.initialLoad(), SociHelper::DatabaseException)
+}
+
+void nominalUpdateSqlTest() {
+	auto suRoot = make_shared<sofiasip::SuRoot>();
+	// clang-format off
+	auto sqlLoaderConf = nlohmann::json::parse(StringFormatter{
+	    R"({
+			"dbBackend": "sqlite3",
+			"initQuery": "not tested here",
+			"updateQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users where uriInDB = :username AND outboundProxyInDb = :domain AND user_id = :identifier",
+			"connection": "@database_filename@"
+		}
+	)",'@', '@'}
+	.format({{"database_filename", SUITE_SCOPE->tmpDbFileName}}))
+	.get<SQLLoader>();
+	// clang-format on
+
+	SQLAccountLoader loader{suRoot, sqlLoaderConf};
+
+	Account actualAccount;
+	loader.accountUpdateNeeded("sip:account2@some.provider.example.com", "sip.linphone.org", "userID",
+	                           [&actualAccount](const Account& actualAccountCb) { actualAccount = actualAccountCb; });
+
+	auto expectedAccount = R"(
+				{
+					"uri": "sip:account2@some.provider.example.com",
+					"userid": "userID",
+					"password": "p@$sword",
+					"outboundProxy": "sip.linphone.org"
+				}
+		)"_json.get<Account>();
+
+	CoreAssert asserter{*suRoot};
+	asserter
+	    .wait([&actualAccount, &expectedAccount] {
+		    FAIL_IF(actualAccount != expectedAccount);
+		    return ASSERTION_PASSED();
+	    })
+	    .assert_passed();
+	BC_HARD_ASSERT_CPP_EQUAL(actualAccount, expectedAccount);
 }
 
 namespace {
@@ -119,6 +158,7 @@ const TestSuite _{
         CLASSY_TEST(nominalInitialSqlLoadTest),
         CLASSY_TEST(initialSqlLoadTestWithEmptyFields),
         CLASSY_TEST(initialSqlLoadTestUriCantBeNull),
+        CLASSY_TEST(nominalUpdateSqlTest),
     },
     Hooks()
         .beforeSuite([] {

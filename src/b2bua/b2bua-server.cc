@@ -427,7 +427,7 @@ void B2buaServer::_init() {
 	if (applicationType == "trenscrypter") {
 		mApplication = make_unique<b2bua::trenscrypter::Trenscrypter>();
 	} else if (applicationType == "sip-bridge") {
-		auto bridge = make_unique<b2bua::bridge::SipBridge>();
+		auto bridge = make_unique<b2bua::bridge::SipBridge>(mRoot);
 		mCli.registerHandler(*bridge);
 		mApplication = std::move(bridge);
 	} else {

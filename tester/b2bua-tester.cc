@@ -122,8 +122,9 @@ public:
 
 	auto& configureExternalProviderBridge(std::initializer_list<V1ProviderDesc>&& provDescs) {
 		using namespace b2bua::bridge;
-		mB2buaServer->mApplication = make_unique<SipBridge>(
-		    *mB2buaServer->mCore, config::v2::fromV1(std::vector<V1ProviderDesc>(std::move(provDescs))));
+		mB2buaServer->mApplication =
+		    make_unique<SipBridge>(make_shared<sofiasip::SuRoot>(), *mB2buaServer->mCore,
+		                           config::v2::fromV1(std::vector<V1ProviderDesc>(std::move(provDescs))));
 		return static_cast<SipBridge&>(*mB2buaServer->mApplication);
 	}
 
@@ -417,19 +418,17 @@ static void external_provider_bridge__load_balancing() {
 	};
 	const uint32_t line_count = lines.size();
 	const uint32_t maxCallsPerLine = 5000;
-	bridge::SipBridge sipBridge{
-	    b2buaCore,
-	    bridge::config::v2::fromV1({
-	        V1ProviderDesc{
-	            "provider1",
-	            "sip:\\+39.*",
-	            outboundProxy,
-	            false,
-	            maxCallsPerLine,
-	            std::move(lines),
-	        },
-	    }),
-	};
+	bridge::SipBridge sipBridge{0, b2buaCore,
+	                            bridge::config::v2::fromV1({
+	                                V1ProviderDesc{
+	                                    "provider1",
+	                                    "sip:\\+39.*",
+	                                    outboundProxy,
+	                                    false,
+	                                    maxCallsPerLine,
+	                                    std::move(lines),
+	                                },
+	                            })};
 	auto tally = unordered_map<const linphone::Account*, uint32_t>();
 
 	uint32_t i = 0;
@@ -548,7 +547,7 @@ static void external_provider_bridge__override_special_options() {
 	ConfigItemDescriptor configItems[] = {{String, "providers", "help", providersJson.name}, config_item_end};
 	RootConfigStruct config("placeholder", "A stub config root for testing", {});
 	config.addChild(make_unique<GenericStruct>("b2bua-server::sip-bridge", "help", 0))->addChildrenValues(configItems);
-	b2bua::bridge::SipBridge sipBridge{};
+	b2bua::bridge::SipBridge sipBridge{make_shared<sofiasip::SuRoot>()};
 	Server proxy{{
 	    // Requesting bind on port 0 to let the kernel find any available port
 	    {"global/transports", "sip:127.0.0.1:0;transport=tcp"},
@@ -681,26 +680,24 @@ static void external_provider_bridge__b2bua_receives_several_forks() {
 static void external_provider_bridge__cli() {
 	using namespace flexisip::b2bua;
 	const auto core = linphone::Factory::get()->createCore("", "", nullptr);
-	bridge::SipBridge sipBridge{
-	    *core,
-	    bridge::config::v2::fromV1({
-	        {
-	            .name = "provider1",
-	            .pattern = "regex1",
-	            .outboundProxy = "sip:107.20.139.176:682;transport=scp",
-	            .registrationRequired = false,
-	            .maxCallsPerLine = 682,
-	            .accounts =
-	                {
-	                    {
-	                        .uri = "sip:account1@sip.example.org",
-	                        .userid = "",
-	                        .password = "",
-	                    },
-	                },
-	        },
-	    }),
-	};
+	bridge::SipBridge sipBridge{0, *core,
+	                            bridge::config::v2::fromV1({
+	                                {
+	                                    .name = "provider1",
+	                                    .pattern = "regex1",
+	                                    .outboundProxy = "sip:107.20.139.176:682;transport=scp",
+	                                    .registrationRequired = false,
+	                                    .maxCallsPerLine = 682,
+	                                    .accounts =
+	                                        {
+	                                            {
+	                                                .uri = "sip:account1@sip.example.org",
+	                                                .userid = "",
+	                                                .password = "",
+	                                            },
+	                                        },
+	                                },
+	                            })};
 
 	// Not a command handled by the bridge
 	auto output = sipBridge.handleCommand("REGISTRAR_DUMP", vector<string>{"INFO"});

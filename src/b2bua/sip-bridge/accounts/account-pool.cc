@@ -23,12 +23,13 @@
 namespace flexisip::b2bua::bridge {
 using namespace std;
 
-AccountPool::AccountPool(linphone::Core& core,
+AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
+                         linphone::Core& core,
                          const linphone::AccountParams& templateParams,
                          const config::v2::AccountPoolName& poolName,
                          const config::v2::AccountPool& pool,
-                         unique_ptr<Loader>&& loader)
-    : mLoader{std::move(loader)} {
+                         std::unique_ptr<Loader>&& loader)
+    : mSuRoot{suRoot}, mLoader{std::move(loader)} {
 	const auto factory = linphone::Factory::get();
 	const auto accountsDesc = mLoader->initialLoad();
 
@@ -119,6 +120,19 @@ void AccountPool::try_emplace(const string& uri, const string& alias, const shar
 	if (!isInsertedAlias) {
 		SLOGE << "AccountPool::try_emplace uri[" << alias << "] already present, account only inserted by uri.";
 	}
+}
+
+void AccountPool::accountUpdateNeeded(const string& username, const string& domain, const string& identifier) {
+
+	OnAccountUpdateCB cb = [this](const config::v2::Account& accountToUpdate) {
+		this->onAccountUpdate(accountToUpdate);
+	};
+
+	mLoader->accountUpdateNeeded(username, domain, identifier, cb);
+}
+
+void AccountPool::onAccountUpdate(config::v2::Account) {
+	// TODO reload the account
 }
 
 } // namespace flexisip::b2bua::bridge

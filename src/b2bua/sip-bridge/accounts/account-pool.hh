@@ -19,8 +19,11 @@
 #include <memory>
 #include <unordered_map>
 
+#include "flexisip/sofia-wrapper/su-root.hh"
+
 #include "b2bua/sip-bridge/accounts/account.hh"
 #include "b2bua/sip-bridge/accounts/loaders/loader.hh"
+#include "libhiredis-wrapper/redis-async-session.hh"
 
 #pragma once
 
@@ -28,7 +31,8 @@ namespace flexisip::b2bua::bridge {
 
 class AccountPool {
 public:
-	AccountPool(linphone::Core& core,
+	AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
+	            linphone::Core& core,
 	            const linphone::AccountParams& templateParams,
 	            const config::v2::AccountPoolName& poolName,
 	            const config::v2::AccountPool& pool,
@@ -52,14 +56,18 @@ public:
 		return mAccountsByUri.end();
 	}
 
-protected:
+private:
 	void reserve(size_t sizeToReserve);
 	void try_emplace(const std::string& uri, const std::string& alias, const std::shared_ptr<Account>& account);
 
-private:
+	void accountUpdateNeeded(const std::string& username, const std::string& domain, const std::string& identifier);
+	void onAccountUpdate(config::v2::Account accountToUpdate);
+
+	std::shared_ptr<sofiasip::SuRoot> mSuRoot;
 	std::unique_ptr<Loader> mLoader;
 	std::unordered_map<std::string, std::shared_ptr<Account>> mAccountsByUri;
 	std::unordered_map<std::string, std::shared_ptr<Account>> mAccountsByAlias;
+	std::unique_ptr<redis::async::SubscriptionSession> session{nullptr};
 };
 
 } // namespace flexisip::b2bua::bridge

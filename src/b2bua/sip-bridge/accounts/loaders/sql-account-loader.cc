@@ -26,8 +26,9 @@ namespace flexisip::b2bua::bridge {
 using namespace std;
 using namespace soci;
 
-SQLAccountLoader::SQLAccountLoader(const config::v2::SQLLoader& loaderConf)
-    : mInitQuery{loaderConf.initQuery}, mUpdateQuery{loaderConf.updateQuery} {
+SQLAccountLoader::SQLAccountLoader(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
+                                   const config::v2::SQLLoader& loaderConf)
+    : mSuRoot{suRoot}, mInitQuery{loaderConf.initQuery}, mUpdateQuery{loaderConf.updateQuery} {
 	for (auto i = 0; i < 50; ++i) {
 		session& sql = mSociConnectionPool.at(i);
 		sql.open(loaderConf.dbBackend, loaderConf.connection);
@@ -47,6 +48,22 @@ std::vector<config::v2::Account> SQLAccountLoader::initialLoad() {
 	});
 
 	return accountsLoaded;
+}
+
+void SQLAccountLoader::accountUpdateNeeded(const std::string& username,
+                                           const std::string& domain,
+                                           const std::string& identifier,
+                                           const OnAccountUpdateCB& cb) {
+	mThreadPool.run([this, username, domain, identifier, cb] {
+		config::v2::Account account;
+		SociHelper helper{mSociConnectionPool};
+		helper.execute([&updateQuery = mUpdateQuery, &account, &username, &domain, &identifier](auto& sql) {
+			sql << updateQuery, use(username, "username"), use(domain, "domain"), use(identifier, "identifier"),
+			    into(account);
+		});
+
+		mSuRoot->addToMainLoop([cb, account]() { cb(account); });
+	});
 }
 
 } // namespace flexisip::b2bua::bridge

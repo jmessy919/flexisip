@@ -22,6 +22,8 @@
 
 #include <soci/connection-pool.h>
 
+#include "flexisip/logmanager.hh"
+
 #include "b2bua/sip-bridge/accounts/loaders/loader.hh"
 #include "b2bua/sip-bridge/configuration/v2/v2.hh"
 
@@ -34,6 +36,12 @@ public:
 		// "After the move, [mLoaderConf] is guaranteed to be empty()."
 		// https://en.cppreference.com/w/cpp/container/vector/vector
 		return std::move(mLoaderConf);
+	};
+
+	void
+	accountUpdateNeeded(const std::string&, const std::string&, const std::string&, const OnAccountUpdateCB&) override {
+		/*With a static this feature is not yet implemented*/
+		SLOGE << "onAccountUpdate must not be called on StaticAccountLoader. It does nothing.";
 	};
 
 private:

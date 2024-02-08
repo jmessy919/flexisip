@@ -23,10 +23,17 @@
 #include "b2bua/sip-bridge/configuration/v2/v2.hh"
 
 namespace flexisip::b2bua::bridge {
+using OnAccountUpdateCB = std::function<void(const config::v2::Account&)>;
+
 class Loader {
 public:
 	virtual ~Loader() = default;
 
 	virtual std::vector<config::v2::Account> initialLoad() = 0;
+
+	virtual void accountUpdateNeeded(const std::string& username,
+	                                 const std::string& domain,
+	                                 const std::string& identifier,
+	                                 const OnAccountUpdateCB& cb) = 0;
 };
 } // namespace flexisip::b2bua::bridge
