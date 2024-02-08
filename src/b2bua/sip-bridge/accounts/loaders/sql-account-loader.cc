@@ -27,8 +27,9 @@ using namespace std;
 using namespace soci;
 
 SQLAccountLoader::SQLAccountLoader(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
-                                   const config::v2::SQLLoader& loaderConf)
-    : mSuRoot{suRoot}, mInitQuery{loaderConf.initQuery}, mUpdateQuery{loaderConf.updateQuery} {
+                                   const config::v2::SQLLoader& loaderConf,
+                                   std::string_view instanceId)
+    : mSuRoot{suRoot}, mInitQuery{loaderConf.initQuery}, mUpdateQuery{loaderConf.updateQuery}, mInstanceId(instanceId) {
 	for (auto i = 0; i < 50; ++i) {
 		session& sql = mSociConnectionPool.at(i);
 		sql.open(loaderConf.dbBackend, loaderConf.connection);
@@ -38,9 +39,9 @@ SQLAccountLoader::SQLAccountLoader(const std::shared_ptr<sofiasip::SuRoot>& suRo
 std::vector<config::v2::Account> SQLAccountLoader::initialLoad() {
 	std::vector<config::v2::Account> accountsLoaded{};
 	SociHelper helper{mSociConnectionPool};
-	helper.execute([&initQuery = mInitQuery, &accountsLoaded](auto& sql) {
+	helper.execute([&initQuery = mInitQuery, &instanceId = mInstanceId, &accountsLoaded](auto& sql) {
 		config::v2::Account account;
-		soci::statement statement = (sql.prepare << initQuery, into(account));
+		soci::statement statement = (sql.prepare << initQuery, use(instanceId, "instance_id"), into(account));
 		statement.execute();
 		while (statement.fetch()) {
 			accountsLoaded.push_back(account);

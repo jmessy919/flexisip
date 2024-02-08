@@ -51,7 +51,7 @@ public:
 	onCallCreate(const linphone::Call& incomingCall,
 	             linphone::CallParams& outgoingCallParams,
 	             std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots);
-	
+
 	const account_strat::AccountSelectionStrategy& getAccountSelectionStrategy() const;
 
 private:
@@ -91,7 +91,8 @@ public:
 
 private:
 	AccountPoolImplMap getAccountPoolsFromConfig(linphone::Core& core,
-	                                             config::v2::AccountPoolConfigMap& accountPoolConfigMap);
+	                                             config::v2::AccountPoolConfigMap& accountPoolConfigMap,
+	                                             std::string_view instanceId);
 	void initFromRootConfig(linphone::Core& core, config::v2::Root rootConfig);
 
 	std::shared_ptr<sofiasip::SuRoot> mSuRoot;

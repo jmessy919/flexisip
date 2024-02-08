@@ -31,7 +31,7 @@
 namespace flexisip::b2bua::bridge {
 class SQLAccountLoader : public Loader {
 public:
-	explicit SQLAccountLoader(const std::shared_ptr<sofiasip::SuRoot>& suRoot, const config::v2::SQLLoader& loaderConf);
+	explicit SQLAccountLoader(const std::shared_ptr<sofiasip::SuRoot>& suRoot, const config::v2::SQLLoader& loaderConf, std::string_view instanceId);
 
 	std::vector<config::v2::Account> initialLoad() override;
 
@@ -47,6 +47,7 @@ private:
 	soci::connection_pool mSociConnectionPool{50};
 	std::string mInitQuery;
 	std::string mUpdateQuery;
+	std::string mInstanceId;
 };
 
 } // namespace flexisip::b2bua::bridge

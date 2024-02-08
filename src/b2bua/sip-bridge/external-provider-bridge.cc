@@ -114,13 +114,12 @@ const account_strat::AccountSelectionStrategy& SipProvider::getAccountSelectionS
 }
 
 AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
-                                                        config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
+                                                        config::v2::AccountPoolConfigMap& accountPoolConfigMap,
+                                                        std::string_view instanceId) {
 	auto accountPoolMap = AccountPoolImplMap();
 	const auto templateParams = core.createAccountParams();
 
-	for (auto& [poolNameIt, poolIt] : accountPoolConfigMap) {
-		// Until C++ 20 this is needed. Because poolNameIt and poolIt can't be captured.
-		const auto& poolName = poolNameIt;
+	for (auto& [poolName, poolIt] : accountPoolConfigMap) {
 		auto& pool = poolIt;
 
 		if (pool.outboundProxy.empty()) {
@@ -138,7 +137,7 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 
 		Match(pool.loader)
 		    .against(
-		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core, &pool,
+		        [&accountPoolMap, &poolName = poolName, &templateParams = *templateParams, &core, &pool,
 		         this](config::v2::StaticLoader& staticPool) {
 			        if (staticPool.empty()) {
 				        SLOGW << "AccountPool '" << poolName
@@ -148,14 +147,15 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 			            poolName, make_shared<AccountPool>(mSuRoot, core, templateParams, poolName, pool,
 			                                               make_unique<StaticAccountLoader>(std::move(staticPool))));
 		        },
-		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core, &pool,
+		        [&accountPoolMap, &poolName = poolName, &templateParams = *templateParams, &core, &pool, instanceId,
 		         this](config::v2::SQLLoader& sqlLoaderConf) {
 			        //			        auto redisSub = make_unique<redis::async::SubscriptionSession>();
 			        //			        redisSub->connect(mSuRoot->getCPtr(), "redishost", 42);
 
 			        accountPoolMap.try_emplace(
-			            poolName, make_shared<AccountPool>(mSuRoot, core, templateParams, poolName, pool,
-			                                               make_unique<SQLAccountLoader>(mSuRoot, sqlLoaderConf)));
+			            poolName,
+			            make_shared<AccountPool>(mSuRoot, core, templateParams, poolName, pool,
+			                                     make_unique<SQLAccountLoader>(mSuRoot, sqlLoaderConf, instanceId)));
 		        });
 	}
 
@@ -163,7 +163,7 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 }
 
 void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) {
-	const auto accountPools = getAccountPoolsFromConfig(core, root.accountPools);
+	const auto accountPools = getAccountPoolsFromConfig(core, root.accountPools, root.instanceId);
 	providers.reserve(root.providers.size());
 	for (auto& provDesc : root.providers) {
 		if (provDesc.name.empty()) {
