@@ -188,15 +188,9 @@ struct Root {
 	unsigned int schemaVersion;
 	std::vector<Provider> providers;
 	AccountPoolConfigMap accountPools;
-	std::string instanceId;
 };
-inline void from_json(const nlohmann ::json& nlohmann_json_j, Root& nlohmann_json_t) {
-	Root nlohmann_json_default_obj;
-	NLOHMANN_JSON_FROM(schemaVersion);
-	NLOHMANN_JSON_FROM(providers);
-	NLOHMANN_JSON_FROM(accountPools);
-	NLOHMANN_JSON_FROM_WITH_DEFAULT(instanceId);
-}
+inline void from_json(const nlohmann ::json& nlohmann_json_j, Root& nlohmann_json_t){
+    NLOHMANN_JSON_FROM(schemaVersion) NLOHMANN_JSON_FROM(providers) NLOHMANN_JSON_FROM(accountPools)}
 
 Root fromV1(v1::Root&&);
 

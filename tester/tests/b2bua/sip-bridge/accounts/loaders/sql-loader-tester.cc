@@ -27,8 +27,6 @@ struct SuiteScope {
 
 std::optional<SuiteScope> SUITE_SCOPE;
 
-const std::string_view kDummyInstanceId = "dummy-instance-id";
-
 void nominalInitialSqlLoadTest() {
 	auto expectedAccounts = R"([
 			{
@@ -48,7 +46,7 @@ void nominalInitialSqlLoadTest() {
 	auto sqlLoaderConf = nlohmann::json::parse(StringFormatter{
 		R"({
 			"dbBackend": "sqlite3",
-			"initQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users UNION SELECT :instance_id WHERE false",
+			"initQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users",
 			"updateQuery": "not tested here",
 			"connection": "@database_filename@"
 		}
@@ -57,7 +55,7 @@ void nominalInitialSqlLoadTest() {
 	.get<SQLLoader>();
 	// clang-format on
 
-	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf, kDummyInstanceId};
+	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf};
 	auto actualAccounts = loader.initialLoad();
 
 	BC_ASSERT_CPP_EQUAL(expectedAccounts, actualAccounts);
@@ -79,7 +77,7 @@ void initialSqlLoadTestWithEmptyFields() {
 	auto sqlLoaderConf = nlohmann::json::parse(StringFormatter{
 	    R"({
 			"dbBackend": "sqlite3",
-			"initQuery": "SELECT uriInDb as uri,\"\" as user_id, \"\" as password, alias, NULL as outbound_proxy from users UNION SELECT :instance_id WHERE false",
+			"initQuery": "SELECT uriInDb as uri,\"\" as user_id, \"\" as password, alias, NULL as outbound_proxy from users",
 			"updateQuery": "not tested here",
 			"connection": "@database_filename@"
 		}
@@ -88,7 +86,7 @@ void initialSqlLoadTestWithEmptyFields() {
 	.get<SQLLoader>();
 	// clang-format on
 
-	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf, kDummyInstanceId};
+	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf};
 
 	auto actualAccounts = loader.initialLoad();
 
@@ -109,7 +107,7 @@ void initialSqlLoadTestUriCantBeNull() {
 	.get<SQLLoader>();
 	// clang-format on
 
-	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf, kDummyInstanceId};
+	SQLAccountLoader loader{make_shared<sofiasip::SuRoot>(), sqlLoaderConf};
 	BC_ASSERT_THROWN(loader.initialLoad(), SociHelper::DatabaseException)
 }
 
@@ -128,7 +126,7 @@ void nominalUpdateSqlTest() {
 	.get<SQLLoader>();
 	// clang-format on
 
-	SQLAccountLoader loader{suRoot, sqlLoaderConf, kDummyInstanceId};
+	SQLAccountLoader loader{suRoot, sqlLoaderConf};
 
 	Account actualAccount;
 	loader.accountUpdateNeeded("sip:account2@some.provider.example.com", "sip.linphone.org", "userID",
