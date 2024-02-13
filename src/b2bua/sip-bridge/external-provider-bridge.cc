@@ -113,10 +113,9 @@ const account_strat::AccountSelectionStrategy& SipProvider::getAccountSelectionS
 	return *mAccountStrat;
 }
 
-AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
-                                                        config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
+AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(config::v2::AccountPoolConfigMap& accountPoolConfigMap) {
 	auto accountPoolMap = AccountPoolImplMap();
-	const auto templateParams = core.createAccountParams();
+	const auto templateParams = mCore.createAccountParams();
 
 	for (auto& [poolNameIt, poolIt] : accountPoolConfigMap) {
 		// Until C++ 20 this is needed. Because poolNameIt and poolIt can't be captured.
@@ -131,41 +130,41 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 			      << "' has `maxCallsPerLine` set to 0 and will not be used to bridge calls";
 		}
 
-		const auto route = core.createAddress(pool.outboundProxy);
+		const auto route = mCore.createAddress(pool.outboundProxy);
 		templateParams->setServerAddress(route);
 		templateParams->setRoutesAddresses({route});
 		templateParams->enableRegister(pool.registrationRequired);
 
 		Match(pool.loader)
 		    .against(
-		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core, &pool,
-		         this](config::v2::StaticLoader& staticPool) {
+		        [this, &accountPoolMap, &poolName, &templateParams = *templateParams,
+		         &pool](config::v2::StaticLoader& staticPool) {
 			        if (staticPool.empty()) {
 				        SLOGW << "AccountPool '" << poolName
 				              << "' has no `accounts` and will not be used to bridge calls";
 			        }
 			        accountPoolMap.try_emplace(
-			            poolName, make_shared<AccountPool>(mSuRoot, core, templateParams, poolName, pool,
+			            poolName, make_shared<AccountPool>(mSuRoot, mCore, templateParams, poolName, pool,
 			                                               make_unique<StaticAccountLoader>(std::move(staticPool))));
 		        },
-		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core, &pool,
-		         this](config::v2::SQLLoader& sqlLoaderConf) {
-			        //			        auto redisSub = make_unique<redis::async::SubscriptionSession>();
-			        //			        redisSub->connect(mSuRoot->getCPtr(), "redishost", 42);
+		        [this, &accountPoolMap, &poolName, &templateParams = *templateParams,
+		         &pool](config::v2::SQLLoader& sqlLoaderConf) {
+			        const auto registrarConf = mGlobalConfigRoot->get<GenericStruct>("module::Registrar");
+			        auto accountPool =
+			            make_shared<AccountPool>(mSuRoot, mCore, templateParams, poolName, pool,
+			                                     make_unique<SQLAccountLoader>(mSuRoot, sqlLoaderConf), registrarConf);
 
-			        accountPoolMap.try_emplace(
-			            poolName, make_shared<AccountPool>(mSuRoot, core, templateParams, poolName, pool,
-			                                               make_unique<SQLAccountLoader>(mSuRoot, sqlLoaderConf)));
+			        accountPoolMap.try_emplace(poolName, accountPool);
 		        });
 	}
 
 	return accountPoolMap;
 }
 
-void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) {
-	const auto accountPools = getAccountPoolsFromConfig(core, root.accountPools);
-	providers.reserve(root.providers.size());
-	for (auto& provDesc : root.providers) {
+void SipBridge::initFromRootConfig(config::v2::Root rootConfig) {
+	const auto accountPools = getAccountPoolsFromConfig(<#initializer #>);
+	providers.reserve(rootConfig.providers.size());
+	for (auto& provDesc : rootConfig.providers) {
 		if (provDesc.name.empty()) {
 			LOGF("One of your external SIP providers has an empty `name`");
 		}
@@ -208,9 +207,12 @@ void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) 
 	}
 }
 
-SipBridge::SipBridge(const std::shared_ptr<sofiasip::SuRoot>& suRoot, linphone::Core& core, config::v2::Root&& rootConf)
-    : mSuRoot{suRoot} {
-	initFromRootConfig(core, std::move(rootConf));
+SipBridge::SipBridge(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
+                     const std::shared_ptr<linphone::Core>& core,
+                     config::v2::Root&& rootConf,
+                     GenericStruct* globalConfigRoot)
+    : mSuRoot{suRoot}, mCore{core}, mGlobalConfigRoot(globalConfigRoot) {
+	initFromRootConfig(std::move(rootConf));
 }
 
 void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) {
@@ -231,7 +233,7 @@ void SipBridge::init(const shared_ptr<linphone::Core>& core, const flexisip::Gen
 	nlohmann::json j;
 	fileStream >> j;
 
-	initFromRootConfig(*core, [&j]() {
+	initFromRootConfig([&j]() {
 		if (j.is_array()) {
 			return config::v2::fromV1(j.get<config::v1::Root>());
 		}

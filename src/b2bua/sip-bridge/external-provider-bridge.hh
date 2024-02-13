@@ -75,9 +75,13 @@ private:
 using AccountPoolImplMap = std::unordered_map<config::v2::AccountPoolName, std::shared_ptr<AccountPool>>;
 class SipBridge : public b2bua::Application, public CliHandler {
 public:
-	explicit SipBridge(const std::shared_ptr<sofiasip::SuRoot>& suRoot) : mSuRoot{suRoot} {};
+	SipBridge(const std::shared_ptr<sofiasip::SuRoot>& suRoot, const std::shared_ptr<linphone::Core>& core)
+	    : mSuRoot{suRoot}, mCore{core} {};
 
-	SipBridge(const std::shared_ptr<sofiasip::SuRoot>& suRoot, linphone::Core& core, config::v2::Root&& rootConf);
+	SipBridge(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
+	          const std::shared_ptr<linphone::Core>& core,
+	          config::v2::Root&& rootConf,
+	          GenericStruct* globalConfigRoot);
 
 	void init(const std::shared_ptr<linphone::Core>& core, const flexisip::GenericStruct& config) override;
 	ActionToTake onCallCreate(const linphone::Call& incomingCall, linphone::CallParams& outgoingCallParams) override;
@@ -90,11 +94,12 @@ public:
 	}
 
 private:
-	AccountPoolImplMap getAccountPoolsFromConfig(linphone::Core& core,
-	                                             config::v2::AccountPoolConfigMap& accountPoolConfigMap);
-	void initFromRootConfig(linphone::Core& core, config::v2::Root rootConfig);
+	AccountPoolImplMap getAccountPoolsFromConfig(config::v2::AccountPoolConfigMap& accountPoolConfigMap);
+	void initFromRootConfig(config::v2::Root rootConfig);
 
 	std::shared_ptr<sofiasip::SuRoot> mSuRoot;
+	std::shared_ptr<linphone::Core> mCore;
+	GenericStruct* mGlobalConfigRoot = nullptr;
 	std::vector<SipProvider> providers;
 	std::unordered_map<std::string, std::weak_ptr<Account>> occupiedSlots;
 };

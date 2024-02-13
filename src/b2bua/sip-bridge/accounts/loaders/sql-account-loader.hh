@@ -25,6 +25,7 @@
 #include "flexisip/sofia-wrapper/su-root.hh"
 
 #include "b2bua/sip-bridge/accounts/loaders/loader.hh"
+#include "b2bua/sip-bridge/accounts/redis-account-pub.hh"
 #include "b2bua/sip-bridge/configuration/v2/v2.hh"
 #include "utils/thread/auto-thread-pool.hh"
 
@@ -35,10 +36,7 @@ public:
 
 	std::vector<config::v2::Account> initialLoad() override;
 
-	void accountUpdateNeeded(const std::string& username,
-	                         const std::string& domain,
-	                         const std::string& identifier,
-	                         const OnAccountUpdateCB& cb) override;
+	void accountUpdateNeeded(const RedisAccountPub& redisAccountPub, const OnAccountUpdateCB& cb) override;
 
 private:
 	// TODO hardcoded size, setup env variable.

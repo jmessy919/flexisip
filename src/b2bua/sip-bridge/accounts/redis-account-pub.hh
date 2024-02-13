@@ -18,22 +18,21 @@
 
 #pragma once
 
-#include <vector>
+#include <string>
 
-#include "b2bua/sip-bridge/accounts/redis-account-pub.hh"
-#include "b2bua/sip-bridge/configuration/v2/v2.hh"
+#include "lib/nlohmann-json-3-11-2/json.hpp"
 
 namespace flexisip::b2bua::bridge {
 
-using OnAccountUpdateCB = std::function<void(const config::v2::Account&)>;
-
-class Loader {
-public:
-	virtual ~Loader() = default;
-
-	virtual std::vector<config::v2::Account> initialLoad() = 0;
-
-	virtual void accountUpdateNeeded(const RedisAccountPub& redisAccountPub, const OnAccountUpdateCB& cb) = 0;
+struct RedisAccountPub {
+	std::string username;
+	std::string domain;
+	std::string identifier;
 };
 
+inline void from_json(const nlohmann ::json& nlohmann_json_j, RedisAccountPub& nlohmann_json_t) {
+	NLOHMANN_JSON_FROM(username)
+	NLOHMANN_JSON_FROM(domain)
+	NLOHMANN_JSON_FROM(identifier)
+}
 } // namespace flexisip::b2bua::bridge

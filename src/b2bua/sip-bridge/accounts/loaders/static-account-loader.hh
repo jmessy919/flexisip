@@ -38,8 +38,7 @@ public:
 		return std::move(mLoaderConf);
 	};
 
-	void
-	accountUpdateNeeded(const std::string&, const std::string&, const std::string&, const OnAccountUpdateCB&) override {
+	void accountUpdateNeeded(const RedisAccountPub&, const OnAccountUpdateCB&) override {
 		/*With a static this feature is not yet implemented*/
 		SLOGE << "onAccountUpdate must not be called on StaticAccountLoader. It does nothing.";
 	};

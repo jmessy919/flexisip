@@ -50,16 +50,12 @@ std::vector<config::v2::Account> SQLAccountLoader::initialLoad() {
 	return accountsLoaded;
 }
 
-void SQLAccountLoader::accountUpdateNeeded(const std::string& username,
-                                           const std::string& domain,
-                                           const std::string& identifier,
-                                           const OnAccountUpdateCB& cb) {
-	mThreadPool.run([this, username, domain, identifier, cb] {
+void SQLAccountLoader::accountUpdateNeeded(const RedisAccountPub& redisAccountPub, const OnAccountUpdateCB& cb) {
+	mThreadPool.run([this, redisAccountPub, cb] {
 		config::v2::Account account;
 		SociHelper helper{mSociConnectionPool};
-		helper.execute([&updateQuery = mUpdateQuery, &account, &username, &domain, &identifier](auto& sql) {
-			sql << updateQuery, use(username, "username"), use(domain, "domain"), use(identifier, "identifier"),
-			    into(account);
+		helper.execute([&updateQuery = mUpdateQuery, &account, &redisAccountPub](auto& sql) {
+			sql << updateQuery, use(redisAccountPub.identifier, "identifier"), into(account);
 		});
 
 		mSuRoot->addToMainLoop([cb, account]() { cb(account); });

@@ -22,14 +22,17 @@
 
 namespace flexisip::b2bua::bridge {
 using namespace std;
+using namespace flexisip::redis;
+using namespace flexisip::redis::async;
 
 AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
-                         linphone::Core& core,
+                         const std::shared_ptr<linphone::Core>& core,
                          const linphone::AccountParams& templateParams,
                          const config::v2::AccountPoolName& poolName,
                          const config::v2::AccountPool& pool,
-                         std::unique_ptr<Loader>&& loader)
-    : mSuRoot{suRoot}, mLoader{std::move(loader)} {
+                         std::unique_ptr<Loader>&& loader,
+                         const GenericStruct* registrarConf)
+    : mSuRoot{suRoot}, mCore{core}, mLoader{std::move(loader)} {
 	const auto factory = linphone::Factory::get();
 	const auto accountsDesc = mLoader->initialLoad();
 
@@ -38,27 +41,40 @@ AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
 		if (accountDesc.uri.empty()) {
 			LOGF("An account of account pool '%s' is missing a `uri` field", poolName.c_str());
 		}
-		const auto address = core.createAddress(accountDesc.uri);
+		const auto address = mCore->createAddress(accountDesc.uri);
 		const auto accountParams = templateParams.clone();
 		accountParams->setIdentityAddress(address);
 
-		if (!accountDesc.outboundProxy.empty()) {
-			// Override global pool config if outboundProxy is present
-			const auto route = core.createAddress(pool.outboundProxy);
-			accountParams->setServerAddress(route);
-			accountParams->setRoutesAddresses({route});
-		}
+		handleOutboundProxy(accountParams, accountDesc.outboundProxy);
 
-		auto account = core.createAccount(accountParams);
-		core.addAccount(account);
+		auto account = mCore->createAccount(accountParams);
+		mCore->addAccount(account);
 
 		if (!accountDesc.password.empty()) {
-			core.addAuthInfo(factory->createAuthInfo(address->getUsername(), accountDesc.userid, accountDesc.password,
-			                                         "", "", address->getDomain()));
+			mCore->addAuthInfo(factory->createAuthInfo(address->getUsername(), accountDesc.userid, accountDesc.password,
+			                                           "", "", address->getDomain()));
 		}
 
 		try_emplace(accountDesc.uri, accountDesc.alias,
 		            make_shared<Account>(account, pool.maxCallsPerLine, accountDesc.alias));
+
+		if (registrarConf) {
+			mRedisSub = make_unique<redis::async::SubscriptionSession>(
+			    SoftPtr<redis::async::SessionListener>::fromObjectLivingLongEnough(*this));
+
+			mRedisSub->connect(mSuRoot->getCPtr(), registrarConf->get<ConfigString>("redis-server-domain")->read(),
+			                   registrarConf->get<ConfigInt>("redis-server-port")->read());
+		}
+	}
+}
+
+void AccountPool::handleOutboundProxy(const shared_ptr<linphone::AccountParams>& accountParams,
+                                      const string& outboundProxy) {
+	if (!outboundProxy.empty()) {
+		// Override global pool config if outboundProxy is present
+		const auto route = mCore->createAddress(outboundProxy);
+		accountParams->setServerAddress(route);
+		accountParams->setRoutesAddresses({route});
 	}
 }
 
@@ -115,6 +131,10 @@ void AccountPool::try_emplace(const string& uri, const string& alias, const shar
 		return;
 	}
 
+	try_emplaceAlias(alias, account);
+}
+
+void AccountPool::try_emplaceAlias(const string& alias, const shared_ptr<Account>& account) {
 	if (alias.empty()) return;
 	auto [__, isInsertedAlias] = mAccountsByAlias.try_emplace(alias, account);
 	if (!isInsertedAlias) {
@@ -122,17 +142,84 @@ void AccountPool::try_emplace(const string& uri, const string& alias, const shar
 	}
 }
 
-void AccountPool::accountUpdateNeeded(const string& username, const string& domain, const string& identifier) {
-
+void AccountPool::accountUpdateNeeded(const RedisAccountPub& redisAccountPub) {
 	OnAccountUpdateCB cb = [this](const config::v2::Account& accountToUpdate) {
 		this->onAccountUpdate(accountToUpdate);
 	};
 
-	mLoader->accountUpdateNeeded(username, domain, identifier, cb);
+	mLoader->accountUpdateNeeded(redisAccountPub, cb);
 }
 
-void AccountPool::onAccountUpdate(config::v2::Account) {
-	// TODO reload the account
+// TODO, how deletion work ?
+void AccountPool::onAccountUpdate(config::v2::Account accountToUpdate) {
+	auto accountByUriIt = mAccountsByUri.find(accountToUpdate.uri);
+	auto accountByAliasIt = mAccountsByAlias.find(accountToUpdate.alias);
+	if (accountByUriIt != mAccountsByUri.end() && accountByAliasIt != mAccountsByAlias.end()) {
+		// Account update needed for password and/or outbound proxy only
+		auto& updatedAccount = accountByUriIt->second;
+		auto accountParams = updatedAccount->getLinphoneAccount()->getParams()->clone();
+
+		handleOutboundProxy(accountParams, accountToUpdate.outboundProxy);
+		updatedAccount->getLinphoneAccount()->setParams(accountParams);
+
+		// TODO update password, AuthInfo in core ?
+	} else if (accountByUriIt != mAccountsByUri.end()) {
+		// + alias update
+		auto& updatedAccount = accountByUriIt->second;
+		auto accountParams = updatedAccount->getLinphoneAccount()->getParams()->clone();
+
+		mAccountsByAlias.erase(updatedAccount->getAlias().str());
+		updatedAccount->setAlias(accountToUpdate.alias);
+		try_emplaceAlias(accountToUpdate.alias, updatedAccount);
+
+		handleOutboundProxy(accountParams, accountToUpdate.outboundProxy);
+		updatedAccount->getLinphoneAccount()->setParams(accountParams);
+
+		// TODO update password, AuthInfo in core ?
+	} else if (accountByUriIt != mAccountsByAlias.end()) {
+		// + uri update
+	} else {
+		// new account
+	}
+}
+
+void AccountPool::onConnect(int status) {
+	if (status == REDIS_OK) {
+		subscribeToAccountUpdate();
+	} else {
+		SLOGE << "AccountPool::onConnect : error while trying to connect to Redis. Status : " << status;
+		// TODO tryReconnect();
+	}
+}
+
+void AccountPool::subscribeToAccountUpdate() {
+	auto* ready = mRedisSub->tryGetState<SubscriptionSession::Ready>();
+	if (!ready) {
+		return;
+	}
+
+	auto subscription = ready->subscriptions()["flexisip/B2BUA/account"];
+	if (subscription.subscribed()) return;
+
+	LOGD("Subscribing to account update ");
+	subscription.subscribe([this](Reply reply) {
+		try {
+			auto replyAsString = std::get<reply::String>(reply);
+			auto redisPub = nlohmann::json::parse(replyAsString).get<RedisAccountPub>();
+			accountUpdateNeeded(redisPub);
+		} catch (const std::bad_variant_access&) {
+			// TODO reply .tostring ?
+			SLOGE << "AccountPool::subscribeToAccountUpdate::callback : publish from redis not well formatted";
+		}
+		// TODO catch json exception here ?
+	});
+}
+
+void AccountPool::onDisconnect(int status) {
+	if (status != REDIS_OK) {
+		SLOGE << "AccountPool::onDisconnect : disconnected from Redis. Status :" << status << ". Try reconnect ...";
+		// TODO tryReconnect();
+	}
 }
 
 } // namespace flexisip::b2bua::bridge

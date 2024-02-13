@@ -19,24 +19,27 @@
 #include <memory>
 #include <unordered_map>
 
+#include "flexisip/configmanager.hh"
 #include "flexisip/sofia-wrapper/su-root.hh"
 
 #include "b2bua/sip-bridge/accounts/account.hh"
 #include "b2bua/sip-bridge/accounts/loaders/loader.hh"
+#include "b2bua/sip-bridge/accounts/redis-account-pub.hh"
 #include "libhiredis-wrapper/redis-async-session.hh"
 
 #pragma once
 
 namespace flexisip::b2bua::bridge {
 
-class AccountPool {
+class AccountPool : public redis::async::SessionListener {
 public:
 	AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
-	            linphone::Core& core,
+	            const std::shared_ptr<linphone::Core>& core,
 	            const linphone::AccountParams& templateParams,
 	            const config::v2::AccountPoolName& poolName,
 	            const config::v2::AccountPool& pool,
-	            std::unique_ptr<Loader>&& loader);
+	            std::unique_ptr<Loader>&& loader,
+	            const GenericStruct* registrarConf = nullptr);
 
 	// Disable copy semantics
 	AccountPool(const AccountPool&) = delete;
@@ -56,18 +59,29 @@ public:
 		return mAccountsByUri.end();
 	}
 
+	/* redis::async::SessionListener interface implementations*/
+	void onConnect(int status) override;
+	void onDisconnect(int status) override;
+
 private:
 	void reserve(size_t sizeToReserve);
 	void try_emplace(const std::string& uri, const std::string& alias, const std::shared_ptr<Account>& account);
 
-	void accountUpdateNeeded(const std::string& username, const std::string& domain, const std::string& identifier);
+	void handleOutboundProxy(const std::shared_ptr<linphone::AccountParams>& accountParams,
+	                         const std::string& outboundProxy);
+
+	void accountUpdateNeeded(const RedisAccountPub& redisAccountPub);
 	void onAccountUpdate(config::v2::Account accountToUpdate);
+	void subscribeToAccountUpdate();
 
 	std::shared_ptr<sofiasip::SuRoot> mSuRoot;
+	std::shared_ptr<linphone::Core> mCore;
 	std::unique_ptr<Loader> mLoader;
+	std::unique_ptr<redis::async::SubscriptionSession> mRedisSub;
 	std::unordered_map<std::string, std::shared_ptr<Account>> mAccountsByUri;
 	std::unordered_map<std::string, std::shared_ptr<Account>> mAccountsByAlias;
 	std::unique_ptr<redis::async::SubscriptionSession> session{nullptr};
+	void try_emplaceAlias(const std::string& alias, const std::shared_ptr<Account>& account);
 };
 
 } // namespace flexisip::b2bua::bridge

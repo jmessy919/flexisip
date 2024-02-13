@@ -29,6 +29,7 @@ target_sources(flexisip PRIVATE
         sip-bridge/accounts/loaders/loader.hh
         sip-bridge/accounts/loaders/sql-account-loader.cc sip-bridge/accounts/loaders/sql-account-loader.hh
         sip-bridge/accounts/loaders/static-account-loader.hh
+        sip-bridge/accounts/redis-account-pub.hh
         sip-bridge/accounts/selection-strategy/find-in-pool.cc sip-bridge/accounts/selection-strategy/find-in-pool.hh
         sip-bridge/configuration/media-encryption.hh
         sip-bridge/configuration/v1.hh

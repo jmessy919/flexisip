@@ -124,7 +124,7 @@ public:
 		using namespace b2bua::bridge;
 		mB2buaServer->mApplication =
 		    make_unique<SipBridge>(make_shared<sofiasip::SuRoot>(), *mB2buaServer->mCore,
-		                           config::v2::fromV1(std::vector<V1ProviderDesc>(std::move(provDescs))));
+		    config::v2::fromV1(std::vector<V1ProviderDesc>(std::move(provDescs))), ConfigManager::get()->getRoot());
 		return static_cast<SipBridge&>(*mB2buaServer->mApplication);
 	}
 
@@ -428,7 +428,8 @@ static void external_provider_bridge__load_balancing() {
 	                                    maxCallsPerLine,
 	                                    std::move(lines),
 	                                },
-	                            })};
+	                            }),
+	                            nullptr};
 	auto tally = unordered_map<const linphone::Account*, uint32_t>();
 
 	uint32_t i = 0;
@@ -697,7 +698,8 @@ static void external_provider_bridge__cli() {
 	                                            },
 	                                        },
 	                                },
-	                            })};
+	                            }),
+	                            nullptr};
 
 	// Not a command handled by the bridge
 	auto output = sipBridge.handleCommand("REGISTRAR_DUMP", vector<string>{"INFO"});

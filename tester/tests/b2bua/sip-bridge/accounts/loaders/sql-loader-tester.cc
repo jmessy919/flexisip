@@ -118,7 +118,7 @@ void nominalUpdateSqlTest() {
 	    R"({
 			"dbBackend": "sqlite3",
 			"initQuery": "not tested here",
-			"updateQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users where uriInDB = :username AND outboundProxyInDb = :domain AND user_id = :identifier",
+			"updateQuery": "SELECT uriInDb as uri, userid as user_id, passwordInDb as password, alias, outboundProxyInDb as outbound_proxy from users where user_id = :identifier",
 			"connection": "@database_filename@"
 		}
 	)",'@', '@'}
@@ -129,7 +129,8 @@ void nominalUpdateSqlTest() {
 	SQLAccountLoader loader{suRoot, sqlLoaderConf};
 
 	Account actualAccount;
-	loader.accountUpdateNeeded("sip:account2@some.provider.example.com", "sip.linphone.org", "userID",
+	RedisAccountPub fakePub{"A user for logs", "A domain for logs", "userID"};
+	loader.accountUpdateNeeded(fakePub,
 	                           [&actualAccount](const Account& actualAccountCb) { actualAccount = actualAccountCb; });
 
 	auto expectedAccount = R"(

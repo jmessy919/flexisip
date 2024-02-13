@@ -35,8 +35,12 @@ public:
 
 	bool isAvailable() const;
 	const std::shared_ptr<linphone::Account>& getLinphoneAccount() const;
-	const SipUri& getAlias() const;
 	uint16_t getFreeSlotsCount() const;
+
+	const SipUri& getAlias() const;
+	void setAlias(std::string_view alias) {
+		mAlias = SipUri{alias};
+	};
 
 	void takeASlot();
 	void releaseASlot();
