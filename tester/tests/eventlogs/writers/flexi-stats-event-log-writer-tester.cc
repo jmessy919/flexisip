@@ -1,4 +1,4 @@
-/** Copyright (C) 2010-2023 Belledonne Communications SARL
+/** Copyright (C) 2010-2024 Belledonne Communications SARL
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -27,7 +27,6 @@
 #include "utils/test-conference-server.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
-#include "utils/tmp-dir.hh"
 
 using namespace std;
 using namespace nlohmann;
@@ -406,7 +405,7 @@ void messageToChatroomClearText() {
 	const string confFactoryUri = "sip:conference-factory@sip.example.org";
 	const auto proxy = makeAndStartProxy({
 	    {"conference-server/conference-factory-uris", confFactoryUri},
-	    // `sqlite` breaks on CentOS7 with inexplicable disk I/O errors
+	    // `mysql` to be as close to real-world deployments as possible
 	    {"conference-server/database-backend", "mysql"},
 	    {"conference-server/database-connection-string", mysqlServer.connectionString()},
 	});
