@@ -44,6 +44,7 @@ inline std::pair<std::string_view, std::string_view> popVarName(std::string_view
 	return {head, tail};
 }
 
+// TODO: specialize (restrict) types
 template <typename Transformer, typename TFields>
 constexpr auto resolve(Transformer transformer, const TFields& fields) {
 	return [transformer, &fields](const auto dotPath) {

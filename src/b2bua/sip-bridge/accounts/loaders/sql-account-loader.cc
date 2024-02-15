@@ -35,6 +35,7 @@ SQLAccountLoader::SQLAccountLoader(const std::shared_ptr<sofiasip::SuRoot>& suRo
 	}
 }
 
+// TODO what happens in case of exceptions?
 std::vector<config::v2::Account> SQLAccountLoader::initialLoad() {
 	std::vector<config::v2::Account> accountsLoaded{};
 	SociHelper helper{mSociConnectionPool};
@@ -50,6 +51,7 @@ std::vector<config::v2::Account> SQLAccountLoader::initialLoad() {
 	return accountsLoaded;
 }
 
+// TODO what happens in case of exceptions?
 void SQLAccountLoader::accountUpdateNeeded(const std::string& username,
                                            const std::string& domain,
                                            const std::string& identifier,

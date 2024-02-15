@@ -45,6 +45,7 @@ private:
 	std::shared_ptr<sofiasip::SuRoot> mSuRoot;
 	AutoThreadPool mThreadPool{50, 0};
 	soci::connection_pool mSociConnectionPool{50};
+    // TODO validate (prepare?) queries at load time
 	std::string mInitQuery;
 	std::string mUpdateQuery;
 };

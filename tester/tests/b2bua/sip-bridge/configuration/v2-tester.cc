@@ -12,6 +12,7 @@ namespace {
 using namespace b2bua::bridge::config;
 
 void v1ConfigExpressedAsEquivalentV2Config() {
+	// /!\ this is not a valid config. We're only testing parsing, not validation
 	const auto j = R"json({
 		"schemaVersion": 2,
 		"providers": [
@@ -130,6 +131,8 @@ void v1ConfigToV2() {
 	BC_ASSERT_CPP_EQUAL(v2.providers[0].outgoingInvite.from, "");
 	BC_ASSERT_CPP_EQUAL(v2.providers[0].accountPool, "Account pool - provider1");
 }
+
+// TODO: test optional and required fields
 
 TestSuite _{
     "b2bua::sip-bridge::configuration::v2",

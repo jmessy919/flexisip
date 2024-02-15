@@ -38,6 +38,7 @@ void knownFields() {
 void unknownFields() {
 	try {
 		tryParse("{unknown.hostport}");
+		BC_FAIL("expected exception");
 	} catch (const ResolutionError& err) {
 		const auto& expected = StringViewMold{.start = charCount("{"), .size = charCount("unknown")};
 		BC_ASSERT_CPP_EQUAL(err.offendingToken, expected);
@@ -45,11 +46,15 @@ void unknownFields() {
 
 	try {
 		tryParse("{to.hostport.what}");
+		BC_FAIL("expected exception");
 	} catch (const ResolutionError& err) {
 		const auto& expected = StringViewMold{.start = charCount("{to.hostport."), .size = charCount("what")};
 		BC_ASSERT_CPP_EQUAL(err.offendingToken, expected);
 	}
 }
+
+// TODO: test missing closing delim
+// TODO: test errors at format time. E.g. empty SipUri.
 
 TestSuite _{
     "b2bua::bridge::variable_substitution",

@@ -23,6 +23,7 @@
 
 #include "b2bua/sip-bridge/accounts/account.hh"
 #include "b2bua/sip-bridge/accounts/loaders/loader.hh"
+#include "b2bua/sip-bridge/configuration/v2/v2.hh"
 #include "libhiredis-wrapper/redis-async-session.hh"
 
 #pragma once

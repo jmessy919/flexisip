@@ -21,13 +21,14 @@ Substituter<const linphone::Call&, const Account&> resolver(const std::string_vi
 	const auto [varName, furtherPath] = popVarName(variableName);
 
 	if (varName == "incoming") {
-		return resolve([](const auto& call, const auto&) -> const linphone::Call& { return call; },
+		return resolve([](const auto& call, const auto&) -> const auto& { return call; },
 		               linphone_call::kFields)(furtherPath);
 	} else if (varName == "account") {
-		return resolve([](const auto&, const auto& account) -> const Account& { return account; },
+		return resolve([](const auto&, const auto& account) -> const auto& { return account; },
 		               account::kFields)(furtherPath);
 	}
-	throw std::runtime_error{"unimplemented"};
+
+	throw ContextlessResolutionError(varName);
 };
 
 } // namespace

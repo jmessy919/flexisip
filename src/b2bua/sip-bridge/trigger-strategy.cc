@@ -11,6 +11,7 @@
 namespace flexisip::b2bua::bridge::trigger_strat {
 
 MatchRegex::MatchRegex(const conf::MatchRegex& config) : mPattern(config.pattern) {
+	// TODO: implement source parametrization
 }
 
 bool MatchRegex::shouldHandleThisCall(const linphone::Call& call) {

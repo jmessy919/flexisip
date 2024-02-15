@@ -20,13 +20,14 @@
 
 #include <vector>
 
-#include "b2bua/sip-bridge/configuration/v2/v2.hh"
+#include "b2bua/sip-bridge/configuration/v2/account.hh"
 
 namespace flexisip::b2bua::bridge {
-using OnAccountUpdateCB = std::function<void(const config::v2::Account&)>;
 
 class Loader {
 public:
+	using OnAccountUpdateCB = std::function<void(const config::v2::Account&)>;
+
 	virtual ~Loader() = default;
 
 	virtual std::vector<config::v2::Account> initialLoad() = 0;

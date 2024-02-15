@@ -35,8 +35,8 @@ NLOHMANN_JSON_SERIALIZE_ENUM(AccountLookUp,
                              })
 
 struct FindInPool {
-	AccountLookUp by{AccountLookUp::ByUri};
-	std::string source;
+	AccountLookUp by = AccountLookUp::ByUri; // required
+	std::string source = "";                 // required
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FindInPool, by, source);
 
@@ -46,8 +46,8 @@ using AccountToUse = std::variant<account_selection::Random, account_selection::
 namespace trigger_cond {
 
 struct MatchRegex {
-	std::string pattern;
-	std::string source;
+	std::string pattern = ""; // required
+	std::string source = "";  // required
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MatchRegex, pattern, source);
 
@@ -119,11 +119,11 @@ NLOHMANN_JSON_SERIALIZE_ENUM(OnAccountNotFound,
                              })
 
 struct OutgoingInvite {
-	std::string to;
-	std::string from;
-	std::optional<std::string> outboundProxy = std::nullopt;
-	std::optional<bool> enableAvpf = std::nullopt;
-	std::optional<linphone::MediaEncryption> mediaEncryption = std::nullopt;
+	std::string to = "";                                                     // required
+	std::string from = "";                                                   // optional
+	std::optional<std::string> outboundProxy = std::nullopt;                 // optional
+	std::optional<bool> enableAvpf = std::nullopt;                           // optional
+	std::optional<linphone::MediaEncryption> mediaEncryption = std::nullopt; // optional
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, OutgoingInvite& nlohmann_json_t) {
 	OutgoingInvite nlohmann_json_default_obj;
@@ -135,12 +135,12 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, OutgoingInvite& nl
 };
 
 struct Provider {
-	std::string name;
-	AccountPoolName accountPool;
-	TriggerCondition triggerCondition;
-	AccountToUse accountToUse;
-	OnAccountNotFound onAccountNotFound{OnAccountNotFound::NextProvider};
-	OutgoingInvite outgoingInvite;
+	std::string name = "";                                                 // required
+	AccountPoolName accountPool = "";                                      // required
+	TriggerCondition triggerCondition = trigger_cond::Always();            // required
+	AccountToUse accountToUse = account_selection::Random();               // required
+	OnAccountNotFound onAccountNotFound = OnAccountNotFound::NextProvider; // required
+	OutgoingInvite outgoingInvite = {};                                    // required
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, Provider& nlohmann_json_t) {
 	NLOHMANN_JSON_FROM(name)
@@ -152,10 +152,10 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, Provider& nlohmann
 }
 
 struct SQLLoader {
-	std::string dbBackend;
-	std::string initQuery;
-	std::string updateQuery;
-	std::string connection;
+	std::string dbBackend = "";   // required
+	std::string initQuery = "";   // required
+	std::string updateQuery = ""; // required
+	std::string connection = "";  // required
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(SQLLoader, dbBackend, initQuery, updateQuery, connection);
 
@@ -171,10 +171,10 @@ inline void from_json(const nlohmann ::json& j, AccountPoolLoader& pool) {
 }
 
 struct AccountPool {
-	std::string outboundProxy;
-	bool registrationRequired = false;
-	uint32_t maxCallsPerLine = 0;
-	AccountPoolLoader loader;
+	std::string outboundProxy = "";    // required
+	bool registrationRequired = false; // required
+	uint32_t maxCallsPerLine = 0;      // required
+	AccountPoolLoader loader = {};     // required
 };
 inline void from_json(const nlohmann ::json& nlohmann_json_j, AccountPool& nlohmann_json_t) {
 	NLOHMANN_JSON_FROM(outboundProxy)
@@ -185,12 +185,15 @@ inline void from_json(const nlohmann ::json& nlohmann_json_j, AccountPool& nlohm
 
 using AccountPoolConfigMap = std::unordered_map<AccountPoolName, AccountPool>;
 struct Root {
-	unsigned int schemaVersion;
-	std::vector<Provider> providers;
-	AccountPoolConfigMap accountPools;
+	unsigned int schemaVersion = 2;         // required
+	std::vector<Provider> providers = {};   // required
+	AccountPoolConfigMap accountPools = {}; // required
 };
-inline void from_json(const nlohmann ::json& nlohmann_json_j, Root& nlohmann_json_t){
-    NLOHMANN_JSON_FROM(schemaVersion) NLOHMANN_JSON_FROM(providers) NLOHMANN_JSON_FROM(accountPools)}
+inline void from_json(const nlohmann ::json& nlohmann_json_j, Root& nlohmann_json_t) {
+	NLOHMANN_JSON_FROM(schemaVersion);
+	NLOHMANN_JSON_FROM(providers);
+	NLOHMANN_JSON_FROM(accountPools);
+}
 
 Root fromV1(v1::Root&&);
 

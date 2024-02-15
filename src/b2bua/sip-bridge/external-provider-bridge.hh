@@ -51,7 +51,7 @@ public:
 	onCallCreate(const linphone::Call& incomingCall,
 	             linphone::CallParams& outgoingCallParams,
 	             std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots);
-	
+
 	const account_strat::AccountSelectionStrategy& getAccountSelectionStrategy() const;
 
 private:
@@ -66,10 +66,6 @@ private:
 	config::v2::OnAccountNotFound mOnAccountNotFound;
 	InviteTweaker mInviteTweaker;
 	std::string name;
-
-	// Disable copy semantics
-	SipProvider(const SipProvider&) = delete;
-	SipProvider& operator=(const SipProvider&) = delete;
 };
 
 using AccountPoolImplMap = std::unordered_map<config::v2::AccountPoolName, std::shared_ptr<AccountPool>>;

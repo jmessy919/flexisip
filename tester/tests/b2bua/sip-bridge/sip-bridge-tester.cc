@@ -176,7 +176,6 @@ void bidirectionalBridging() {
 	        [&felix] {
 		        const auto& current_call = felix.getCurrentCall();
 		        FAIL_IF(current_call != std::nullopt);
-		        // invite received
 		        return ASSERTION_PASSED();
 	        },
 	        90ms)
@@ -321,6 +320,8 @@ void loadAccountsFromSQL() {
 	// shutdown / cleanup
 	b2buaServer->stop();
 }
+
+// TODO test that an exception while bridging does not bring down the B2BUA, but simply results in the B2BUA declining. E.g. what happens with an empty alias?
 
 TestSuite _{
     "b2bua::bridge",

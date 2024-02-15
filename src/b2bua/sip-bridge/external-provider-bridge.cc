@@ -85,28 +85,40 @@ std::optional<b2bua::Application::ActionToTake>
 SipProvider::onCallCreate(const linphone::Call& incomingCall,
                           linphone::CallParams& outgoingCallParams,
                           std::unordered_map<std::string, std::weak_ptr<Account>>& occupiedSlots) {
-	if (!mTriggerStrat->shouldHandleThisCall(incomingCall)) {
-		return std::nullopt;
-	}
+	try {
+		if (!mTriggerStrat->shouldHandleThisCall(incomingCall)) {
+			return std::nullopt;
+		}
 
-	const auto account = mAccountStrat->chooseAccountForThisCall(incomingCall);
-	if (!account) {
-		switch (mOnAccountNotFound) {
-			case config::v2::OnAccountNotFound::NextProvider:
-				return std::nullopt;
-			case config::v2::OnAccountNotFound::Decline: {
-				SLOGD << "No external accounts available to bridge the call to "
-				      << incomingCall.getRequestAddress()->asStringUriOnly();
-				return linphone::Reason::NotAcceptable;
+		const auto account = mAccountStrat->chooseAccountForThisCall(incomingCall);
+		if (!account) {
+			switch (mOnAccountNotFound) {
+				case config::v2::OnAccountNotFound::NextProvider:
+					return std::nullopt;
+				case config::v2::OnAccountNotFound::Decline: {
+					SLOGW << "No external accounts available to bridge the call to "
+					      << incomingCall.getRequestAddress()->asStringUriOnly();
+					return linphone::Reason::NotAcceptable;
+				}
 			}
 		}
+		if (!account->isAvailable()) {
+			SLOGW << "Account " << account->getLinphoneAccount()->getParams()->getIdentityAddress()->asString()
+			      << " is not available to bridge the call to " << incomingCall.getRequestAddress()->asStringUriOnly()
+			      << ". Declining legA.";
+			return linphone::Reason::NotAcceptable;
+		}
+
+		occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;
+		account->takeASlot();
+
+		return mInviteTweaker.tweakInvite(incomingCall, *account, outgoingCallParams);
+	} catch (const std::exception& err) {
+		SLOGE << "Exception occurred while trying to bridge a call to " << incomingCall.getToAddress()->asString()
+		      << ". Declining legA. Exception:\n"
+		      << err.what();
+		return linphone::Reason::NotAcceptable;
 	}
-	// TODO: what if the account is unavailable?
-
-	occupiedSlots[incomingCall.getCallLog()->getCallId()] = account;
-	account->takeASlot();
-
-	return mInviteTweaker.tweakInvite(incomingCall, *account, outgoingCallParams);
 }
 
 const account_strat::AccountSelectionStrategy& SipProvider::getAccountSelectionStrategy() const {
@@ -118,11 +130,7 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 	auto accountPoolMap = AccountPoolImplMap();
 	const auto templateParams = core.createAccountParams();
 
-	for (auto& [poolNameIt, poolIt] : accountPoolConfigMap) {
-		// Until C++ 20 this is needed. Because poolNameIt and poolIt can't be captured.
-		const auto& poolName = poolNameIt;
-		auto& pool = poolIt;
-
+	for (auto& [poolName, pool] : accountPoolConfigMap) {
 		if (pool.outboundProxy.empty()) {
 			LOGF("Please provide an `outboundProxy` for AccountPool '%s'", poolName.c_str());
 		}
@@ -136,27 +144,24 @@ AccountPoolImplMap SipBridge::getAccountPoolsFromConfig(linphone::Core& core,
 		templateParams->setRoutesAddresses({route});
 		templateParams->enableRegister(pool.registrationRequired);
 
-		Match(pool.loader)
-		    .against(
-		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core, &pool,
-		         this](config::v2::StaticLoader& staticPool) {
-			        if (staticPool.empty()) {
-				        SLOGW << "AccountPool '" << poolName
-				              << "' has no `accounts` and will not be used to bridge calls";
-			        }
-			        accountPoolMap.try_emplace(
-			            poolName, make_shared<AccountPool>(mSuRoot, core, templateParams, poolName, pool,
-			                                               make_unique<StaticAccountLoader>(std::move(staticPool))));
-		        },
-		        [&accountPoolMap, &poolName, &templateParams = *templateParams, &core, &pool,
-		         this](config::v2::SQLLoader& sqlLoaderConf) {
-			        //			        auto redisSub = make_unique<redis::async::SubscriptionSession>();
-			        //			        redisSub->connect(mSuRoot->getCPtr(), "redishost", 42);
-
-			        accountPoolMap.try_emplace(
-			            poolName, make_shared<AccountPool>(mSuRoot, core, templateParams, poolName, pool,
-			                                               make_unique<SQLAccountLoader>(mSuRoot, sqlLoaderConf)));
-		        });
+		accountPoolMap.try_emplace(
+		    poolName,
+		    make_shared<AccountPool>(mSuRoot, core, *templateParams, poolName, pool,
+		                             Match(pool.loader)
+		                                 .against(
+		                                     [&poolName = poolName, &templateParams = *templateParams](
+		                                         config::v2::StaticLoader& staticPool) -> std::unique_ptr<Loader> {
+			                                     if (staticPool.empty()) {
+				                                     SLOGW
+				                                         << "AccountPool '" << poolName
+				                                         << "' has no `accounts` and will not be used to bridge calls";
+			                                     }
+			                                     return make_unique<StaticAccountLoader>(std::move(staticPool));
+		                                     },
+		                                     [&templateParams = *templateParams,
+		                                      this](config::v2::SQLLoader& sqlLoaderConf) -> std::unique_ptr<Loader> {
+			                                     return make_unique<SQLAccountLoader>(mSuRoot, sqlLoaderConf);
+		                                     })));
 	}
 
 	return accountPoolMap;
@@ -169,7 +174,7 @@ void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) 
 		if (provDesc.name.empty()) {
 			LOGF("One of your external SIP providers has an empty `name`");
 		}
-		auto triggerCond =
+		auto triggerStrat =
 		    Match(provDesc.triggerCondition)
 		        .against(
 		            [](config::v2::trigger_cond::Always) -> std::unique_ptr<trigger_strat::TriggerStrategy> {
@@ -199,7 +204,7 @@ void SipBridge::initFromRootConfig(linphone::Core& core, config::v2::Root root) 
 		            });
 
 		providers.emplace_back(SipProvider{
-		    std::move(triggerCond),
+		    std::move(triggerStrat),
 		    std::move(accountStrat),
 		    provDesc.onAccountNotFound,
 		    InviteTweaker(std::move(provDesc.outgoingInvite), core),

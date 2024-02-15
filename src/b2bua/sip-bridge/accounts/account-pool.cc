@@ -58,6 +58,8 @@ AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
 		}
 
 		try_emplace(accountDesc.uri, accountDesc.alias,
+		            // TODO: shared_ptr<Account> -> shared_ptr<linphone::Account> ... I'm sure we can store a
+		            // linphone::Account directly
 		            make_shared<Account>(account, pool.maxCallsPerLine, accountDesc.alias));
 	}
 }
@@ -123,12 +125,9 @@ void AccountPool::try_emplace(const string& uri, const string& alias, const shar
 }
 
 void AccountPool::accountUpdateNeeded(const string& username, const string& domain, const string& identifier) {
-
-	OnAccountUpdateCB cb = [this](const config::v2::Account& accountToUpdate) {
+	mLoader->accountUpdateNeeded(username, domain, identifier, [this](const config::v2::Account& accountToUpdate) {
 		this->onAccountUpdate(accountToUpdate);
-	};
-
-	mLoader->accountUpdateNeeded(username, domain, identifier, cb);
+	});
 }
 
 void AccountPool::onAccountUpdate(config::v2::Account) {

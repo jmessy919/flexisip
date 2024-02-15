@@ -40,6 +40,7 @@ public:
 
 	void
 	accountUpdateNeeded(const std::string&, const std::string&, const std::string&, const OnAccountUpdateCB&) override {
+		// TODO: better log message
 		/*With a static this feature is not yet implemented*/
 		SLOGE << "onAccountUpdate must not be called on StaticAccountLoader. It does nothing.";
 	};

@@ -14,6 +14,7 @@ FindInPool::FindInPool(std::shared_ptr<AccountPool> accountPool,
                        const config::v2::account_selection::FindInPool& config)
     : AccountSelectionStrategy(accountPool), mLookUpField(config.by),
       mSourceTemplate(InterpolatedString(config.source, "{", "}"),
+	  // TODO: This identity lambda is heavy. Is there a way to shorten it or omit it?
               resolve([](const auto& call) -> const linphone::Call& { return call; }, linphone_call::kFields)) {
 }
 

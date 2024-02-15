@@ -68,6 +68,8 @@ void test() {
 	const std::string_view expectedAlias{"sip:expected-alias@alias.example.org;custom-param=Alias"};
 	Account forgedAccount{forgedLinphoneAccount, 0x7E57, expectedAlias};
 
+	// TODO: Split into different test functions?
+
 	{
 		const auto& outgoingCallParams = b2buaCore.createCallParams(forgedCall);
 		const auto& toAddress =

@@ -42,7 +42,7 @@ public:
 	void releaseASlot();
 
 private:
-	// Disable copy semantics
+	// Disable copy semantics to protect the free slots count
 	Account(const Account&) = delete;
 	Account& operator=(const Account&) = delete;
 

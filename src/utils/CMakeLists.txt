@@ -23,13 +23,13 @@
 target_sources(flexisip PRIVATE
 	cast-to-const.hh
 	digest.cc digest.hh
-	string-interpolation/interpolated-string.cc string-interpolation/interpolated-string.hh
 	observable.hh
 	pipe.cc pipe.hh
 	posix-process.cc posix-process.hh
 	rand.cc rand.hh
 	sip-uri.cc
 	string-formatter.cc string-formatter.hh
+	string-interpolation/interpolated-string.cc string-interpolation/interpolated-string.hh
 	string-utils.cc string-utils.hh
 	sys-err.cc sys-err.hh
 	thread/auto-thread-pool.cc thread/auto-thread-pool.hh
