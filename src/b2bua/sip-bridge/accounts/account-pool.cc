@@ -81,6 +81,8 @@ std::shared_ptr<Account> AccountPool::getAccountByAlias(const string& alias) con
 std::shared_ptr<Account> AccountPool::getAccountRandomly() const {
 	// Pick a random account then keep iterating if unavailable
 	const auto max = size();
+	if (max == 0) return nullptr;
+
 	const auto seed = rand() % max;
 	auto poolIt = begin();
 

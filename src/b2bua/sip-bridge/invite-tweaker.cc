@@ -61,10 +61,29 @@ std::shared_ptr<linphone::Address> InviteTweaker::tweakInvite(const linphone::Ca
 		outgoingCallParams.enableAvpf(*enableAvpf);
 	}
 
+	auto& core = *incomingCall.getCore();
 	if (mFromHeader) {
-		outgoingCallParams.setFromHeader(mFromHeader->format(incomingCall, account));
+		const auto fromAddress = mFromHeader->format(incomingCall, account);
+		if (!core.createAddress(fromAddress)) throw InvalidAddress("From", fromAddress);
+
+		outgoingCallParams.setFromHeader(fromAddress);
 	}
-	return incomingCall.getCore()->createAddress(mToHeader.format(incomingCall, account));
+	const auto toAddressStr = mToHeader.format(incomingCall, account);
+	const auto toAddress = core.createAddress(toAddressStr);
+	if (!toAddress) throw InvalidAddress("To", toAddressStr);
+
+	return toAddress;
+}
+
+const char* InviteTweaker::InvalidAddress::what() const noexcept {
+	const auto* headerName = std::runtime_error::what();
+	const auto& invalidAddress = mWhat;
+	auto msg = std::ostringstream();
+	msg << "Attempting to send an outgoing invite with an invalid URI in its '" << headerName << "' header: '"
+	    << invalidAddress << "'";
+	mWhat = msg.str();
+
+	return mWhat.c_str();
 }
 
 } // namespace flexisip::b2bua::bridge

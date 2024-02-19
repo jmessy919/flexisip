@@ -13,6 +13,7 @@ namespace tester {
 /**
  * Create a file in a temporary location on construction, delete it on destruction.
  */
+// TODO replace with TmpDir to keep everything tidy within the tester's writable dir and not litter `/tmp`
 struct TempFile {
 	const char* const name;
 

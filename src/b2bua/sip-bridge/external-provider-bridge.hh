@@ -40,6 +40,7 @@
 
 namespace flexisip::b2bua::bridge {
 
+// TODO: Split out into its own file
 class SipProvider {
 	friend class SipBridge;
 

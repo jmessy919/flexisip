@@ -18,8 +18,21 @@ public:
 	using StringTemplate =
 	    utils::string_interpolation::PreprocessedInterpolatedString<const linphone::Call&, const Account&>;
 
+	class InvalidAddress : public std::runtime_error {
+	public:
+		explicit InvalidAddress(const char* headerName, std::string invalidAddress)
+		    : std::runtime_error(headerName), mWhat(invalidAddress) {
+		}
+
+		const char* what() const noexcept override;
+
+	private:
+		mutable std::string mWhat;
+	};
+
 	explicit InviteTweaker(const config::v2::OutgoingInvite&, linphone::Core&);
 
+	/* @throws InvalidAddress if the mToHeader or mFromHeader templates resolve to an invalid URI */
 	std::shared_ptr<linphone::Address> tweakInvite(const linphone::Call&, const Account&, linphone::CallParams&) const;
 
 private:

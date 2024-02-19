@@ -321,13 +321,82 @@ void loadAccountsFromSQL() {
 	b2buaServer->stop();
 }
 
-// TODO test that an exception while bridging does not bring down the B2BUA, but simply results in the B2BUA declining. E.g. what happens with an empty alias?
+/** Everything is setup correctly except the "From" header template contains a mistake that resolves to an invalid uri.
+    Test that the B2BUA does not crash, and simply declines the call.
+*/
+void invalidUriTriggersDecline() {
+	TempFile providersJson{R"json({
+		"schemaVersion": 2,
+		"providers": [
+			{
+				"name": "Stub Provider Name",
+				"triggerCondition": { "strategy": "Always" },
+				"accountToUse": { "strategy": "Random" },
+				"onAccountNotFound": "decline",
+				"outgoingInvite": {
+					"to": "{account.alias}",
+					"from": "{account.alias.user};woops=invalid-uri"
+				},
+				"accountPool": "ExamplePoolName"
+			}
+		],
+		"accountPools": {
+			"ExamplePoolName": {
+				"outboundProxy": "<sip:stub@example.org>",
+				"registrationRequired": false,
+				"maxCallsPerLine": 55,
+				"loader": [
+					{
+						"uri": "sip:b2bua-account@example.org",
+						"alias": "sip:valid@example.org"
+					}
+				]
+			}
+		}
+	})json"};
+	Server proxy{{
+	    // Requesting bind on port 0 to let the kernel find any available port
+	    {"global/transports", "sip:127.0.0.1:0;transport=tcp"},
+	    {"module::Registrar/enabled", "true"},
+	    {"module::Registrar/reg-domains", "example.org"},
+	    {"b2bua-server/application", "sip-bridge"},
+	    {"b2bua-server/transport", "sip:127.0.0.1:0;transport=tcp"},
+	    {"b2bua-server::sip-bridge/providers", providersJson.name},
+	}};
+	proxy.start();
+	const auto b2buaLoop = std::make_shared<sofiasip::SuRoot>();
+	const auto b2buaServer = std::make_shared<B2buaServer>(b2buaLoop);
+	b2buaServer->init();
+	ConfigManager::get()
+	    ->getRoot()
+	    ->get<GenericStruct>("module::Router")
+	    ->get<ConfigString>("fallback-route")
+	    ->set("sip:127.0.0.1:" + std::to_string(b2buaServer->getTcpPort()) + ";transport=tcp");
+	proxy.getAgent()->findModule("Router")->reload();
+	const auto caller = proxy.clientBuilder().build("caller@example.org");
+	CoreAssert asserter{proxy, *b2buaLoop, caller};
+
+	caller.invite("b2bua-account@example.org");
+	BC_ASSERT(asserter
+	              .iterateUpTo(
+	                  2,
+	                  [&caller] {
+		                  FAIL_IF(caller.getCurrentCall() != std::nullopt);
+		                  // invite declined
+		                  return ASSERTION_PASSED();
+	                  },
+	                  400ms)
+	              .assert_passed());
+
+	b2buaServer->stop();
+}
 
 TestSuite _{
     "b2bua::bridge",
     {
         CLASSY_TEST(bidirectionalBridging),
         CLASSY_TEST(loadAccountsFromSQL),
+        CLASSY_TEST(invalidUriTriggersDecline),
     },
 };
 } // namespace
