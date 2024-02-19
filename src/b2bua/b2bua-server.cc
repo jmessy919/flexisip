@@ -69,10 +69,10 @@ B2buaServer::B2buaServer(const shared_ptr<sofiasip::SuRoot>& root) : ServiceServ
 B2buaServer::~B2buaServer() {
 }
 
-void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone::Core>& core,
+void B2buaServer::onCallStateChanged(const shared_ptr<linphone::Core>&,
                                      const shared_ptr<linphone::Call>& call,
                                      linphone::Call::State state,
-                                     [[maybe_unused]] const string& message) {
+                                     const string&) {
 	SLOGD << "b2bua server onCallStateChanged to " << (int)state << " "
 	      << ((call->getDir() == linphone::Call::Dir::Outgoing) ? "legB" : "legA");
 	switch (state) {
@@ -177,7 +177,7 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone:
 				if (peerCallAudioDirection == linphone::MediaDirection::SendOnly ||
 				    peerCallAudioDirection == linphone::MediaDirection::Inactive) {
 					SLOGD << "b2bua server onCallStateChanged: peer call is paused, update it to resume";
-					auto peerCallParams = peerCall->getCurrentParams()->copy();
+					auto peerCallParams = mCore->createCallParams(peerCall);
 					peerCallParams->setAudioDirection(linphone::MediaDirection::SendRecv);
 					peerCall->update(peerCallParams);
 				}
