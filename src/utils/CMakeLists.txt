@@ -1,6 +1,6 @@
 ############################################################################
 # CMakeLists.txt
-# Copyright (C) 2010-2023 Belledonne Communications, Grenoble France
+# Copyright (C) 2010-2024 Belledonne Communications, Grenoble France
 #
 ############################################################################
 #
@@ -24,6 +24,10 @@ target_sources(flexisip PRIVATE
 	cast-to-const.hh
 	digest.cc digest.hh
 	observable.hh
+	flow.cc flow.hh
+	flow-data.cc flow-data.hh
+	flow-factory.cc flow-factory.hh
+	socket-address.cc socket-address.hh
 	pipe.cc pipe.hh
 	posix-process.cc posix-process.hh
 	rand.cc rand.hh

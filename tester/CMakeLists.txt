@@ -1,6 +1,6 @@
 ############################################################################
 # CMakeLists.txt
-# Copyright (C) 2010-2023 Belledonne Communications, Grenoble France
+# Copyright (C) 2010-2024 Belledonne Communications, Grenoble France
 #
 ############################################################################
 #
@@ -36,8 +36,8 @@ find_package(VPX REQUIRED)
 set(FLEXISIP_TESTER_DATA_SRCDIR "${CMAKE_CURRENT_SOURCE_DIR}")
 find_program(REDIS_SERVER_EXEC NAMES redis-server REQUIRED)
 find_program(MYSQL_SERVER_EXEC NAMES mysqld
-		PATHS /usr/libexec # CentOS, Rocky
-		REQUIRED
+	PATHS /usr/libexec # CentOS, Rocky
+	REQUIRED
 )
 
 get_filename_component(MYSQL_BIN_DIR "${MYSQL_SERVER_EXEC}" DIRECTORY)
@@ -87,6 +87,11 @@ add_executable(flexisip_tester
 	tests/libhiredis-wrapper/redis-async-session-tester.cc
 	tests/libhiredis-wrapper/redis-reply-tester.cc
 	tests/module-nat-helper-tester.cc
+	tests/nat/contact-correction-strategy-helper-tester.cc
+	tests/nat/contact-correction-strategy-tester.cc
+	tests/nat/flow-token-strategy-tester.cc
+	tests/nat/nat-traversal-feature-tester.cc
+	tests/nat/nat-traversal-strategy-helper-tester.cc
 	tests/presence/presence-pidf-tester.cc
 	tests/presence/presence-publish-tester.cc
 	tests/presence/xsd-utils-tester.cc
@@ -100,6 +105,11 @@ add_executable(flexisip_tester
 	tests/registrar/registrardb-tester.cc
 	tests/registrar/registrardb-redis-tester.cc
 	tests/sofia-wrapper/home-tester.cc
+	tests/utils/flow-data-tester.cc
+	tests/utils/flow-factory-tester.cc
+	tests/utils/flow-tester.cc
+	tests/utils/flow-factory-helper-tester.cc
+	tests/utils/socket-address-tester.cc
 	tests/utils/soft-ptr-tester.cc
 	thread-pool-tester.cc
 	tls-connection-tester.cc
@@ -114,8 +124,10 @@ add_executable(flexisip_tester
 	utils/contact-inserter.cc utils/contact-inserter.hh
 	utils/eventlogs/event-logs.cc utils/eventlogs/event-logs.hh
 	utils/eventlogs/writers/event-log-writer-visitor-adapter.hh
+	utils/flow-test-helper.cc utils/flow-test-helper.hh
 	utils/listening-socket.cc utils/listening-socket.hh
 	utils/mysql-server.cc utils/mysql-server.hh
+	utils/nat-test-helper.cc utils/nat-test-helper.hh
 	utils/posix-process-tester.cc
 	utils/proxy-server.cc utils/proxy-server.hh
 	utils/proxy-server-process.cc utils/proxy-server-process.hh
@@ -131,32 +143,32 @@ add_executable(flexisip_tester
 
 if(ENABLE_CONFERENCE)
 	target_sources(flexisip_tester PRIVATE
-			registration-event-tester.cc
-			tests/conference/conference-server-tester.cc
-			utils/test-conference-server.cc utils/test-conference-server.hh
+		registration-event-tester.cc
+		tests/conference/conference-server-tester.cc
+		utils/test-conference-server.cc utils/test-conference-server.hh
 	)
 endif()
 
 if(ENABLE_SOCI)
 	target_sources(flexisip_tester PRIVATE
-			fork-context-mysql-tester.cc
-			tests/auth/db/authdb-soci-tester.cc
-			tests/eventlogs/writers/database-event-log-writer-tester.cc
+		fork-context-mysql-tester.cc
+		tests/auth/db/authdb-soci-tester.cc
+		tests/eventlogs/writers/database-event-log-writer-tester.cc
 	)
-endif ()
+endif()
 
 if(LIBNGHTTP2ASIO_FOUND AND ENABLE_UNIT_TESTS_NGHTTP2ASIO)
 	target_sources(flexisip_tester PRIVATE
-			tests/pushnotification/global-push-tester.cc
-			tests/pushnotification/push-notification-tester.cc
-			tests/utils/transport/http/rest-client-tester.cc
-			tests/utils/transport/http/http2client-tester.cc
-			utils/http-mock/http-mock.cc utils/http-mock/http-mock.hh
-			utils/pns-mock.cc utils/pns-mock.hh
+		tests/pushnotification/global-push-tester.cc
+		tests/pushnotification/push-notification-tester.cc
+		tests/utils/transport/http/rest-client-tester.cc
+		tests/utils/transport/http/http2client-tester.cc
+		utils/http-mock/http-mock.cc utils/http-mock/http-mock.hh
+		utils/pns-mock.cc utils/pns-mock.hh
 	)
-	if (ENABLE_FLEXIAPI)
+	if(ENABLE_FLEXIAPI)
 		target_sources(flexisip_tester PRIVATE
-				tests/flexiapi/flexi-stats-tester.cc
+			tests/flexiapi/flexi-stats-tester.cc
 		)
 	endif()
 
@@ -171,14 +183,14 @@ elseif(ENABLE_UNIT_TESTS_NGHTTP2ASIO)
 	message(FATAL_ERROR "The LibNgHttp2Asio module is required by some tests. You may disable them with -DENABLE_UNIT_TESTS_NGHTTP2ASIO=OFF")
 endif()
 
-if (ENABLE_FLEXIAPI AND ENABLE_CONFERENCE AND ENABLE_UNIT_TESTS_NGHTTP2ASIO)
+if(ENABLE_FLEXIAPI AND ENABLE_CONFERENCE AND ENABLE_UNIT_TESTS_NGHTTP2ASIO)
 	target_sources(flexisip_tester PRIVATE
-			tests/eventlogs/writers/flexi-stats-event-log-writer-tester.cc
+		tests/eventlogs/writers/flexi-stats-event-log-writer-tester.cc
 	)
-	if (HAS_GCC_BUG_105562)
+	if(HAS_GCC_BUG_105562)
 		set_source_files_properties(
-				tests/eventlogs/writers/flexi-stats-event-log-writer-tester.cc
-				PROPERTIES COMPILE_OPTIONS "-Wno-error=maybe-uninitialized"
+			tests/eventlogs/writers/flexi-stats-event-log-writer-tester.cc
+			PROPERTIES COMPILE_OPTIONS "-Wno-error=maybe-uninitialized"
 		)
 	endif()
 endif()
@@ -190,20 +202,20 @@ endif()
 
 target_compile_options(flexisip_tester PRIVATE ${CPP_BUILD_FLAGS} ${CXX_BUILD_FLAGS})
 target_link_libraries(flexisip_tester PRIVATE
-		Boost::system
-		OpenSSL::Crypto
-		OpenSSL::SSL
-		Threads::Threads
-		bctoolbox-tester
-		belle-sip
-		flexisip
-		liblinphone
-		liblinphone++
-		mediastreamer2
-		ortp
-		jsoncpp_lib
-		hiredis
-		XercesC::XercesC
+	Boost::system
+	OpenSSL::Crypto
+	OpenSSL::SSL
+	Threads::Threads
+	bctoolbox-tester
+	belle-sip
+	flexisip
+	liblinphone
+	liblinphone++
+	mediastreamer2
+	ortp
+	jsoncpp_lib
+	hiredis
+	XercesC::XercesC
 )
 
 if(LIBNGHTTP2ASIO_FOUND AND ENABLE_UNIT_TESTS_NGHTTP2ASIO)
@@ -213,11 +225,11 @@ endif()
 target_include_directories(flexisip_tester PRIVATE "${PROJECT_SOURCE_DIR}/libxsd")
 
 install(TARGETS flexisip_tester
-		RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-		LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-		RESOURCE DESTINATION ${CMAKE_INSTALL_DATADIR}/flexisip-tester
-		PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
+	RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+	RESOURCE DESTINATION ${CMAKE_INSTALL_DATADIR}/flexisip-tester
+	PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
 )
 
 set(FLEXISIP_TESTER_INSTALL_DATADIR "${CMAKE_INSTALL_DATADIR}/flexisip-tester")
