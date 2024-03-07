@@ -1,4 +1,4 @@
-/** Copyright (C) 2010-2023 Belledonne Communications SARL
+/** Copyright (C) 2010-2024 Belledonne Communications SARL
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
@@ -9,7 +9,6 @@
 #include "agent.hh"
 #include "binding-parameters.hh"
 #include "change-set.hh"
-#include "eventlogs/writers/event-log-writer.hh"
 #include "exceptions.hh"
 #include "extended-contact.hh"
 #include "registrar-db.hh"
@@ -179,7 +178,7 @@ ChangeSet Record::insertOrUpdateBinding(unique_ptr<ExtendedContact>&& ec, Contac
 
 	/* Add the new contact, if not expired (ie with expires=0) */
 	if (!ec->isExpired()) {
-		shared_ptr<ExtendedContact> shared = move(ec);
+		shared_ptr<ExtendedContact> shared = std::move(ec);
 		mContacts.emplace(shared);
 		changeSet.mUpsert.push_back(shared);
 	}
@@ -200,8 +199,14 @@ Record::ContactMatch Record::matchContacts(const ExtendedContact& existing, cons
 		}
 	}
 
-	// Existing contact has an instance-id that is not a placeholder. RFC 5626
-	if (!existing.mKey.isPlaceholder()) {
+	// "If the Contact header field does not contain a "+sip.instance" Contact header field parameter, the registrar
+	// processes the request using the Contact binding rules in [RFC3261]." (RFC 5626 §6)
+	bool followRfc3261 = neo.mKey.isPlaceholder();
+	// But only if the existing contact is *also* missing an instance-id.
+	// We don't want contacts with an instance-id updated based on their URI
+	followRfc3261 &= existing.mKey.isPlaceholder();
+
+	if (!followRfc3261) { // RFC 5626
 		if (existing.mKey == neo.mKey) {
 			SLOGD << "Contact [" << existing << "] matches [" << neo << "] based on unique id";
 			return ContactMatch::EraseAndNotify;
@@ -209,9 +214,6 @@ Record::ContactMatch Record::matchContacts(const ExtendedContact& existing, cons
 
 		return ContactMatch::Skip; // no need to match further
 	}
-
-	// Otherwise, "If the Contact header field does not contain a "+sip.instance" Contact header field parameter, the
-	// registrar processes the request using the Contact binding rules in [RFC3261]." (RFC 5626 §6)
 
 	// "For each address, the registrar […] searches the list of current bindings using the URI comparison rules."
 	// (RFC 3261 §10.3)
@@ -317,7 +319,7 @@ ChangeSet Record::update(const sip_t* sip,
 		                                        (sip->sip_cseq) ? sip->sip_cseq->cs_seq : 0, getCurrentTime(), alias,
 		                                        acceptHeaders, userAgent);
 		exc->mUsedAsRoute = sip->sip_from->a_url->url_user == nullptr;
-		extendedContacts.push_back(move(exc));
+		extendedContacts.push_back(std::move(exc));
 		contacts = contacts->m_next;
 	}
 
@@ -326,7 +328,7 @@ ChangeSet Record::update(const sip_t* sip,
 	// Update the Record.
 	ChangeSet changeSet = removeInvalidContacts();
 	for (auto& exc : extendedContacts) {
-		changeSet += insertOrUpdateBinding(move(exc), listener.get());
+		changeSet += insertOrUpdateBinding(std::move(exc), listener.get());
 	}
 
 	changeSet += applyMaxAor();
@@ -361,7 +363,7 @@ void Record::update(const ExtendedContactCommon& ecc,
 	auto exct = make_unique<ExtendedContact>(ecc, contact, expireAt, cseq, updated_time, alias, accept, "");
 	exct->mUsedAsRoute = usedAsRoute;
 	try {
-		insertOrUpdateBinding(move(exct), listener.get());
+		insertOrUpdateBinding(std::move(exct), listener.get());
 	} catch (const InvalidCSeq&) {
 		SLOGE << "Unexpected invalid CSeq encountered when deserializing " << sipuri;
 	}
@@ -426,7 +428,7 @@ bool Record::sAssumeUniqueDomains = false;
 Record::Record(const SipUri& aor) : Record(SipUri(aor)) {
 }
 
-Record::Record(SipUri&& aor) : mAor(move(aor)) {
+Record::Record(SipUri&& aor) : mAor(std::move(aor)) {
 	// warning: aor is empty at this point. Use mAor!
 	mKey = defineKeyFromUrl(mAor.get());
 	mIsDomain = mAor.getUser().empty();

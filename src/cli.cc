@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -35,7 +35,6 @@
 
 #include "agent.hh"
 #include "cJSON.h"
-#include "eventlogs/writers/event-log-writer.hh"
 #include "recordserializer.hh"
 #include "registrar/binding-parameters.hh"
 #include "registrar/contact-key.hh"
@@ -49,6 +48,13 @@ namespace {
 
 constexpr const auto socket_send = send;
 constexpr const auto socket_recv = recv;
+
+void serializeRecord(SocketHandle& socket, Record* record) {
+	std::string serialized;
+	RecordSerializerJson().serialize(record, serialized, false);
+	socket.send(serialized);
+}
+
 } // namespace
 
 CommandLineInterface::CommandLineInterface(const std::string& name)
@@ -96,10 +102,10 @@ void CommandLineInterface::stop() {
 void CommandLineInterface::parseAndAnswer(SocketHandle&& socket,
                                           const std::string& command,
                                           const std::vector<std::string>& args) {
-	if ((command == "CONFIG_GET") || (command == "GET")) handleConfigGet(move(socket), args);
-	else if ((command == "CONFIG_LIST") || (command == "LIST")) handleConfigList(move(socket), args);
-	else if ((command == "CONFIG_SET") || (command == "SET")) handleConfigSet(move(socket), args);
-	else dispatch(move(socket), command, args);
+	if ((command == "CONFIG_GET") || (command == "GET")) handleConfigGet(std::move(socket), args);
+	else if ((command == "CONFIG_LIST") || (command == "LIST")) handleConfigList(std::move(socket), args);
+	else if ((command == "CONFIG_SET") || (command == "SET")) handleConfigSet(std::move(socket), args);
+	else dispatch(std::move(socket), command, args);
 }
 
 void CommandLineInterface::dispatch(SocketHandle&& socket,
@@ -143,7 +149,7 @@ void CommandLineInterface::handleConfigGet(SocketHandle&& socket, const std::vec
 		return;
 	}
 
-	GenericStruct* gstruct = dynamic_cast<GenericStruct *>(entry);
+	GenericStruct* gstruct = dynamic_cast<GenericStruct*>(entry);
 	if (gstruct) socket.send(printSection(gstruct, false));
 	else socket.send(printEntry(entry, false));
 }
@@ -160,7 +166,7 @@ void CommandLineInterface::handleConfigList(SocketHandle&& socket, const std::ve
 		return;
 	}
 
-	GenericStruct* gstruct = dynamic_cast<GenericStruct *>(entry);
+	GenericStruct* gstruct = dynamic_cast<GenericStruct*>(entry);
 	if (gstruct) socket.send(printSection(gstruct, true));
 	else socket.send(printEntry(entry, true));
 }
@@ -227,10 +233,10 @@ SocketHandle::~SocketHandle() {
 	shutdown(mHandle, SHUT_RDWR);
 	close(mHandle);
 }
-int SocketHandle::send(const std::string& message) {
-	return socket_send(mHandle, message.c_str(), message.length(), 0);
+int SocketHandle::send(string_view message) {
+	return socket_send(mHandle, message.data(), message.length(), 0);
 }
-int SocketHandle::recv(void* buffer, size_t length, int flags) {
+int SocketHandle::recv(char* buffer, size_t length, int flags) {
 	return socket_recv(mHandle, buffer, length, flags);
 }
 
@@ -301,7 +307,7 @@ void CommandLineInterface::run() {
 				auto split_query = StringUtils::split(buffer, " ");
 				std::string command = split_query.front();
 				split_query.erase(split_query.begin());
-				parseAndAnswer(move(child_socket), command, split_query);
+				parseAndAnswer(std::move(child_socket), command, split_query);
 				finished = true;
 			}
 		} while (!finished && mRunning);
@@ -375,7 +381,7 @@ ProxyCommandLineInterface::ProxyCommandLineInterface(const std::shared_ptr<Agent
 
 class CommandListener : public ContactUpdateListener {
 public:
-	CommandListener(SocketHandle&& socket) : mSocket(move(socket)) {
+	CommandListener(SocketHandle&& socket) : mSocket(std::move(socket)) {
 	}
 
 	void onError() override {
@@ -394,18 +400,16 @@ protected:
 
 class SerializeRecordWhenFound : public CommandListener {
 public:
-	SerializeRecordWhenFound(SocketHandle&& socket) : CommandListener(move(socket)) {
-	}
+	using CommandListener::CommandListener;
+
 	void onRecordFound(const shared_ptr<Record>& r) override {
 		if (!r || r->isEmpty()) {
 			// The Redis implementation returns an empty record instead of nullptr, see anchor WKADREGMIGDELREC
 			mSocket.send("Error 404: Not Found. The Registrar does not contain the requested AOR.");
 			return;
 		}
-		std::string serialized;
-		RecordSerializerJson serializer;
-		serializer.serialize(r.get(), serialized, false);
-		mSocket.send(serialized);
+
+		serializeRecord(mSocket, r.get());
 	}
 };
 
@@ -423,7 +427,7 @@ void ProxyCommandLineInterface::handleRegistrarGet(SocketHandle&& socket, const 
 		return;
 	}
 
-	auto listener = make_shared<SerializeRecordWhenFound>(move(socket));
+	auto listener = make_shared<SerializeRecordWhenFound>(std::move(socket));
 	RegistrarDb::get()->fetch(url, listener, false);
 }
 
@@ -486,8 +490,22 @@ void ProxyCommandLineInterface::handleRegistrarUpsert(SocketHandle&& socket, con
 	BindingParameters params{};
 	params.globalExpire = expire;
 	params.callId = "fs-cli-upsert";
-	RegistrarDb::get()->bind(aor, contact, params, std::make_shared<SerializeRecordWhenFound>(move(socket)));
+	RegistrarDb::get()->bind(aor, contact, params, std::make_shared<SerializeRecordWhenFound>(std::move(socket)));
 }
+
+class SerializeRecordEvenIfEmpty : public CommandListener {
+public:
+	using CommandListener::CommandListener;
+
+	void onRecordFound(const shared_ptr<Record>& r) override {
+		if (r == nullptr) { // Unreachable (2024-03-05)
+			mSocket.send("Error 404: Not Found. The Registrar does not contain the requested AOR.");
+			return;
+		}
+
+		serializeRecord(mSocket, r.get());
+	}
+};
 
 void ProxyCommandLineInterface::handleRegistrarDelete(SocketHandle&& socket, const std::vector<std::string>& args) {
 	if (args.size() < 2) {
@@ -495,27 +513,22 @@ void ProxyCommandLineInterface::handleRegistrarDelete(SocketHandle&& socket, con
 		return;
 	}
 
-	std::string from = args.at(0);
-	std::string uuid = args.at(1);
+	const auto& recordKey = SipUri(args.at(0));
+	const auto& contactKey = args.at(1);
 
-	auto msg = MsgSip(ownership::owned(nta_msg_create(mAgent->getSofiaAgent(), 0)));
-	auto msgHome = msg.getHome();
-	msg_header_add_dup(msg.getMsg(), nullptr,
-	                   reinterpret_cast<msg_header_t*>(sip_request_make(msgHome, "MESSAGE sip:abcd SIP/2.0\r\n")));
-
+	auto home = sofiasip::Home();
 	BindingParameters parameter;
-	parameter.globalExpire = 0;
+	parameter.globalExpire = 0; // un-REGISTER <=> delete
+	parameter.callId = "fs-cli-delete";
 
-	// We forge a fake SIP message
-	auto sip = msg.getSip();
-	sip->sip_from = sip_from_create(msgHome, (url_string_t*)from.c_str());
-	sip->sip_contact = sip_contact_create(msgHome, (url_string_t*)from.c_str(),
-	                                      string("+sip.instance=").append(uuid).c_str(), nullptr);
-	sip->sip_call_id = sip_call_id_make(msgHome, "foobar");
+	// Force binding logic to match the target contact based on this key (even if it is an auto-generated placeholder).
+	// I.e. prevent matching on RFC 3261's URI matching rules
+	const auto& sipInstance = "+sip.instance=" + contactKey + ContactKey::kNotAPlaceholderFlag;
+	const auto* const stubContact = sip_contact_create(
+	    home.home(), reinterpret_cast<const url_string_t*>(recordKey.get()), sipInstance.c_str(), nullptr);
 
-	auto listener = std::make_shared<SerializeRecordWhenFound>(move(socket));
-
-	RegistrarDb::get()->bind(msg, parameter, listener);
+	RegistrarDb::get()->bind(recordKey, stubContact, parameter,
+	                         std::make_shared<SerializeRecordEvenIfEmpty>(std::move(socket)));
 }
 
 void ProxyCommandLineInterface::handleRegistrarClear(SocketHandle&& socket, const std::vector<std::string>& args) {
@@ -526,7 +539,7 @@ void ProxyCommandLineInterface::handleRegistrarClear(SocketHandle&& socket, cons
 
 	class ClearListener : public CommandListener {
 	public:
-		ClearListener(SocketHandle&& socket, const std::string& uri) : CommandListener(move(socket)), mUri(uri) {
+		ClearListener(SocketHandle&& socket, const std::string& uri) : CommandListener(std::move(socket)), mUri(uri) {
 		}
 
 		void onRecordFound([[maybe_unused]] const shared_ptr<Record>& r) override {
@@ -548,11 +561,11 @@ void ProxyCommandLineInterface::handleRegistrarClear(SocketHandle&& socket, cons
 	auto msg = MsgSip(ownership::owned(nta_msg_create(mAgent->getSofiaAgent(), 0)));
 	auto sip = msg.getSip();
 	sip->sip_from = sip_from_create(msg.getHome(), (url_string_t*)arg.c_str());
-	auto listener = std::make_shared<ClearListener>(move(socket), arg);
+	auto listener = std::make_shared<ClearListener>(std::move(socket), arg);
 	RegistrarDb::get()->clear(msg, listener);
 }
 
-void ProxyCommandLineInterface::handleRegistrarDump(SocketHandle&& socket, [[maybe_unused]] const std::vector<std::string>& args) {
+void ProxyCommandLineInterface::handleRegistrarDump(SocketHandle&& socket, const std::vector<std::string>&) {
 	list<string> aorList;
 
 	RegistrarDb::get()->getLocalRegisteredAors(aorList);
@@ -574,17 +587,17 @@ void ProxyCommandLineInterface::handleRegistrarDump(SocketHandle&& socket, [[may
 void ProxyCommandLineInterface::parseAndAnswer(SocketHandle&& socket,
                                                const std::string& command,
                                                const std::vector<std::string>& args) {
-	if (command == "REGISTRAR_CLEAR"){
-		handleRegistrarClear(move(socket), args);
+	if (command == "REGISTRAR_CLEAR") {
+		handleRegistrarClear(std::move(socket), args);
 	} else if (command == "REGISTRAR_GET") {
-		handleRegistrarGet(move(socket), args);
+		handleRegistrarGet(std::move(socket), args);
 	} else if (command == "REGISTRAR_UPSERT") {
-		handleRegistrarUpsert(move(socket), args);
+		handleRegistrarUpsert(std::move(socket), args);
 	} else if (command == "REGISTRAR_DELETE") {
-		handleRegistrarDelete(move(socket), args);
+		handleRegistrarDelete(std::move(socket), args);
 	} else if (command == "REGISTRAR_DUMP") {
-		handleRegistrarDump(move(socket), args);
+		handleRegistrarDump(std::move(socket), args);
 	} else {
-		CommandLineInterface::parseAndAnswer(move(socket), command, args);
+		CommandLineInterface::parseAndAnswer(std::move(socket), command, args);
 	}
 }
