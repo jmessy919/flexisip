@@ -305,7 +305,7 @@ void CommandLineInterface::run() {
 				finished = true;
 			} else if (n > 0) {
 				SLOGD << "CommandLineInterface " << mName << " received: " << buffer;
-				auto split_query = StringUtils::split(buffer, " ");
+				auto split_query = StringUtils::split(std::string(buffer), " ");
 				std::string command = split_query.front();
 				split_query.erase(split_query.begin());
 				parseAndAnswer(std::move(child_socket), command, split_query);
@@ -547,13 +547,13 @@ void ProxyCommandLineInterface::handleRegistrarClear(SocketHandle&& socket, cons
 
 		void onRecordFound(const shared_ptr<Record>& r) override {
 			mRegistrarDb.publish(r->getKey(), "");
-			mSocket.send("Done: cleared record " + static_cast<const string&>(mUri));
+			mSocket.send("Done: cleared record " + mUri.asString());
 		}
 		void onError(const SipStatus&) override {
-			mSocket.send("Error: cannot clear record " + static_cast<const string&>(mUri));
+			mSocket.send("Error: cannot clear record " + mUri.asString());
 		}
 		void onInvalid(const SipStatus&) override {
-			mSocket.send("Error: cannot clear record " + static_cast<const string&>(mUri));
+			mSocket.send("Error: cannot clear record " + mUri.asString());
 		}
 
 	private:

@@ -97,7 +97,6 @@ add_library(flexisip SHARED
 	module-statistics-collector.cc
 	module-toolbox.cc module-toolbox.hh
 	module-transcode.cc module-transcode.hh
-	module-b2bua.cc
 	module.cc
 	monitor.cc monitor.hh
 	nat/contact-correction-strategy.cc nat/contact-correction-strategy.hh
@@ -116,7 +115,7 @@ add_library(flexisip SHARED
 	registrar/registrar-db.cc
 	registrardb-internal.cc registrardb-internal.hh
 	sdp-modifier.cc sdp-modifier.hh
-	service-server.cc service-server.hh
+	service-server/service-server.cc service-server/service-server.hh
 	signal-handling/signal-handling.cc
 	stun.cc stun.hh
 	stun/stun_udp.c
@@ -155,8 +154,6 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 
 	if(HAS_GCC_BUG_105616 OR HAS_GCC_BUG_105562)
 		set_source_files_properties(
-			b2bua/external-provider-bridge.cc
-			b2bua/trenscrypter.cc
 			configdumper.cc
 			domain-registrations.cc
 			eventlogs/writers/flexi-stats-event-log-writer.cc
@@ -224,13 +221,11 @@ if(ENABLE_TRANSCODER)
 endif()
 if(ENABLE_DATEHANDLER)
 	target_sources(flexisip PRIVATE module-datehandler.cc)
-endif()
-if(ENABLE_REDIS)
+endif ()
+if (ENABLE_REDIS)
+	add_subdirectory(libhiredis-wrapper)
 	target_sources(flexisip PRIVATE
-		libhiredis-wrapper/redis-async-script.cc libhiredis-wrapper/redis-async-script.hh
-		libhiredis-wrapper/redis-async-session.cc libhiredis-wrapper/redis-async-session.hh
-		libhiredis-wrapper/redis-reply.cc libhiredis-wrapper/redis-reply.hh
-		registrardb-redis-async.cc
+			registrardb-redis-async.cc
 	)
 	target_compile_definitions(flexisip PRIVATE "ENABLE_REDIS")
 	target_link_libraries(flexisip PRIVATE hiredis)
@@ -327,23 +322,11 @@ if(ENABLE_CONFERENCE)
 	)
 endif()
 if(ENABLE_B2BUA)
-	find_package(jsoncpp "1.1.0" REQUIRED)
-
 	target_sources(flexisip PRIVATE
-		b2bua/b2bua-server.cc
-		b2bua/b2bua-server.hh
-		b2bua/trenscrypter.cc
-		b2bua/trenscrypter.hh
-		b2bua/external-provider-bridge.hh
-		b2bua/external-provider-bridge.cc
+		module-b2bua.cc
 	)
-	target_link_libraries(flexisip
-		PUBLIC liblinphone++ liblinphone
-	)
-	target_link_libraries(flexisip PRIVATE
-		jsoncpp_lib
-		mediastreamer2
-	)
+
+	add_subdirectory(b2bua)
 endif()
 if(ENABLE_SOCI)
 	target_compile_definitions(flexisip PRIVATE "ENABLE_SOCI")
@@ -354,7 +337,7 @@ if(ENABLE_SOCI)
 		fork-context/fork-message-context-db-proxy.cc fork-context/fork-message-context-db-proxy.hh
 		soci-helper.cc soci-helper.hh
 	)
-	target_link_libraries(flexisip PUBLIC soci_core soci_mysql)
+	target_link_libraries(flexisip PUBLIC soci_core soci_mysql soci_sqlite3)
 	if(HAS_GCC_BUG_105562)
 		set_source_files_properties(
 			auth/db/authdb-soci.cc

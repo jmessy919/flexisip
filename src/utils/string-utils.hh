@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -9,7 +9,7 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
@@ -33,8 +33,6 @@
 #include "linphone++/enums.hh"
 #endif // HAVE_LIBLINPHONECXX
 
-#include "utils/stl-backports.hh"
-
 class StringUtils {
 public:
 	/**
@@ -44,6 +42,13 @@ public:
 	 * results to a vector containing the entire string (one element).
 	 */
 	static std::vector<std::string> split(const std::string& str, const std::string& delimiter) noexcept;
+	static std::vector<std::string_view> split(std::string_view str, std::string_view delimiter) noexcept;
+	/**
+	 * Splits the string on the first occurrence of the specified delimiter and returns prefix before delimiter and
+	 * suffix after delimiter
+	 */
+	static std::optional<std::pair<std::string_view, std::string_view>> splitOnce(std::string_view str,
+	                                                                              std::string_view delimiter) noexcept;
 
 	/* Remove surrounding double-quotes, if present */
 	static std::string unquote(const std::string& str) noexcept {
@@ -194,12 +199,38 @@ public:
 		return ret;
 	}
 
+	/**
+	 * @brief parseKeyValue this functions parses a string contraining a list of key/value
+	 * separated by a delimiter, and for each key-value, another delimiter.
+	 * It converts the string to a map<string,string>.
+	 *
+	 * For instance:
+	 * <code> parseKeyValue("toto:tata\nfoo:bar", '\n', ':', '#')</code>
+	 * will give you:
+	 * <code>{ make_pair("toto","tata"), make_pair("foo", "bar") }</code>
+	 *
+	 * @param toParse the string to parse
+	 * @param lineDelimiter the delimiter between lines
+	 * @param delimiter the delimiter between key and value (default is ':')
+	 * @param comment a character which is a comment. Lines starting with this character
+	 * will be ignored.
+	 * @return a map<string,string> which contains the keys and values extracted (can be empty)
+	 */
+	static std::map<std::string, std::string> parseKeyValue(const std::string& toParse,
+	                                                        const char lineDelimiter = '\n',
+	                                                        const char delimiter = ':',
+	                                                        const char comment = '#');
+
+	static bool isEndOfLineCharacter(char c) {
+		return c == '\r' || c == '\n';
+	}
+
 #ifdef HAVE_LIBLINPHONECXX
 	/**
 	 * Parse a string into a linphone::MediaEncryption
 	 *
 	 * @param[in]	configString	the configuration string, one of: zrtp, sdes, dtls-srtp, none
 	 **/
-	static flexisip::stl_backports::optional<linphone::MediaEncryption> string2MediaEncryption(const std::string& str);
+	static std::optional<linphone::MediaEncryption> string2MediaEncryption(const std::string& str);
 #endif // HAVE_LIBLINPHONECXX
 };

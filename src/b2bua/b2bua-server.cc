@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2024  Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -9,11 +9,11 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include <memory>
@@ -26,7 +26,8 @@
 #include "flexisip/utils/sip-uri.hh"
 
 #include "b2bua-server.hh"
-#include "external-provider-bridge.hh"
+#include "b2bua/async-stop-core.hh"
+#include "sip-bridge/sip-bridge.hh"
 #include "trenscrypter.hh"
 #include "utils/variant-utils.hh"
 
@@ -54,7 +55,7 @@ namespace {
  * @return	the other call in the conference
  */
 shared_ptr<linphone::Call> getPeerCall(shared_ptr<linphone::Call> call) {
-	auto& confData = call->getData<flexisip::b2bua::callsRefs>(B2buaServer::confKey);
+	auto& confData = call->getData<flexisip::b2bua::callsRefs>(B2buaServer::kConfKey);
 	if (call->getDir() == linphone::Call::Dir::Outgoing) {
 		return confData.legA;
 	} else {
@@ -70,10 +71,10 @@ B2buaServer::B2buaServer(const shared_ptr<sofiasip::SuRoot>& root, const std::sh
 B2buaServer::~B2buaServer() {
 }
 
-void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone::Core>& core,
+void B2buaServer::onCallStateChanged(const shared_ptr<linphone::Core>&,
                                      const shared_ptr<linphone::Call>& call,
                                      linphone::Call::State state,
-                                     [[maybe_unused]] const string& message) {
+                                     const string&) {
 	SLOGD << "b2bua server onCallStateChanged to " << (int)state << " "
 	      << ((call->getDir() == linphone::Call::Dir::Outgoing) ? "legB" : "legA");
 	switch (state) {
@@ -84,7 +85,8 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone:
 			// callId
 			auto outgoingCallParams = mCore->createCallParams(call);
 			// add this custom header so this call will not be intercepted by the b2bua
-			outgoingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+			// TODO(jabiru) rename to x-flexisip-b2bua to be RFC compliant OR get rid of it entirely
+			outgoingCallParams->addCustomHeader(kCustomHeader, "ignore");
 
 			const auto callee = Match(mApplication->onCallCreate(*call, *outgoingCallParams))
 			                        .against([](shared_ptr<const linphone::Address> callee) { return callee; },
@@ -124,8 +126,8 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone:
 			confData->legB = legB;
 
 			// store ref on each other call
-			call->setData<b2bua::callsRefs>(B2buaServer::confKey, *confData);
-			legB->setData<b2bua::callsRefs>(B2buaServer::confKey, *confData);
+			call->setData<b2bua::callsRefs>(B2buaServer::kConfKey, *confData);
+			legB->setData<b2bua::callsRefs>(B2buaServer::kConfKey, *confData);
 		} break;
 		case linphone::Call::State::PushIncomingReceived:
 			break;
@@ -135,12 +137,12 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone:
 			break;
 		case linphone::Call::State::OutgoingRinging: {
 			// This is legB getting its ring from callee, relay it to the legA call
-			auto& confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
+			auto& confData = call->getData<b2bua::callsRefs>(B2buaServer::kConfKey);
 			confData.legA->notifyRinging();
 		} break;
 		case linphone::Call::State::OutgoingEarlyMedia: {
 			// LegB call sends early media: relay a 180
-			auto& confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
+			auto& confData = call->getData<b2bua::callsRefs>(B2buaServer::kConfKey);
 			confData.legA->notifyRinging();
 		} break;
 		case linphone::Call::State::Connected: {
@@ -156,7 +158,7 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone:
 				SLOGD << "b2bua server leg B running -> answer legA";
 				auto incomingCallParams = mCore->createCallParams(peerCall);
 				// add this custom header so this call will not be intercepted by the b2bua
-				incomingCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				incomingCallParams->addCustomHeader(kCustomHeader, "ignore");
 				// enforce same video/audio enable to legA than on legB - manage video rejected by legB
 				incomingCallParams->enableAudio(call->getCurrentParams()->audioEnabled());
 				incomingCallParams->enableVideo(call->getCurrentParams()->videoEnabled());
@@ -178,7 +180,7 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone:
 				if (peerCallAudioDirection == linphone::MediaDirection::SendOnly ||
 				    peerCallAudioDirection == linphone::MediaDirection::Inactive) {
 					SLOGD << "b2bua server onCallStateChanged: peer call is paused, update it to resume";
-					auto peerCallParams = peerCall->getCurrentParams()->copy();
+					auto peerCallParams = mCore->createCallParams(peerCall);
 					peerCallParams->setAudioDirection(linphone::MediaDirection::SendRecv);
 					peerCall->update(peerCallParams);
 				}
@@ -197,15 +199,15 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone:
 		case linphone::Call::State::End: {
 			mApplication->onCallEnd(*call);
 			// If there are some data in that call, it is the first one to end
-			if (call->dataExists(B2buaServer::confKey)) {
+			if (call->dataExists(B2buaServer::kConfKey)) {
 				auto peerCall = getPeerCall(call);
 
 				SLOGD << "B2bua end call: Terminate conference";
-				auto& confData = call->getData<b2bua::callsRefs>(B2buaServer::confKey);
+				auto& confData = call->getData<b2bua::callsRefs>(B2buaServer::kConfKey);
 				// unset data everywhere it was stored
-				confData.legA->unsetData(B2buaServer::confKey);
-				confData.legB->unsetData(B2buaServer::confKey);
-				confData.conf->unsetData(B2buaServer::confKey);
+				confData.legA->unsetData(B2buaServer::kConfKey);
+				confData.legB->unsetData(B2buaServer::kConfKey);
+				confData.conf->unsetData(B2buaServer::kConfKey);
 				// terminate peer Call, copy error info from this call
 				peerCall->terminateWithErrorInfo(call->getErrorInfo());
 				// terminate the conf
@@ -235,24 +237,27 @@ void B2buaServer::onCallStateChanged([[maybe_unused]] const shared_ptr<linphone:
 			auto peerCallParams = mCore->createCallParams(peerCall);
 			const auto selfCallParams = call->getCurrentParams();
 			const auto selfRemoteCallParams = call->getRemoteParams();
-			bool update = false;
+			bool updatePeerCall = false;
 			if (selfRemoteCallParams->videoEnabled() != selfCallParams->videoEnabled()) {
-				update = true;
+				updatePeerCall = true;
 				peerCallParams->enableVideo(selfRemoteCallParams->videoEnabled());
 			}
 			if (selfRemoteCallParams->audioEnabled() != selfCallParams->audioEnabled()) {
-				update = true;
+				updatePeerCall = true;
 				peerCallParams->enableAudio(selfRemoteCallParams->audioEnabled());
 			}
-			if (update) {
+			if (updatePeerCall) {
 				SLOGD << "update peer call";
 				// add this custom header so this call will not be intercepted by the b2bua
-				peerCallParams->addCustomHeader("flexisip-b2bua", "ignore");
+				peerCallParams->addCustomHeader(kCustomHeader, "ignore");
 				peerCall->update(peerCallParams);
 				call->deferUpdate();
 			} else { // no update on video/audio status, just accept it with requested params
 				SLOGD << "accept update without forwarding it to peer call";
-				call->acceptUpdate(call->getRemoteParams());
+				// Accept all minor changes.
+				// acceptUpdate()'s documentation isn't very clear on its behaviour
+				// See https://linphone.atlassian.net/browse/SDK-120
+				call->acceptUpdate(nullptr);
 			}
 		} break;
 		case linphone::Call::State::IncomingEarlyMedia:
@@ -320,6 +325,7 @@ void B2buaServer::_init() {
 	// make sure the videostream can be started when using unsupported codec
 	configLinphone->setBool("video", "fallback_to_dummy_codec", true);
 	mCore = Factory::get()->createCoreWithConfig(configLinphone, nullptr);
+	mCore->setLabel("Flexisip B2BUA");
 	mCore->getConfig()->setString("storage", "backend", "sqlite3");
 	mCore->getConfig()->setString("storage", "uri", ":memory:");
 	mCore->setUseFiles(true); // No sound card shall be used in calls
@@ -426,7 +432,7 @@ void B2buaServer::_init() {
 	if (applicationType == "trenscrypter") {
 		mApplication = make_unique<b2bua::trenscrypter::Trenscrypter>();
 	} else if (applicationType == "sip-bridge") {
-		auto bridge = make_unique<b2bua::bridge::AccountManager>();
+		auto bridge = make_unique<b2bua::bridge::SipBridge>(mRoot, mCore);
 		mCli.registerHandler(*bridge);
 		mApplication = std::move(bridge);
 	} else {
@@ -442,9 +448,10 @@ void B2buaServer::_run() {
 	mCore->iterate();
 }
 
-void B2buaServer::_stop() {
+std::unique_ptr<AsyncCleanup> B2buaServer::_stop() {
 	mCore->removeListener(shared_from_this());
 	mCli.stop();
+	return std::make_unique<b2bua::AsyncStopCore>(mCore);
 }
 
 namespace {

@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2023 Belledonne Communications SARL.
+    Copyright (C) 2010-2024 Belledonne Communications SARL.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -28,7 +28,13 @@
 using namespace std;
 
 vector<string> StringUtils::split(const string& str, const string& delimiter) noexcept {
-	vector<string> out;
+	const auto views = split(string_view{str}, string_view{delimiter});
+
+	return {views.begin(), views.end()};
+}
+
+vector<string_view> StringUtils::split(string_view str, string_view delimiter) noexcept {
+	vector<string_view> out;
 
 	if (!str.empty()) {
 		size_t pos = 0, oldPos = 0;
@@ -38,6 +44,13 @@ vector<string> StringUtils::split(const string& str, const string& delimiter) no
 	}
 
 	return out;
+}
+
+optional<pair<string_view, string_view>> StringUtils::splitOnce(string_view str, string_view delimiter) noexcept {
+	const auto pos = str.find(delimiter);
+	if (pos == string_view::npos) return nullopt;
+
+	return {{str.substr(0, pos), str.substr(pos + delimiter.size())}};
 }
 
 std::string StringUtils::strip(const char* str, char c) noexcept {
@@ -106,9 +119,36 @@ std::string StringUtils::transform(const std::string& str, const std::map<char, 
 	return res;
 }
 
+std::map<std::string, std::string> StringUtils::parseKeyValue(const std::string& toParse,
+                                                              const char lineDelimiter,
+                                                              const char delimiter,
+                                                              const char comment) {
+	map<string, string> kvMap;
+	istringstream values(toParse);
+
+	for (string line; getline(values, line, lineDelimiter);) {
+		if (line.find(comment) == 0) continue; // section title
+
+		// clear all non-UNIX end of line chars
+		line.erase(remove_if(line.begin(), line.end(), isEndOfLineCharacter), line.end());
+
+		size_t delim_pos = line.find(delimiter);
+		if (delim_pos == line.npos || delim_pos == line.length()) {
+			LOGW("Invalid line '%s' in key-value", line.c_str());
+			continue;
+		}
+
+		const string key = line.substr(0, delim_pos);
+		string value = line.substr(delim_pos + 1);
+
+		kvMap[key] = value;
+	}
+
+	return kvMap;
+}
+
 #ifdef HAVE_LIBLINPHONECXX
-flexisip::stl_backports::optional<linphone::MediaEncryption>
-StringUtils::string2MediaEncryption(const std::string& str) {
+std::optional<linphone::MediaEncryption> StringUtils::string2MediaEncryption(const std::string& str) {
 	using enc = linphone::MediaEncryption;
 	if (str == "zrtp") {
 		return enc::ZRTP;

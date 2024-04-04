@@ -108,6 +108,7 @@ add_executable(flexisip_tester
 	tests/registrar/registrardb-tester.cc
 	tests/registrar/registrardb-redis-tester.cc
 	tests/sofia-wrapper/home-tester.cc
+	tests/utils/cast-to-const-tester.cc
 	tests/utils/flow-data-tester.cc
 	tests/utils/flow-factory-tester.cc
 	tests/utils/flow-tester.cc
@@ -200,7 +201,17 @@ endif()
 
 
 if(ENABLE_B2BUA)
-	target_sources(flexisip_tester PRIVATE b2bua-tester.cc)
+	target_sources(flexisip_tester PRIVATE
+		b2bua-tester.cc
+		tests/b2bua/sip-bridge/accounts/account-pool-tester.cc
+		tests/b2bua/sip-bridge/accounts/loaders/static-loader-tester.cc
+		tests/b2bua/sip-bridge/accounts/loaders/sql-loader-tester.cc
+		tests/b2bua/sip-bridge/accounts/selection-strategy/find-in-pool-tester.cc
+		tests/b2bua/sip-bridge/configuration/v2-tester.cc
+		tests/b2bua/sip-bridge/invite-tweaker-tester.cc
+		tests/b2bua/sip-bridge/sip-bridge-tester.cc
+		tests/b2bua/sip-bridge/variable-substitution-tester.cc
+	)
 endif()
 
 target_compile_options(flexisip_tester PRIVATE ${CPP_BUILD_FLAGS} ${CXX_BUILD_FLAGS})

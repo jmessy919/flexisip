@@ -124,7 +124,9 @@ void mContext_should_be_checked_on_serializeAndSendToRedis() {
 	auto listener = std::make_shared<OperationFailedListener>();
 
 	registrar.bind(SipUri(placeholder), sip_contact_make(home.home(), placeholder), bindParams, listener);
-	registrarBackend.asyncDisconnect(); // disconnecting before the previous bind operation finishes
+
+	// disconnecting before the previous bind operation finishes
+	RegistrarDbRedisAsync::forceDisconnectForTest(registrarBackend);
 
 	// The bind() ends in error, but there should be no segfault
 	BC_ASSERT_TRUE(SUITE_SCOPE->asserter.iterateUpTo(30, [&finished = listener->finished] { return finished; }));
@@ -136,7 +138,7 @@ void auto_connect_on_command() {
 	BC_HARD_ASSERT(backend != nullptr);
 	auto& registrarBackend = const_cast<RegistrarDbRedisAsync&>(*backend); // we want to force a behavior
 
-	registrarBackend.forceDisconnect();
+	RegistrarDbRedisAsync::forceDisconnectForTest(registrarBackend);
 	BC_HARD_ASSERT(!registrar.isWritable());
 
 	registrar.fetch(SipUri("sip:redis-auto-connect@example.org"), nullptr);
@@ -232,8 +234,9 @@ void subscribe_to_key_expiration() {
 	BC_ASSERT_CPP_EQUAL(reply->type, REDIS_REPLY_STATUS);
 	BC_ASSERT_STRING_EQUAL(reply->str, "OK");
 
-	BC_HARD_ASSERT(SUITE_SCOPE->asserter.iterateUpTo(
-	    8, [&actualTopic] { return actualTopic.has_value(); }, 200ms));
+	ASSERT_PASSED(SUITE_SCOPE->asserter.iterateUpTo(
+	    8, [&actualTopic] { return LOOP_ASSERTION(actualTopic.has_value()); }, 200ms));
+	BC_HARD_ASSERT(actualTopic.has_value());
 	BC_ASSERT_CPP_EQUAL(*actualTopic, topic);
 }
 
@@ -315,7 +318,7 @@ void connection_failure() {
 	BC_ASSERT_TRUE(asserter.iterateUpTo(1, [&finished = listener->finished] { return finished; }));
 
 	// Test error on context initialisation
-	registrarBackend.forceDisconnect();
+	RegistrarDbRedisAsync::forceDisconnectForTest(registrarBackend);
 	listener->finished = false;
 	// Sabotage network sockets
 	PreventOpeningNewFileDescriptors _{};
