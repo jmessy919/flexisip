@@ -71,6 +71,7 @@ void ConferenceServer::_init() {
 		     e.getUrl().c_str());
 	}
 	mCheckCapabilities = config->get<ConfigBoolean>("check-capabilities")->read();
+	mStateDir = config->get<ConfigString>("state-directory")->read();
 
 	/* Read enabled media types (audio, video, text) */
 	auto mediaTypes = config->get<ConfigStringList>("supported-media-types")->read();
@@ -607,6 +608,7 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	     ""},
 	    {Boolean, "empty-chat-room-deletion",
 	     "Whether the conference server will delete chat rooms that have no participants registered.\n", "true"},
+	    {String, "state-directory", "Directory where the conference server state files are stored.\n", DEFAULT_LIB_DIR},
 
 	    // Deprecated paramters:
 	    {String, "conference-factory-uri",
@@ -646,7 +648,7 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 } // namespace
 
 string ConferenceServer::getStateDir(const std::string& subdir) const {
-	return string(DEFAULT_LIB_DIR) + std::string("/") + subdir + (subdir.empty() ? "" : "/");
+	return mStateDir + std::string("/") + subdir + (subdir.empty() ? "" : "/");
 }
 
 void ConferenceServer::ensureDirectoryCreated(const std::string& directory) {

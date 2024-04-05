@@ -133,6 +133,7 @@ private:
 	std::string mUuid;
 	bool mAddressesBound = false;
 	bool mCheckCapabilities = false;
+	std::string mStateDir;
 	static constexpr const char* sUuidFile = "uuid";
 
 	static sofiasip::Home mHome;

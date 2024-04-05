@@ -27,10 +27,10 @@
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
 
-#define PY_SCRIPT_ERROR FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_error.py"
-#define PY_SCRIPT_SUCCESS FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_success.py"
-#define PY_SCRIPT_SUCCESS_F FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_success_fixed.py"
-#define FIREBASE_SAMPLE_FILE FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/config/firebase_sample_service_account.json"
+#define PY_SCRIPT_ERROR FLEXISIP_TESTER_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_error.py"
+#define PY_SCRIPT_SUCCESS FLEXISIP_TESTER_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_success.py"
+#define PY_SCRIPT_SUCCESS_F FLEXISIP_TESTER_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_success_fixed.py"
+#define FIREBASE_SAMPLE_FILE FLEXISIP_TESTER_DATA_SRCDIR "/config/firebase_sample_service_account.json"
 
 using namespace std;
 using HttpRequest = flexisip::HttpMessage;
@@ -75,14 +75,14 @@ void testInstantiateWrongPathFirebaseServiceAccountFile() {
 
 void testInstantiateFailedToParseServiceAccountFile() {
 	const auto root = make_shared<sofiasip::SuRoot>();
-	const auto fp = FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/config/firebase_sample_service_account_error.json";
+	const auto fp = FLEXISIP_TESTER_DATA_SRCDIR "/config/firebase_sample_service_account_error.json";
 	BC_ASSERT_THROWN(make_shared<FirebaseV1AuthenticationManager>(root, PY_SCRIPT_SUCCESS, fp, 10min, 10s),
 	                 runtime_error);
 }
 
 void testInstantiateMissingProjectIdServiceAccountFile() {
 	const auto root = make_shared<sofiasip::SuRoot>();
-	const auto path = FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/config/firebase_sample_service_account_missing_field.json";
+	const auto path = FLEXISIP_TESTER_DATA_SRCDIR "/config/firebase_sample_service_account_missing_field.json";
 	BC_ASSERT_THROWN(make_shared<FirebaseV1AuthenticationManager>(root, PY_SCRIPT_SUCCESS, path, 10min, 10s),
 	                 runtime_error);
 }

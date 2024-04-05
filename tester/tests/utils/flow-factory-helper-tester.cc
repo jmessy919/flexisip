@@ -24,6 +24,7 @@
 #include <flexisip/logmanager.hh>
 
 #include "flexisip-config.h"
+#include "tester.hh"
 #include "utils/flow-test-helper.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
@@ -38,7 +39,7 @@ using Helper = FlowTestHelper;
 namespace {
 
 void makeFlowFactoryHelper() {
-	const auto filePath = filesystem::path(FLEXISIP_TESTER_INSTALL_DATA_SRCDIR) / "flow-token-hash-key-test";
+	const auto filePath = bcTesterWriteDir().append("flow-token-hash-key-test");
 	filesystem::remove(filePath);
 
 	BC_HARD_ASSERT(filesystem::exists(filePath) == false);

@@ -32,7 +32,7 @@
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
 
-#define HASH_KEY_FILE_PATH FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/config/flow-token-hash-key"
+#define HASH_KEY_FILE_PATH FLEXISIP_TESTER_DATA_SRCDIR "/config/flow-token-hash-key"
 
 using namespace std;
 using namespace sofiasip;

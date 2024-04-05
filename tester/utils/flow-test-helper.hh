@@ -27,7 +27,7 @@
 #include "utils/flow.hh"
 #include "utils/socket-address.hh"
 
-#define HASH_KEY_FILE_PATH FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/config/flow-token-hash-key"
+#define HASH_KEY_FILE_PATH FLEXISIP_TESTER_DATA_SRCDIR "/config/flow-token-hash-key"
 
 namespace flexisip::tester {
 

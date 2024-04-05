@@ -140,6 +140,10 @@ ModuleInfo<NatHelper> NatHelper::sInfo(
 	         "Boolean expression in order to force the use of flow-token under specific conditions. This expression is "
 	         "only evaluated if the \"flow-token\" strategy is used.\n",
 	         "user-agent contains 'Linphone'"},
+	        {String, "flow-token-path",
+	         "Path to the hash key of the flow token. This expression is only evaluated if the \" flow - token\" "
+	         "strategy is used.",
+	         FLOW_TOKEN_HASH_KEY_FILE_PATH},
 	        {String, "contact-correction-param",
 	         "Internal URI parameter added to response contact by first proxy and cleaned by last one. It indicates if "
 	         "the contact was already verified and corrected.",

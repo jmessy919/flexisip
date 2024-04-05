@@ -23,11 +23,11 @@
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
 
-#define PY_SCRIPT_ERROR FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_error.py"
-#define PY_SCRIPT_SUCCESS_F FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_success_fixed.py"
+#define PY_SCRIPT_ERROR FLEXISIP_TESTER_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_error.py"
+#define PY_SCRIPT_SUCCESS_F FLEXISIP_TESTER_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_success_fixed.py"
 #define PY_SCRIPT_UNEXPECTED_OUTPUT                                                                                    \
-	FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_unexpected_output.py"
-#define FIREBASE_SAMPLE_FILE FLEXISIP_TESTER_INSTALL_DATA_SRCDIR "/config/firebase_sample_service_account.json"
+	FLEXISIP_TESTER_DATA_SRCDIR "/scripts/firebase_v1_get_access_token_unexpected_output.py"
+#define FIREBASE_SAMPLE_FILE FLEXISIP_TESTER_DATA_SRCDIR "/config/firebase_sample_service_account.json"
 
 using namespace std;
 using HttpRequest = flexisip::HttpMessage;

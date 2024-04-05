@@ -29,15 +29,14 @@
 #include "linphone++/enums.hh"
 
 #include "flexiapi/schemas/iso-8601-date.hh"
+#include "tester.hh"
 #include "utils/asserts.hh"
 #include "utils/chat-room-builder.hh"
 #include "utils/client-builder.hh"
-#include "utils/client-core.hh"
 #include "utils/core-assert.hh"
 #include "utils/eventlogs/event-logs.hh"
 #include "utils/http-mock/http-mock.hh"
 #include "utils/mysql-server.hh"
-#include "utils/proxy-server.hh"
 #include "utils/test-conference-server.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
@@ -159,8 +158,7 @@ void callToConference() {
 	CoreAssert asserter{johan, fakeConfServer, agent};
 
 	johan.invite(chatroom);
-	BC_HARD_ASSERT_TRUE(asserter.iterateUpTo(
-	    4, [&requestsReceivedCount] { return 0 < requestsReceivedCount; }, 1s));
+	BC_HARD_ASSERT_TRUE(asserter.iterateUpTo(4, [&requestsReceivedCount] { return 0 < requestsReceivedCount; }, 1s));
 
 	const auto startedEvent = httpMock.popRequestReceived();
 	json actualJson;
@@ -422,6 +420,7 @@ void messageToChatroomClearText() {
 	    // `mysql` to be as close to real-world deployments as possible
 	    {"conference-server/database-backend", "mysql"},
 	    {"conference-server/database-connection-string", mysqlServer.connectionString()},
+	    {"conference-server/state-directory", bcTesterWriteDir().append("var/lib/flexisip")},
 	});
 	const auto& agent = proxy->getAgent();
 	proxy->getAgent()
