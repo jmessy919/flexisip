@@ -32,7 +32,10 @@
 #include "flexisip/configmanager.hh"
 #include "flexisip/registrar/registar-listeners.hh"
 
+#include "agent.hh"
+#include "registrar/registrar-db.hh"
 #include "tester.hh"
+#include "utils/asserts.hh"
 #include "utils/chat-room-builder.hh"
 #include "utils/client-builder.hh"
 #include "utils/client-core.hh"

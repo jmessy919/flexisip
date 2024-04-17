@@ -81,10 +81,10 @@ public:
 	                     bool start = true,
 	                     InjectedHooks* injectedModule = nullptr)
 	    : Server(configFile, injectedModule) {
+		// Configure B2bua Server
+		auto* b2buaServerConf = getConfigManager()->getRoot()->get<GenericStruct>("b2bua-server");
 
 		if (!configFile.empty()) {
-			// Configure B2bua Server
-			auto* b2buaServerConf = getConfigManager()->getRoot()->get<GenericStruct>("b2bua-server");
 			// b2bua server needs an outbound proxy to route all sip messages to the proxy, set it to the first
 			// transport of the proxy.
 			auto proxyTransports = getAgent()
@@ -96,13 +96,10 @@ public:
 			b2buaServerConf->get<ConfigString>("outbound-proxy")->set(proxyTransports.front());
 		}
 
-		// need a writable dir to store DTLS-SRTP self signed certificate
+		// need a writable dir to store DTLS-SRTP self signed certificate (even if the config file is empty)
 		// Force to use writable-dir instead of var directory
-		getConfigManager()
-		    ->getRoot()
-		    ->get<GenericStruct>("b2bua-server")
-		    ->get<ConfigString>("data-directory")
-		    ->set(bcTesterWriteDir());
+		b2buaServerConf->get<ConfigString>("data-directory")->set(bcTesterWriteDir());
+
 		mB2buaServer = make_shared<flexisip::B2buaServer>(this->getRoot(), this->getConfigManager());
 
 		if (start) {

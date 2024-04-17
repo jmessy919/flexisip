@@ -39,12 +39,6 @@
 #include "flexisip-tester-config.hh"
 #include <flexisip/logmanager.hh>
 
-// Location of the grammar files
-#define AUTHDB_LOCAL_GRAMMAR_LOCATION FLEXISIP_ROOT_DIR "/share"
-#define VCARD_LOCAL_GRAMMAR_LOCATION FLEXISIP_ROOT_DIR "/linphone-sdk/belcard/src"
-#define SDP_LOCAL_GRAMMAR_LOCATION FLEXISIP_ROOT_DIR "/linphone-sdk/belle-sip/src/sdp"
-#define LIBLINPHONE_LOCAL_GRAMMARS_LOCATION FLEXISIP_ROOT_DIR "/linphone-sdk/liblinphone/share"
-
 namespace flexisip {
 namespace tester {
 
@@ -151,10 +145,16 @@ void flexisip_tester_init() {
 	// Make the default resource dir point to the 'tester' directory in the source code
 	bc_tester_set_resource_dir_prefix(FLEXISIP_TESTER_DATA_SRCDIR);
 
-	flexisip_tester_add_grammar_loader_path(AUTHDB_LOCAL_GRAMMAR_LOCATION);
-	flexisip_tester_add_grammar_loader_path(VCARD_LOCAL_GRAMMAR_LOCATION);
-	flexisip_tester_add_grammar_loader_path(SDP_LOCAL_GRAMMAR_LOCATION);
-	flexisip_tester_add_grammar_loader_path(LIBLINPHONE_LOCAL_GRAMMARS_LOCATION);
+	// Location of the grammar files
+	constexpr auto kAuthDbLocalGrammarLocation = FLEXISIP_ROOT_DIR "/share";
+	constexpr auto kVCardLocalGrammarLocation = FLEXISIP_ROOT_DIR "/linphone-sdk/belcard/src";
+	constexpr auto kSdpLocalGrammarLocation = FLEXISIP_ROOT_DIR "/linphone-sdk/belle-sip/src/sdp";
+	constexpr auto kLibLinphoneLocalGrammarLocation = FLEXISIP_ROOT_DIR "/linphone-sdk/liblinphone/share";
+	
+	flexisip_tester_add_grammar_loader_path(kAuthDbLocalGrammarLocation);
+	flexisip_tester_add_grammar_loader_path(kVCardLocalGrammarLocation);
+	flexisip_tester_add_grammar_loader_path(kSdpLocalGrammarLocation);
+	flexisip_tester_add_grammar_loader_path(kLibLinphoneLocalGrammarLocation);
 
 	flexisip_tester_set_factory_resources_path(FLEXISIP_ROOT_DIR);
 }
