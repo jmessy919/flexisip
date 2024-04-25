@@ -150,7 +150,7 @@ void SociAuthDB::declareConfig(GenericStruct* mc) {
 	     "number.\n"
 	     "\n"
 	     "Example: select username from accounts where phone = :phone",
-	     "select username from accounts where activated = true and (username = :phone or id = (select account_id from aliases where alias = :phone))"},
+	     "select username from accounts where activated = true and (username = :phone or phone = :phone)"},
 
 	    {String, "soci-users-with-phones-request",
 	     "WARNING: This parameter is used by the presence server only.\n"
@@ -159,7 +159,7 @@ void SociAuthDB::declareConfig(GenericStruct* mc) {
 	     "look for. Each element of the list is seperated by a comma character and is protected by simple quotes "
 	     "(e.g. '0336xxxxxxxx','0337yyyyyyyy','034zzzzzzzzz').\n"
 	     "Example: select username, domain from accounts where phone in (:phones)",
-	     "(select username, domain from accounts where (activated = true AND username in (:phones))) union (select ac.username, ac.domain from accounts ac, aliases al where (activated = true and ac.id = al.account_id and alias in (:phones)));"},
+	     "(select username, domain from accounts where (activated = true and username in (:phones))) union (select username, domain from accounts where (activated = true and phone in (:phones)));"},
 	    config_item_end};
 
 	mc->addChildrenValues(items);
