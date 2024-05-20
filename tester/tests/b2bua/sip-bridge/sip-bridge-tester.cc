@@ -536,18 +536,19 @@ ha1-md5@example.org clrtxt:a-clear-text-password ;
 	// waiting for iterate to be called again. That blocks the iteration of the proxy, so we spawn a separate cleanup
 	// thread to be able to keep iterating the proxy on the main thread (sofia aborts if we attempt to step the main
 	// loop on a non-main thread). See SDK-136.
-	const auto& cleanupThread = std::async(std::launch::async, [&asyncCleanup = *asyncCleanup]() {
-		BcAssert()
-		    .iterateUpTo(
-		        1, [&asyncCleanup]() { return LOOP_ASSERTION(asyncCleanup.finished()); }, timeout)
-		    .assert_passed();
-	});
+	auto count = 0;
 	CoreAssert(proxy)
 	    .iterateUpTo(
-	        10, [&registeredUsers] { return LOOP_ASSERTION(registeredUsers.empty()); }, timeout)
+	        10,
+	        [&asyncCleanup = *asyncCleanup, &count] {
+		        SLOGD << "DEBUG SDK-136 BEFORE ITERATION " << count;
+		        auto result = LOOP_ASSERTION(asyncCleanup.finished());
+		        SLOGD << "DEBUG SDK-136 AFTER ITERATION " << count;
+		        return result;
+	        },
+	        timeout)
 	    .assert_passed();
-	// Join proxy iterate thread. Leave ample time to let the asserter time-out first.
-	cleanupThread.wait_for(10s);
+	proxy.getRoot()->step(1ms);
 	BC_ASSERT_CPP_EQUAL(registeredUsers.size(), 0);
 }
 
