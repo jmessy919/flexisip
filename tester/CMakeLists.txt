@@ -103,6 +103,7 @@ add_executable(flexisip_tester
 	tests/presence/presence-pidf-tester.cc
 	tests/presence/presence-publish-tester.cc
 	tests/presence/xsd-utils-tester.cc
+	tests/proxy/modules/entryfilter-tester.cc
 	tests/pushnotification/access-token-provider-tester.cc
 	tests/pushnotification/authentication-manager-tester.cc
 	tests/pushnotification/rfc8599-push-params-tester.cc
