@@ -4,21 +4,21 @@
 
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include "agent.hh"
 #include "asserts.hh"
 #include "client-core.hh"
 #include "flexisip/sofia-wrapper/su-root.hh"
 #include "utils/proxy-server.hh"
-#include <memory>
-#include <vector>
 
-namespace flexisip {
-namespace tester {
+namespace flexisip::tester {
 
 class CoreAssert : public BcAssert {
 public:
 	template <class... Steppables>
-	CoreAssert(Steppables&&... steppables) : BcAssert({stepperFrom(steppables)...}) {
+	explicit CoreAssert(Steppables&&... steppables) : BcAssert({stepperFrom(steppables)...}) {
 	}
 
 	static std::function<void()> stepperFrom(linphone::Core& core) {
@@ -60,5 +60,4 @@ public:
 	}
 };
 
-} // namespace tester
-} // namespace flexisip
+} // namespace flexisip::tester

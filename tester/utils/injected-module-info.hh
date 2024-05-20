@@ -24,7 +24,7 @@ struct InjectedHooks {
 // Pass an instance of this class to flexisip::tester::Server's constructor to enable it.
 class InjectedModuleInfo : public ModuleInfoBase {
 public:
-	InjectedModuleInfo(const InjectedHooks& moduleHooks)
+	explicit InjectedModuleInfo(const InjectedHooks& moduleHooks)
 	    : ModuleInfoBase(
 	          "InjectedTestModule",
 	          "A module injected as high up in the module chain as possible to mangle requests and "
