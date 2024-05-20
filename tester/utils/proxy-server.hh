@@ -108,6 +108,10 @@ public:
 	 */
 	void runFor(std::chrono::milliseconds duration);
 
+	void runIdleTasks() {
+		mAgent->idle();
+	}
+
 private:
 	const std::optional<InjectedModuleInfo> mInjectedModule{std::nullopt};
 	std::shared_ptr<ConfigManager> mConfigManager{std::make_shared<ConfigManager>()};

@@ -524,6 +524,8 @@ ha1-md5@example.org clrtxt:a-clear-text-password ;
 	        70ms)
 	    .assert_passed();
 
+	// Expire nonce
+	proxy.runIdleTasks();
 	// Graceful async shutdown (unREGISTER accounts)
 	const auto& asyncCleanup = b2buaServer->stop();
 	const auto& registeredUsers =
@@ -542,9 +544,8 @@ ha1-md5@example.org clrtxt:a-clear-text-password ;
 	});
 	CoreAssert(proxy)
 	    .iterateUpTo(
-	        10, [&registeredUsers] { return LOOP_ASSERTION(registeredUsers.size() == 0); }, timeout)
+	        10, [&registeredUsers] { return LOOP_ASSERTION(registeredUsers.empty()); }, timeout)
 	    .assert_passed();
-	proxy.getRoot()->step(1ms);
 	// Join proxy iterate thread. Leave ample time to let the asserter time-out first.
 	cleanupThread.wait_for(10s);
 	BC_ASSERT_CPP_EQUAL(registeredUsers.size(), 0);
