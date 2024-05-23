@@ -9,35 +9,39 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>.
+    along with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #pragma once
 
-#include <cstddef>
-#include <optional>
+#include <exception>
 #include <string>
-
-#include "sofia-sip/sip.h"
+#include <string_view>
 
 namespace flexisip {
 
-class EventId {
+/*
+ * Report an event that requires the program to be stopped.
+ * The cause may be an error or normal program execution.
+ */
+class Exit : public std::runtime_error {
 public:
-	explicit EventId(const sip_t&);
-	explicit EventId(std::string_view);
+	explicit Exit(int code) : std::runtime_error{""}, mCode(code) {
+	}
+	template <typename... Args>
+	explicit Exit(int code, Args... args) : std::runtime_error{std::forward<Args>(args)...}, mCode(code) {
+	}
 
-	// Voluntarily non-explicit so it allows implicit conversions.
-	operator std::string() const {
-		return mHash;
+	int code() const {
+		return mCode;
 	}
 
 private:
-	const std::string mHash;
+	int mCode;
 };
 
 } // namespace flexisip

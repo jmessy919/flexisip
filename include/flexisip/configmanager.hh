@@ -133,7 +133,6 @@ private:
 };
 
 class ConfigManagerVisitor;
-class GenericEntry;
 class GenericEntry {
 public:
 	class DeprecationInfo {
@@ -513,7 +512,7 @@ private:
 		int max;
 	};
 
-	static RangeBounds parse(const std::string& value);
+	RangeBounds parse(const std::string& value);
 };
 
 template <typename DurationType>
