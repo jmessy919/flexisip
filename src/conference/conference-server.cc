@@ -380,7 +380,7 @@ void ConferenceServer::onConferenceAddressGeneration(const shared_ptr<ChatRoom>&
 	shared_ptr<Address> confAddr = cr->getConferenceAddress()->clone();
 	LOGI("Conference address is %s", confAddr->asString().c_str());
 	shared_ptr<ConferenceAddressGenerator> generator =
-	    make_shared<ConferenceAddressGenerator>(cr, confAddr, getUuid(), mPath, this, *mRegistrarDb);
+	    make_shared<ConferenceAddressGenerator>(cr, confAddr, getUuid(), this, *mRegistrarDb);
 	generator->run();
 }
 

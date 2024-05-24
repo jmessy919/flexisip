@@ -908,7 +908,7 @@ void ModuleRegistrar::readStaticRecords() {
 		return;
 	}
 
-	string path = getAgent()->getPreferredRoute();
+	string path = "<" + getAgent()->getPreferredRoute() + ">";
 	mStaticRecordsVersion++;
 
 	const regex isCommentOrEmptyRe(R"regex(^\s*(#.*)?$)regex");

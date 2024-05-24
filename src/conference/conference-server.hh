@@ -40,12 +40,13 @@ class ConferenceServer : public ServiceServer,
                          public linphone::ChatRoomListener {
 public:
 	template <typename StrT, typename SuRootPtr>
-	ConferenceServer(StrT&& path,
+	ConferenceServer(StrT&& pathUri,
 	                 SuRootPtr&& root,
 	                 const std::shared_ptr<ConfigManager>& cfg,
 	                 const std::shared_ptr<RegistrarDb>& registrarDb)
-	    : ServiceServer{std::forward<SuRootPtr>(root)}, mPath{std::forward<StrT>(path)}, mConfigManager{cfg},
+	    : ServiceServer{std::forward<SuRootPtr>(root)}, mConfigManager{cfg},
 	      mRegistrarDb{registrarDb}, mSubscriptionHandler{*this, *mRegistrarDb} {
+		mPath = "<" + std::forward<StrT>(pathUri) + ">";
 	}
 
 	virtual void bindAddresses();
