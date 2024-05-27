@@ -1,5 +1,7 @@
-semanage fcontext -a -t var_log_t '@FLEXISIP_LOGDIR@(/.*)?' || echo "fcontext var_log_t @FLEXISIP_LOGDIR@ failed with return code $?"
-restorecon -R @FLEXISIP_LOGDIR@ || echo "restorecon @FLEXISIP_LOGDIR@ failed with return code $?"
+semanage fcontext -a -t var_log_t '@FLEXISIP_LOGDIR@' || echo "fcontext var_log_t @FLEXISIP_LOGDIR@ failed with return code $?"
+semanage fcontext -a -t var_log_t '@DEFAULT_LOG_DIR@(/.*)?' || echo "fcontext var_log_t @FLEXISIP_LOGDIR@ failed with return code $?"
+restorecon @FLEXISIP_LOGDIR@ || echo "restorecon @FLEXISIP_LOGDIR@ failed with return code $?"
+restorecon -R @DEFAULT_LOG_DIR@ || echo "restorecon @FLEXISIP_LOGDIR@ failed with return code $?"
 semanage fcontext -a -t var_log_t '@FLEXISIP_B2BUA_DATADIR@(/.*)?' || echo "fcontext var_log_t @FLEXISIP_LOGDIR@ failed with return code $?"
 restorecon -R @FLEXISIP_B2BUA_DATADIR@ || echo "restorecon @FLEXISIP_LOGDIR@ failed with return code $?"
 %systemd_post @FLEXISIP_SERVICES@
