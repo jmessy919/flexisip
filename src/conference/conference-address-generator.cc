@@ -28,13 +28,12 @@
 using namespace flexisip;
 using namespace std;
 
-ConferenceAddressGenerator::ConferenceAddressGenerator(const shared_ptr<linphone::ChatRoom> chatRoom,
-                                                       shared_ptr<linphone::Address> conferenceFactoryAddr,
+ConferenceAddressGenerator::ConferenceAddressGenerator(const shared_ptr<linphone::ChatRoom> &chatRoom,
+                                                       shared_ptr<linphone::Address> &conferenceFactoryAddr,
                                                        const string& uuid,
-                                                       const string& path,
                                                        ConferenceServer* conferenceServer,
                                                        RegistrarDb& registrarDb)
-    : mChatRoom(chatRoom), mConferenceAddr(conferenceFactoryAddr), mUuid(uuid), mPath(path),
+    : mChatRoom(chatRoom), mConferenceAddr(conferenceFactoryAddr), mUuid(uuid),
       mConferenceServer(conferenceServer), mRegistrarDb(registrarDb) {
 }
 
