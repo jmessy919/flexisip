@@ -19,13 +19,13 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <string>
 
 #include "agent.hh"
 #include <linphone++/linphone.hh>
 
-#include "utils/proxy-server.hh"
 namespace flexisip {
 namespace pushnotification {
 
@@ -39,6 +39,13 @@ class CoreClient;
 enum class OnOff : bool {
 	Off = 0,
 	On = 1,
+};
+
+enum class AudioCodec : std::uint8_t {
+	// Don't force anything
+	AllSupported,
+	Speex8000HzMono,
+	PCMU8000HzMono,
 };
 
 class ClientBuilder {
@@ -71,6 +78,12 @@ public:
 	ClientBuilder& setApplePushConfig();
 	ClientBuilder& setApplePushConfigRemoteOnly();
 	ClientBuilder& setPassword(const std::string_view& password);
+	ClientBuilder& setAudioOutputFilePath(const std::filesystem::path&);
+	ClientBuilder& setAudioInputFilePath(const std::filesystem::path&);
+	/**
+	 * Force audio codec
+	 */
+	ClientBuilder& setAudioCodec(AudioCodec);
 
 	ClientBuilder& setMwiServerAddress(const std::shared_ptr<linphone::Address>& address);
 
@@ -87,7 +100,10 @@ private:
 	OnOff mSendRtcp : 1;
 	OnOff mIce : 1;
 	OnOff mRegister : 1;
+	AudioCodec mAudioCodec = AudioCodec::AllSupported;
 	std::string mPassword{""};
+	std::string mRecordFilePath{""};
+	std::string mPlayFilePath;
 };
 
 } // namespace tester
