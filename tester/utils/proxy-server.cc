@@ -26,7 +26,6 @@
 
 #include "registrar/registrar-db.hh"
 #include "tester.hh"
-#include "utils/client-builder.hh"
 
 using namespace std;
 using namespace std::chrono;
@@ -56,7 +55,7 @@ tport_t* getFirstTransport(const Agent& agent, sa_family_t ipAddressFamily) {
 /**
  * A class to manage the flexisip proxy server
  */
-Server::Server(const std::string& configFile, InjectedHooks* injectedHooks)
+Server::Server(const std::string& configFile, const InjectedHooks* injectedHooks)
     : mInjectedModule(injectedHooks ? decltype(mInjectedModule){*injectedHooks} : std::nullopt) {
 
 	if (!configFile.empty()) {
@@ -80,19 +79,17 @@ Server::Server(const std::string& configFile, InjectedHooks* injectedHooks)
 	}
 
 	mAuthDb = std::make_shared<AuthDb>(mConfigManager);
-	auto root = std::make_shared<sofiasip::SuRoot>();
-	mRegistrarDb = std::make_shared<RegistrarDb>(root, mConfigManager);
-	mAgent = std::make_shared<Agent>(root, mConfigManager, mAuthDb, mRegistrarDb);
+	mRegistrarDb = std::make_shared<RegistrarDb>(mRoot, mConfigManager);
 }
 
-Server::Server(const std::map<std::string, std::string>& customConfig, InjectedHooks* injectedHooks)
+Server::Server(const std::map<std::string, std::string>& customConfig, const InjectedHooks* injectedHooks)
     : Server(customConfig, std::make_shared<sofiasip::SuRoot>(), injectedHooks) {
 }
 
 Server::Server(const std::map<std::string, std::string>& customConfig,
                const std::shared_ptr<sofiasip::SuRoot>& root,
-               InjectedHooks* injectedHooks)
-    : mInjectedModule(injectedHooks ? decltype(mInjectedModule){*injectedHooks} : std::nullopt) {
+               const InjectedHooks* injectedHooks)
+    : mInjectedModule(injectedHooks ? decltype(mInjectedModule){*injectedHooks} : std::nullopt), mRoot(root) {
 	mConfigManager->load("");
 
 	// add minimal config if not present
@@ -116,26 +113,36 @@ Server::Server(const std::map<std::string, std::string>& customConfig,
 	}
 
 	mAuthDb = std::make_shared<AuthDb>(mConfigManager);
-	mRegistrarDb = std::make_shared<RegistrarDb>(root, mConfigManager);
-	mAgent = std::make_shared<Agent>(root, mConfigManager, mAuthDb, mRegistrarDb);
+	mRegistrarDb = std::make_shared<RegistrarDb>(mRoot, mConfigManager);
+}
+
+flexisip::Agent& Server::getAgentMut() {
+	if (!mAgent) {
+		mAgent = std::make_shared<Agent>(mRoot, mConfigManager, mAuthDb, mRegistrarDb);
+	}
+
+	return *mAgent;
+}
+
+void Server::start() {
+	getAgentMut().start("", "");
+}
+
+void Server::stop() {
+	mAgent.reset();
 }
 
 Server::~Server() {
-	mAgent->unloadConfig();
-}
-
-void Server::runFor(std::chrono::milliseconds duration) {
-	auto beforePlusDuration = steady_clock::now() + duration;
-	while (beforePlusDuration >= steady_clock::now()) {
-		mAgent->getRoot()->step(100ms);
-	}
+	if (mAgent) mAgent->unloadConfig();
 }
 
 const char* Server::getFirstPort() const {
+	if (!mAgent) return nullptr;
 	return tester::getFirstPort(*mAgent);
 }
 
 tport_t* Server::getFirstTransport(sa_family_t ipAddressFamily) const {
+	if (!mAgent) return nullptr;
 	return tester::getFirstTransport(*mAgent, ipAddressFamily);
 }
 

@@ -26,7 +26,6 @@
 #include "flexisip/sofia-wrapper/su-root.hh"
 
 #include "agent.hh"
-#include "eventlogs/writers/event-log-writer.hh"
 #include "injected-module-info.hh"
 #include "registrar/registrar-db.hh"
 
@@ -47,7 +46,7 @@ public:
 	 * @param injectedModule A module to be injected into the Agent's module chain to mangle requests before they reach
 	 * other modules.
 	 */
-	explicit Server(const std::string& configFile = "", InjectedHooks* injectedHooks = nullptr);
+	explicit Server(const std::string& configFile = "", const InjectedHooks* injectedHooks = nullptr);
 	/**
 	 * @brief Same as before but use a map instead of a file to configure the agent.
 	 * Default transport is set to localhost and port 0.
@@ -58,7 +57,8 @@ public:
 	 * @param injectedModule A module to be injected into the Agent's module chain to mangle requests before they reach
 	 * other modules.
 	 */
-	explicit Server(const std::map<std::string, std::string>& customConfig, InjectedHooks* injectedHooks = nullptr);
+	explicit Server(const std::map<std::string, std::string>& customConfig,
+	                const InjectedHooks* injectedHooks = nullptr);
 	/**
 	 * @brief Same as before but use a map instead of a file to configure the agent.
 	 * Default transport is set to localhost and port 0.
@@ -72,7 +72,7 @@ public:
 	 */
 	explicit Server(const std::map<std::string, std::string>& customConfig,
 	                const std::shared_ptr<sofiasip::SuRoot>& root,
-	                InjectedHooks* injectedHooks = nullptr);
+	                const InjectedHooks* injectedHooks = nullptr);
 
 	virtual ~Server();
 
@@ -89,6 +89,11 @@ public:
 		return mRegistrarDb;
 	}
 
+	/**
+	 * @brief Lazily constructs the agent if it does not exist
+	 */
+	flexisip::Agent& getAgentMut();
+
 	const std::shared_ptr<flexisip::Agent>& getAgent() const noexcept {
 		return mAgent;
 	}
@@ -99,14 +104,8 @@ public:
 	/**
 	 * @brief Start the Agent.
 	 */
-	virtual void start() {
-		mAgent->start("", "");
-	}
-
-	/**
-	 * @brief Run the main loop for a given time.
-	 */
-	void runFor(std::chrono::milliseconds duration);
+	virtual void start();
+	void stop();
 
 private:
 	const std::optional<InjectedModuleInfo> mInjectedModule{std::nullopt};
@@ -114,6 +113,7 @@ private:
 	std::shared_ptr<AuthDb> mAuthDb;
 	std::shared_ptr<RegistrarDb> mRegistrarDb;
 	std::shared_ptr<flexisip::Agent> mAgent;
+	std::shared_ptr<sofiasip::SuRoot> mRoot = std::make_shared<sofiasip::SuRoot>();
 }; // Class Server
 
 } // namespace tester

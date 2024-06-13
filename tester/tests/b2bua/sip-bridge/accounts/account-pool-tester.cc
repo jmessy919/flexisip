@@ -370,10 +370,8 @@ void accountRegistrationThrottling() {
 	BC_HARD_ASSERT(pool->allAccountsLoaded());
 	// Let the Proxy receive the REGISTER requests
 	asserter
-	    .iterateUpTo(3,
-	               [&numberOfRegister]() {
-		               return LOOP_ASSERTION(numberOfRegister == accountCount);
-	               }, 200ms)
+	    .iterateUpTo(
+	        3, [&numberOfRegister]() { return LOOP_ASSERTION(numberOfRegister == accountCount); }, 200ms)
 	    .assert_passed();
 	BC_HARD_ASSERT_CPP_EQUAL(numberOfRegister, accountCount);
 	numberOfRegister = 0;
@@ -391,10 +389,83 @@ void accountRegistrationThrottling() {
 	BC_ASSERT_TRUE(numberOfRegister < 7);
 }
 
+/**
+ * create enough accounts
+ * register them at given rate
+ * cut off connection -> how? Turn proxy off then on again?
+ * measure reconnection rate
+ * record order?
+ */
+template <usize_t accountCount, usize_t rateMs>
+void noBurstOfRegistersOnReconnect() {
+	auto registerRequestCount = 0;
+	const auto& hooks = InjectedHooks{
+	    .onRequest =
+	        [&registerRequestCount](const std::shared_ptr<RequestSipEvent>& requestEvent) mutable {
+		        const auto* sip = requestEvent->getSip();
+		        if (sip->sip_request->rq_method != sip_method_register) {
+			        return;
+		        }
+		        registerRequestCount++;
+	        },
+	};
+	auto proxy = Server(
+	    {
+	        {"module::Registrar/enabled", "true"},
+	    },
+	    &hooks);
+	proxy.start();
+	const auto& suRoot = make_shared<sofiasip::SuRoot>();
+	const auto& b2buaCore = minimalCore(*linphone::Factory::get());
+	b2buaCore->start();
+	const auto& proxyTransport = "sip:127.0.0.1:"s + proxy.getFirstPort();
+	// Record obtained port in config so the proxy attempts to re-bind to the same one on restart
+	proxy.getConfigManager()
+	    ->getRoot()
+	    ->get<GenericStruct>("global")
+	    ->get<ConfigStringList>("transports")
+	    ->set(proxyTransport);
+	const auto& poolConfig = config::v2::AccountPool{
+	    .outboundProxy = "<"s + proxyTransport + ";transport=tcp>",
+	    .registrationRequired = true,
+	    .maxCallsPerLine = 0xdead,
+	    .loader = {},
+	    .registrationThrottlingRateMs = rateMs,
+	};
+	auto accounts = vector<config::v2::Account>(accountCount, config::v2::Account{});
+	for (auto& account : accounts) {
+		account.uri = "sip:uri-" + randomString(10) + "@stub.example.org";
+	}
+	const auto& pool = AccountPool{
+	    suRoot, b2buaCore, __FUNCTION__, poolConfig, make_unique<StaticAccountLoader>(std::move(accounts)),
+	};
+	auto asserter = CoreAssert(proxy, *suRoot, b2buaCore);
+	asserter
+	    .iterateUpTo(
+	        accountCount, [&registerRequestCount]() { return LOOP_ASSERTION(registerRequestCount == accountCount); },
+	        chrono::milliseconds(rateMs) * accountCount)
+	    .assert_passed();
+	BC_ASSERT_CPP_EQUAL(registerRequestCount, accountCount);
+
+	SLOGD << __FUNCTION__ << " - Stopping SIP proxy";
+	proxy.stop();
+	SLOGD << __FUNCTION__ << " - Restarting SIP proxy";
+	proxy.start();
+	SLOGD << __FUNCTION__ << " - Re-REGISTERing B2BUA accounts";
+	registerRequestCount = 0;
+	asserter
+	    .iterateUpTo(
+	        accountCount, [&registerRequestCount]() { return LOOP_ASSERTION(registerRequestCount == accountCount); },
+	        chrono::milliseconds(rateMs) * accountCount)
+	    .assert_passed();
+	BC_ASSERT_CPP_EQUAL(registerRequestCount, accountCount);
+}
+
 const TestSuite _{
     "b2bua::bridge::account::AccountPool",
     {
         CLASSY_TEST(accountRegistrationThrottling),
+        CLASSY_TEST((noBurstOfRegistersOnReconnect<30, 20>)).tag("Skip"), // Too long
     },
 };
 
