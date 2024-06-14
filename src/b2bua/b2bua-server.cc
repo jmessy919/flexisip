@@ -221,14 +221,7 @@ void B2buaServer::onCallStateChanged(const shared_ptr<linphone::Core>&,
 			// Paused by remote: do not pause peer call as it will kick it out of the conference
 			// just switch the media direction to sendOnly (only if it is not already set this way)
 			auto peerCall = getPeerCall(call);
-			auto peerCallParams = mCore->createCallParams(peerCall);
-			auto audioDirection = peerCallParams->getAudioDirection();
-			// Nothing to do if peer call is already not sending audio
-			if (audioDirection != linphone::MediaDirection::Inactive &&
-			    audioDirection != linphone::MediaDirection::SendOnly) {
-				peerCallParams->setAudioDirection(linphone::MediaDirection::SendOnly);
-				peerCall->update(peerCallParams);
-			}
+			peerCall->pause();
 		} break;
 		case linphone::Call::State::UpdatedByRemote: {
 			// Manage add/remove video - ignore for other changes
