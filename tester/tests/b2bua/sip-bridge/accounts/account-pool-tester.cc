@@ -2,10 +2,13 @@
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+#include "b2bua/sip-bridge/accounts/account-pool.hh"
+
+#include <fstream>
+
 #include <soci/session.h>
 #include <soci/sqlite3/soci-sqlite3.h>
 
-#include "b2bua/sip-bridge/accounts/account-pool.hh"
 #include "b2bua/sip-bridge/accounts/loaders/sql-account-loader.hh"
 #include "b2bua/sip-bridge/accounts/loaders/static-account-loader.hh"
 #include "tester.hh"
@@ -398,15 +401,26 @@ void accountRegistrationThrottling() {
  */
 template <usize_t accountCount, usize_t rateMs>
 void noBurstOfRegistersOnReconnect() {
-	auto registerRequestCount = 0;
+	struct RegisterRequest {
+		long timestamp;
+		std::uint64_t count;
+	};
+
+	auto registerLog = vector<RegisterRequest>();
+	registerLog.reserve(accountCount);
+	chrono::system_clock::time_point t0;
 	const auto& hooks = InjectedHooks{
 	    .onRequest =
-	        [&registerRequestCount](const std::shared_ptr<RequestSipEvent>& requestEvent) mutable {
+	        [&registerLog, &t0](const std::shared_ptr<RequestSipEvent>& requestEvent) mutable {
 		        const auto* sip = requestEvent->getSip();
 		        if (sip->sip_request->rq_method != sip_method_register) {
 			        return;
 		        }
-		        registerRequestCount++;
+
+		        registerLog.emplace_back(RegisterRequest{
+		            .timestamp = (chrono::system_clock::now() - t0).count(),
+		            .count = registerLog.size(),
+		        });
 	        },
 	};
 	auto proxy = Server(
@@ -440,32 +454,60 @@ void noBurstOfRegistersOnReconnect() {
 	    suRoot, b2buaCore, __FUNCTION__, poolConfig, make_unique<StaticAccountLoader>(std::move(accounts)),
 	};
 	auto asserter = CoreAssert(proxy, *suRoot, b2buaCore);
+	SLOGD << __FUNCTION__ << " - Starting first REGISTER wave";
+	t0 = chrono::system_clock::now();
 	asserter
 	    .iterateUpTo(
-	        accountCount, [&registerRequestCount]() { return LOOP_ASSERTION(registerRequestCount == accountCount); },
+	        accountCount, [&registerLog]() { return LOOP_ASSERTION(registerLog.size() == accountCount); },
 	        chrono::milliseconds(rateMs) * accountCount)
 	    .assert_passed();
-	BC_ASSERT_CPP_EQUAL(registerRequestCount, accountCount);
+	asserter
+	    .iterateUpTo(
+	        accountCount,
+	        [&pool]() {
+		        for (const auto& [_, account] : pool) {
+			        FAIL_IF(!account->isAvailable());
+		        }
+		        return ASSERTION_PASSED();
+	        },
+	        chrono::milliseconds(rateMs) * accountCount)
+	    .assert_passed();
+	BC_ASSERT_CPP_EQUAL(registerLog.size(), accountCount);
+	{
+		auto csv = ofstream("first-registers.csv", ios::binary);
+		csv << "received, user\n";
+		for (const auto& [received, user] : registerLog) {
+			csv << received << ", " << user << "\n";
+		}
+	}
 
 	SLOGD << __FUNCTION__ << " - Stopping SIP proxy";
 	proxy.stop();
 	SLOGD << __FUNCTION__ << " - Restarting SIP proxy";
 	proxy.start();
 	SLOGD << __FUNCTION__ << " - Re-REGISTERing B2BUA accounts";
-	registerRequestCount = 0;
+	registerLog.clear();
+	t0 = chrono::system_clock::now();
 	asserter
 	    .iterateUpTo(
-	        accountCount, [&registerRequestCount]() { return LOOP_ASSERTION(registerRequestCount == accountCount); },
+	        accountCount, [&registerLog]() { return LOOP_ASSERTION(registerLog.size() == accountCount); },
 	        chrono::milliseconds(rateMs) * accountCount)
 	    .assert_passed();
-	BC_ASSERT_CPP_EQUAL(registerRequestCount, accountCount);
+	BC_ASSERT_CPP_EQUAL(registerLog.size(), accountCount);
+	{
+		auto csv = ofstream("re-registers.csv", ios::binary);
+		csv << "received, user\n";
+		for (const auto& [received, user] : registerLog) {
+			csv << received << ", " << user << "\n";
+		}
+	}
 }
 
 const TestSuite _{
     "b2bua::bridge::account::AccountPool",
     {
         CLASSY_TEST(accountRegistrationThrottling),
-        CLASSY_TEST((noBurstOfRegistersOnReconnect<30, 20>)).tag("Skip"), // Too long
+        CLASSY_TEST((noBurstOfRegistersOnReconnect<300, 0>)).tag("Skip"), // Too long
     },
 };
 
