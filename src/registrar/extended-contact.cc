@@ -175,18 +175,18 @@ void ExtendedContact::extractInfoFromHeader(const char* urlHeaders) {
 }
 
 utils::Utf8String ExtendedContact::getDeviceName() const {
-	const string& userAgent = mUserAgent;
-	size_t begin = userAgent.find("(");
-	string deviceName;
+	const auto userAgent = std::string_view(mUserAgent);
+	const auto begin = userAgent.find('(');
+	auto deviceName = utils::Utf8String();
 	if (begin != string::npos) {
-		size_t end = userAgent.find(")", begin);
-		size_t openingParenthesis = userAgent.find("(", begin + 1);
+		size_t end = userAgent.find(')', begin);
+		size_t openingParenthesis = userAgent.find('(', begin + 1);
 		while (openingParenthesis != string::npos && openingParenthesis < end) {
-			openingParenthesis = userAgent.find("(", openingParenthesis + 1);
-			end = userAgent.find(")", end + 1);
+			openingParenthesis = userAgent.find('(', openingParenthesis + 1);
+			end = userAgent.find(')', end + 1);
 		}
 		if (end != string::npos) {
-			deviceName = userAgent.substr(begin + 1, end - (begin + 1));
+			deviceName = utils::Utf8String(userAgent.substr(begin + 1, end - (begin + 1)));
 		}
 	}
 	return deviceName;

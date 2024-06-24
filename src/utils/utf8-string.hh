@@ -6,9 +6,7 @@
 
 #include <string>
 
-namespace flexisip {
-
-namespace utils {
+namespace flexisip::utils {
 
 /**
  * std::string wrapper class.
@@ -18,9 +16,15 @@ namespace utils {
  */
 class Utf8String {
 public:
-	Utf8String(const std::string&);
+	Utf8String() = default;
+	explicit Utf8String(std::string_view);
 
-	operator const std::string&() const {
+	Utf8String(const Utf8String&) = default;
+	Utf8String(Utf8String&&) = default;
+	Utf8String& operator=(const Utf8String&) = default;
+	Utf8String& operator=(Utf8String&&) = default;
+
+	explicit operator const std::string&() const {
 		return mData;
 	}
 
@@ -29,9 +33,7 @@ public:
 	}
 
 private:
-	std::string mData;
+	std::string mData{};
 };
 
-} // namespace utils
-
-} // namespace flexisip
+} // namespace flexisip::utils

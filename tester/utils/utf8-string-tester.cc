@@ -11,9 +11,7 @@
 
 using namespace flexisip::utils;
 
-namespace flexisip {
-namespace tester {
-namespace utils {
+namespace flexisip::tester::utils {
 
 void decode_valid_utf8() {
 	Utf8String validated(u8"🏔️📞");
@@ -30,21 +28,21 @@ void decode_empty_string() {
 void decode_invalid_utf8() {
 	{
 		std::string invalidAtStart{u8"🏔️📞"};
-		auto invalid = invalidAtStart[1] = 0x8f;
+		auto invalid = invalidAtStart[1] = '\x8f';
 		Utf8String validated(invalidAtStart);
 		BC_ASSERT_NOT_EQUAL(validated.asString()[1], invalid, char, "%x");
 		BC_ASSERT_STRING_EQUAL(validated.asString().c_str(), u8"����️📞");
 	}
 	{
 		std::string invalidAtEnd{u8"🏔️📞"};
-		auto invalid = invalidAtEnd.back() = 0xff;
+		auto invalid = invalidAtEnd.back() = '\xff';
 		Utf8String validated(invalidAtEnd);
 		BC_ASSERT_NOT_EQUAL(validated.asString().back(), invalid, char, "%x");
 		BC_ASSERT_STRING_EQUAL(validated.asString().c_str(), u8"🏔️����");
 	}
 	{
 		std::string invalidAtEnd{u8"🏔️phone"};
-		auto invalid = invalidAtEnd.back() = 0xff;
+		auto invalid = invalidAtEnd.back() = '\xff';
 		Utf8String validated(invalidAtEnd);
 		BC_ASSERT_NOT_EQUAL(validated.asString().back(), invalid, char, "%x");
 		BC_ASSERT_STRING_EQUAL(validated.asString().c_str(), u8"🏔️phon�");
@@ -52,7 +50,7 @@ void decode_invalid_utf8() {
 	{
 		std::string invalidInTheMiddle{u8"🏔️oops📞"};
 		auto index = invalidInTheMiddle.find('p');
-		auto invalid = invalidInTheMiddle[index] = 0xff;
+		auto invalid = invalidInTheMiddle[index] = '\xff';
 		Utf8String validated(invalidInTheMiddle);
 		BC_ASSERT_NOT_EQUAL(validated.asString()[index], invalid, char, "%x");
 		BC_ASSERT_STRING_EQUAL(validated.asString().c_str(), u8"🏔️oo�s📞");
@@ -67,6 +65,4 @@ TestSuite _("Utf8String",
                 TEST_NO_TAG_AUTO_NAMED(decode_invalid_utf8),
             });
 }
-} // namespace utils
-} // namespace tester
-} // namespace flexisip
+} // namespace flexisip::tester::utils

@@ -133,7 +133,7 @@ void OwnRegistrationSubscription::processRecord(const shared_ptr<Record>& r) {
 			if (!addr) continue;
 			if (isContactCompatible(ec->getOrgLinphoneSpecs())) {
 				shared_ptr<ParticipantDeviceIdentity> identity =
-				    Factory::get()->createParticipantDeviceIdentity(addr, ec->getDeviceName());
+				    Factory::get()->createParticipantDeviceIdentity(addr, ec->getDeviceName().asString());
 				identity->setCapabilityDescriptor(StringUtils::unquote(ec->getOrgLinphoneSpecs()));
 				compatibleParticipantDevices.push_back(identity);
 			} else {

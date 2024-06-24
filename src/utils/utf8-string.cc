@@ -5,12 +5,17 @@
 #include "utf8-string.hh"
 
 #include <cassert>
+#include <cstring>
 #include <sstream>
 #include <string>
 
 #include <iconv.h>
 
+using namespace std::string_view_literals;
+
 namespace {
+
+constexpr auto replacementChar = "�"sv;
 
 // Thin wrapper around iconv* functions
 class IConv {
@@ -26,8 +31,8 @@ public:
 	IConv& operator=(const IConv&) = delete;
 	IConv& operator=(IConv&&) = delete;
 
-	size_t operator()(char** inBuf, size_t* inBytesLeft, char** outBuf, size_t* outBytesLeft) {
-		return iconv(mDescriptor, inBuf, inBytesLeft, outBuf, outBytesLeft);
+	size_t operator()(const char** inBuf, size_t* inBytesLeft, char** outBuf, size_t* outBytesLeft) {
+		return iconv(mDescriptor, const_cast<char**>(inBuf), inBytesLeft, outBuf, outBytesLeft);
 	}
 
 private:
@@ -36,43 +41,36 @@ private:
 
 } // namespace
 
-namespace flexisip {
+namespace flexisip::utils {
 
-namespace utils {
-
-Utf8String::Utf8String(const std::string& source) : mData(source) {
-	size_t inBytesLeft = mData.size();
-	if (inBytesLeft == 0) {
+Utf8String::Utf8String(std::string_view source) {
+	if (source.empty()) {
 		// The empty string is already valid, nothing to do.
 		return;
 	}
 
 	IConv converter("UTF-8", "UTF-8");
-	size_t outBytesLeft = inBytesLeft;
-	char* pInBuf = &mData.front();
-	assert(outBytesLeft != 0); // Trying to allocate 0-lengthed dynamically-sized array
-	char outBuf[outBytesLeft];
-	char* pOutBuf = outBuf;
-	if (converter(&pInBuf, &inBytesLeft, &pOutBuf, &outBytesLeft) != -1ul) {
-		// The whole string is valid, we're good to go.
-		return;
-	}
+	size_t inBytesLeft = source.size();
+	mData.resize(inBytesLeft);
+	size_t outBytesLeft = mData.size();
+	const char* pInBuf = source.data();
+	char* pOutBuf = mData.data();
 
-	std::ostringstream sanitized{};
 	while (0 < inBytesLeft) {
-		pOutBuf[0] = '\0';
-		sanitized << outBuf << "�";
-		pOutBuf = outBuf;
+		if (converter(&pInBuf, &inBytesLeft, &pOutBuf, &outBytesLeft) != -1ul) {
+			return;
+		}
+
+		const auto currentOffset = pOutBuf - mData.data();
+		mData.resize(mData.size() + replacementChar.size());
+		pOutBuf = mData.data() + currentOffset;
+		std::memcpy(pOutBuf, replacementChar.data(), replacementChar.size());
+		pOutBuf += replacementChar.size();
+
+		// Move to the next byte, maybe the rest of the string is valid
 		++pInBuf;
 		--inBytesLeft;
-		converter(&pInBuf, &inBytesLeft, &pOutBuf, &outBytesLeft);
 	};
-	pOutBuf[0] = '\0';
-	sanitized << outBuf;
-
-	mData = sanitized.str();
 }
 
-} // namespace utils
-
-} // namespace flexisip
+} // namespace flexisip::utils
