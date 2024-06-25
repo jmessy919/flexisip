@@ -18,7 +18,7 @@ public:
 	std::shared_ptr<Account> chooseAccountForThisCall(const linphone::Call&) const override;
 
 private:
-	config::v2::account_selection::AccountLookUp mLookUpField;
+	const AccountPool::IndexedView& mAccountLookup;
 	utils::string_interpolation::PreprocessedInterpolatedString<const linphone::Call&> mSourceTemplate;
 };
 

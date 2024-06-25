@@ -18,7 +18,11 @@
 
 #include "account-pool.hh"
 
+#include <cassert>
+
 #include "flexisip/logmanager.hh"
+
+#include "b2bua/sip-bridge/variable-substitution.hh"
 
 namespace flexisip::b2bua::bridge {
 using namespace std;
@@ -34,6 +38,12 @@ AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
                          RedisParameters const* redisConf)
     : mSuRoot{suRoot}, mCore{core}, mLoader{std::move(loader)}, mAccountParams{mCore->createAccountParams()},
       mMaxCallsPerLine(pool.maxCallsPerLine), mPoolName{poolName},
+      mDefaultView(
+          *mViews
+               .emplace(LookupTemplate(utils::string_interpolation::InterpolatedString("{uri}", "{", "}"),
+                                       variable_substitution::FieldsResolver{variable_substitution::kAccountFields}),
+                        IndexedView::second_type())
+               .first),
       mRegistrationQueue(*mSuRoot,
                          chrono::milliseconds{pool.registrationThrottlingRateMs},
                          [this](const auto& account) { addNewAccount(account); }) {
@@ -87,8 +97,7 @@ void AccountPool::addNewAccount(const shared_ptr<Account>& account) {
 		return;
 	}
 
-	const auto& alias = account->getAlias();
-	if (!try_emplace(uri->asStringUriOnly(), alias.str(), account)) {
+	if (!tryEmplace(account)) {
 		mCore->removeAccount(linphoneAccount);
 	}
 }
@@ -133,20 +142,6 @@ void AccountPool::handleOutboundProxy(const shared_ptr<linphone::AccountParams>&
 	}
 }
 
-std::shared_ptr<Account> AccountPool::getAccountByUri(const std::string& uri) const {
-	if (const auto it = mAccountsByUri.find(uri); it != mAccountsByUri.cend()) {
-		return it->second;
-	}
-	return nullptr;
-}
-
-std::shared_ptr<Account> AccountPool::getAccountByAlias(const string& alias) const {
-	if (const auto it = mAccountsByAlias.find(alias); it != mAccountsByAlias.cend()) {
-		return it->second;
-	}
-	return nullptr;
-}
-
 std::shared_ptr<Account> AccountPool::getAccountRandomly() const {
 	// Pick a random account then keep iterating if unavailable
 	const auto max = size();
@@ -171,34 +166,77 @@ std::shared_ptr<Account> AccountPool::getAccountRandomly() const {
 	return nullptr;
 }
 
-void AccountPool::reserve(size_t sizeToReserve) {
-	mAccountsByUri.reserve(sizeToReserve);
-	mAccountsByAlias.reserve(sizeToReserve);
+const AccountPool::IndexedView& AccountPool::getOrCreateView(AccountPool::LookupTemplate&& lookupTemplate) {
+	const auto [iterator, inserted] = mViews.emplace(std::move(lookupTemplate), IndexedView::second_type());
+	auto& view = *iterator;
+	if (!inserted) {
+		// Already created
+		return view;
+	}
+
+	// Populate the new view
+	auto& [interpolated, map] = view;
+	const auto& defaultView = mDefaultView.second;
+	map.reserve(defaultView.size());
+	for (const auto& [_, account] : defaultView) {
+		const auto [slot, inserted] = map.emplace(interpolated.format(*account), account);
+		if (!inserted) {
+			SLOGW << "AccountPool::getOrCreateView - Collision: Template '" << interpolated.getTemplate()
+			      << "' produced key '" << slot->first << "' for account '"
+			      << account->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly()
+			      << "' which is the same as that of previously inserted account '"
+			      << slot->second->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly()
+			      << "'. The new binding was discarded and the existing binding left untouched.";
+		}
+	}
+
+	return view;
 }
 
-bool AccountPool::try_emplace(const string& uri, const string& alias, const shared_ptr<Account>& account) {
+const AccountPool::IndexedView& AccountPool::getDefaultView() const {
+	return mDefaultView;
+}
+
+void AccountPool::reserve(size_t sizeToReserve) {
+	for (auto& [_, view] : mViews) {
+		view.reserve(sizeToReserve);
+	}
+}
+
+bool AccountPool::tryEmplace(const shared_ptr<Account>& account) {
+	const auto& uri = mDefaultView.first.format(*account);
 	if (uri.empty()) {
-		SLOGE << "AccountPool::try_emplace called with empty uri, nothing happened";
+		SLOGE << "AccountPool::tryEmplace called with empty uri, nothing happened";
 		return false;
 	}
 
-	auto [_, isInsertedUri] = mAccountsByUri.try_emplace(uri, account);
+	auto [_, isInsertedUri] = mDefaultView.second.try_emplace(uri, account);
 	if (!isInsertedUri) {
-		SLOGE << "AccountPool::try_emplace uri[" << uri << "] already present, nothing happened";
+		SLOGE << "AccountPool::tryEmplace uri[" << uri << "] already present, nothing happened";
 		return false;
 	}
 
-	if (!try_emplaceAlias(alias, account)) {
-		SLOGE << "AccountPool::try_emplace alias[" << alias << "] already present, account only inserted by uri.";
-	}
+	tryEmplaceInViews(account);
 
 	return true;
 }
 
-bool AccountPool::try_emplaceAlias(const std::string& alias, const std::shared_ptr<Account>& account) {
-	if (alias.empty()) return true;
-	auto [__, isInsertedAlias] = mAccountsByAlias.try_emplace(alias, account);
-	return isInsertedAlias;
+void AccountPool::tryEmplaceInViews(const shared_ptr<Account>& account) {
+	for (auto& view : mViews) {
+		// Skip main view, only update secondary views
+		if (addressof(view) == addressof(mDefaultView)) continue;
+
+		auto& [interpolator, map] = view;
+		const auto [slot, inserted] = map.try_emplace(interpolator.format(*account), account);
+		if (!inserted) {
+			SLOGW << "AccountPool::tryEmplaceInViews - Collision: Template '" << interpolator.getTemplate()
+			      << "' produced key '" << slot->first << "' for account '"
+			      << account->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly()
+			      << "' which is the same as that of previously inserted account '"
+			      << slot->second->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly()
+			      << "'. The new binding was discarded and the existing binding left untouched.";
+		}
+	}
 }
 
 void AccountPool::accountUpdateNeeded(const RedisAccountPub& redisAccountPub) {
@@ -209,51 +247,58 @@ void AccountPool::accountUpdateNeeded(const RedisAccountPub& redisAccountPub) {
 	mLoader->accountUpdateNeeded(redisAccountPub, cb);
 }
 
-void AccountPool::onAccountUpdate(const std::string& uri, const std::optional<config::v2::Account>& accountToUpdate) {
-
+void AccountPool::onAccountUpdate(const string& uri, const optional<config::v2::Account>& accountToUpdate) {
+	auto& defaultView = mDefaultView.second;
+	// Account deleted
 	if (!accountToUpdate.has_value()) {
-		// Delete case.
-		auto accountByUriIt = mAccountsByUri.find(uri);
-		if (accountByUriIt == mAccountsByUri.end()) {
+		const auto accountByUriIt = defaultView.find(uri);
+		if (accountByUriIt == defaultView.end()) {
 			SLOGW << "AccountPool::onAccountUpdate : No account found to delete for uri : " << uri;
 			return;
 		}
 
-		mCore->removeAccount(accountByUriIt->second->getLinphoneAccount());
+		const auto& account = *accountByUriIt->second;
+		mCore->removeAccount(account.getLinphoneAccount());
 
-		mAccountsByAlias.erase(accountByUriIt->second->getAlias().str());
-		mAccountsByUri.erase(uri);
+		for (auto& view : mViews) {
+			// Skip main view, only update secondary views
+			if (addressof(view) == addressof(mDefaultView)) continue;
+
+			auto& [interpolator, map] = view;
+			map.erase(interpolator.format(account));
+		}
+
+		defaultView.erase(accountByUriIt);
 		return;
 	}
 
 	if (uri != accountToUpdate->uri) {
-		SLOGE << "AccountPool::onAccountUpdate : non coherent data between publish and DB. Publish uri [" << uri
-		      << "]. DB uri[" << accountToUpdate->uri << "].";
+		SLOGE << "AccountPool::onAccountUpdate : inconsistent data between publish and DB. Publish uri [" << uri
+		      << "]. DB uri[" << accountToUpdate->uri << "]. Aborting";
 		return;
 	}
-	auto accountByUriIt = mAccountsByUri.find(accountToUpdate->uri);
-	if (accountByUriIt == mAccountsByUri.end()) {
-		// Account added
+
+	auto accountByUriIt = defaultView.find(accountToUpdate->uri);
+	// Account created
+	if (accountByUriIt == defaultView.end()) {
 		setupNewAccount(*accountToUpdate);
 		return;
 	}
-	const auto& updatedAccount = accountByUriIt->second;
 
-	// Alias update or suppression
-	if (auto& updatedAccountAlias = updatedAccount->getAlias().str(); updatedAccountAlias != accountToUpdate->alias) {
-		if (!updatedAccountAlias.empty()) {
-			mAccountsByAlias.erase(updatedAccountAlias);
-			updatedAccount->setAlias("");
-		}
-		if (!accountToUpdate->alias.empty()) {
-			if (try_emplaceAlias(accountToUpdate->alias, updatedAccount)) {
-				updatedAccount->setAlias(accountToUpdate->alias);
-			} else {
-				SLOGE << "AccountPool::onAccountUpdate alias[" << accountToUpdate->alias
-				      << "] already present, alias update failed.";
-			}
-		}
+	// Account updated
+
+	const auto& updatedAccount = accountByUriIt->second;
+	auto previousBindings = vector<tuple<string, const LookupTemplate&, AccountLookupTable&>>();
+	previousBindings.reserve(mViews.size());
+	for (auto& view : mViews) {
+		// Skip main view, only update secondary views
+		if (addressof(view) == addressof(mDefaultView)) continue;
+
+		auto& [interpolator, map] = view;
+		previousBindings.emplace_back(interpolator.format(*updatedAccount), interpolator, map);
 	}
+
+	updatedAccount->setAlias(accountToUpdate->alias);
 
 	const auto accountParams = mAccountParams->clone();
 	const auto address = mCore->createAddress(accountToUpdate->uri);
@@ -266,6 +311,18 @@ void AccountPool::onAccountUpdate(const std::string& uri, const std::optional<co
 		mCore->removeAuthInfo(accountAuthInfo);
 	}
 	handlePassword(*accountToUpdate, address);
+
+	for (auto& [previousKey, interpolator, map] : previousBindings) {
+		auto newKey = interpolator.format(*updatedAccount);
+		if (newKey == previousKey) continue;
+
+		assert(map.erase(previousKey) != 0);
+		const auto [slot, inserted] = map.emplace(std::move(newKey), updatedAccount);
+		if (!inserted) {
+			SLOGW << "AccountPool::onAccountUpdate - Previous key '" << previousKey << "' collisioned with '"
+			      << slot->first << "' and was discarded.";
+		}
+	}
 }
 
 void AccountPool::onConnect(int status) {
