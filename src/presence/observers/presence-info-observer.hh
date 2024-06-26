@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2023 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -18,34 +18,24 @@
 
 #pragma once
 
-#include <string.h>
-
-#include <bctoolbox/exception.hh>
+#include <list>
+#include <memory>
 
 namespace flexisip {
 
-/**
- * @brief This exception inherits \ref BctoolboxException.
- *
- *
- */
-class FlexisipException : public BctbxException {
+// Used in main.cc, use forward declaration
+class PresentityPresenceInformation;
+
+// Purpose of this class is to be notified when a presence info is created or when a new listener is added for a
+// presence info. Used by long term presence
+class PresenceInfoObserver {
 public:
-	FlexisipException() = default;
-	explicit FlexisipException(const std::string& message) : BctbxException(message) {
-	}
-	explicit FlexisipException(const char* message) : BctbxException(message) {
-	}
-	~FlexisipException() throw() override = default;
-	FlexisipException(const FlexisipException& other) = default;
-
-	template <typename T2>
-	FlexisipException& operator<<(const T2& val) {
-		BctbxException::operator<<(val);
-		return *this;
-	}
+	PresenceInfoObserver() = default;
+	virtual ~PresenceInfoObserver() = default;
+	// notified when a listener is added or refreshed
+	virtual void onListenerEvent(const std::shared_ptr<PresentityPresenceInformation>& info) const = 0;
+	// notified when a listener is added or refreshed
+	virtual void onListenerEvents(std::list<std::shared_ptr<PresentityPresenceInformation>>& infos) const = 0;
 };
-
-#define FLEXISIP_EXCEPTION FlexisipException() << " " << __FILE__ << ":" << __LINE__ << " "
 
 } // namespace flexisip

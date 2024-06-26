@@ -76,6 +76,7 @@
 #include "cli.hh"
 #include "configdumper.hh"
 #include "etchosts.hh"
+#include "eventlogs/writers/event-log-writer.hh"
 #include "monitor.hh"
 #include "stun.hh"
 
@@ -87,7 +88,7 @@
 #include "b2bua/b2bua-server.hh"
 #endif // ENABLE_B2BUA
 #ifdef ENABLE_PRESENCE
-#include "presence/presence-longterm.hh"
+#include "presence/observers/presence-longterm.hh"
 #include "presence/presence-server.hh"
 #endif
 
@@ -1011,8 +1012,7 @@ int main(int argc, char* argv[]) {
 		    (cfg->getRoot()->get<GenericStruct>("presence-server")->get<ConfigBoolean>("long-term-enabled")->read());
 		presenceServer = make_shared<flexisip::PresenceServer>(root);
 		if (enableLongTermPresence) {
-			auto presenceLongTerm = make_shared<flexisip::PresenceLongterm>(presenceServer->getBelleSipMainLoop());
-			presenceServer->addPresenceInfoObserver(presenceLongTerm);
+			presenceServer->enableLongTermPresence();
 		}
 		if (daemonMode) {
 			notifyWatchDog();
