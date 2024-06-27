@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -9,7 +9,7 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
@@ -19,9 +19,8 @@
 #include <chrono>
 #include <thread>
 
-#include "belle-sip/message.h"
+#include "belle-sip/belle-sip.h"
 
-#include "bellesip-signaling-exception.hh"
 #include "external-list-subscription.hh"
 #include "flexisip/logmanager.hh"
 #include "soci-helper.hh"
@@ -35,11 +34,14 @@ ExternalListSubscription::ExternalListSubscription(unsigned int expires,
                                                    belle_sip_server_transaction_t* ist,
                                                    belle_sip_provider_t* aProv,
                                                    size_t maxPresenceInfoNotifiedAtATime,
+                                                   const std::weak_ptr<StatPair>& countExternalListSubscription,
                                                    function<void(shared_ptr<ListSubscription>)> listAvailable,
                                                    const string& sqlRequest,
                                                    soci::connection_pool* connPool,
                                                    ThreadPool* threadPool)
-    : ListSubscription(expires, ist, aProv, maxPresenceInfoNotifiedAtATime, listAvailable), mConnPool(connPool) {
+    : ListSubscription(
+          expires, ist, aProv, maxPresenceInfoNotifiedAtATime, countExternalListSubscription, listAvailable),
+      mConnPool(connPool) {
 	// create a thread to grab a pool connection and use it to retrieve the auth information
 	auto func = bind(&ExternalListSubscription::getUsersList, this, sqlRequest, ist);
 
