@@ -113,7 +113,7 @@ void bearerAuth() {
 	              {"module::AuthOpenIDConnect/enabled", "true"},
 	              {"module::AuthOpenIDConnect/authorization-server", issuer},
 	              {"module::AuthOpenIDConnect/realm", realm},
-	              {"module::AuthOpenIDConnect/sip-id-claim", "sip_identity"},
+	              {"module::AuthOpenIDConnect/sip-id-claim", "email"},
 	              {"module::AuthOpenIDConnect/public-key-type", "file"},
 	              {"module::AuthOpenIDConnect/public-key-location", keyFile.getFilename()},
 	              {"module::Authorization/enabled", "true"}});
@@ -139,7 +139,18 @@ void bearerAuth() {
 	}
 
 	// generate a valid authorization
-	const auto token = generateToken(issuer, sipUri);
+	string token;
+	{
+
+		jwt::jwt_object obj{jwt::params::algorithm("RS256"), jwt::params::secret(kRsaPrivKey)};
+		obj.add_claim("iss", issuer);
+		obj.add_claim("sub", "testSubject");
+		obj.add_claim("aud", "test");
+		obj.add_claim("email", contact);
+		obj.add_claim("iat", chrono::system_clock::now());
+		obj.add_claim("exp", chrono::system_clock::now() + 60s);
+		token = obj.signature();
+	}
 	const auto authorization = string("Authorization: Bearer "s + token + "\r\n");
 
 	// REGISTER with a valid token but a different from sip uri

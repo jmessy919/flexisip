@@ -214,7 +214,8 @@ optional<RequestSipEvent::AuthResult::ChallengeResult> Bearer::check(const msg_a
 
 		checkMandatoryClaim(claim::kExpirationTime); // ensure claim is present, value is checked later
 
-		const auto identity = checkMandatoryClaim(mParams.idClaimer).get<string>();
+		auto identity = checkMandatoryClaim(mParams.idClaimer).get<string>();
+		if (identity.find("sip:") == string::npos) identity = "sip:"s + identity; // email are changed in sip address
 		challengeResult->setIdentity(SipUri(identity));
 
 		if (payload.has_claim(claim::kScope)) {

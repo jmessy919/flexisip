@@ -178,7 +178,7 @@ void invalidIdentity() {
 		BC_ASSERT(result->getResult() == RequestSipEvent::AuthResult::Result::Invalid);
 	}
 	// generate a token with an invalid SIP URI
-	obj.payload().add_claim(kParams.idClaimer, "notASipUri@example.org", true);
+	obj.payload().add_claim(kParams.idClaimer, "", true);
 	{
 		auto result = generateAndCheckToken(obj);
 		BC_HARD_ASSERT(result.has_value());
