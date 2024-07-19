@@ -1,6 +1,6 @@
 /*
     Flexisip, a flexible SIP proxy server with media capabilities.
-    Copyright (C) 2010-2022 Belledonne Communications SARL, All rights reserved.
+    Copyright (C) 2010-2024 Belledonne Communications SARL, All rights reserved.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -80,7 +80,7 @@ class LogManager {
 public:
 	// Public types
 	struct Parameters {
-		su_root_t* root{nullptr}; /* MUST be set to have reopenFiles() working. */
+		std::shared_ptr<sofiasip::SuRoot> root{nullptr}; /* MUST be set to have reopenFiles() working. */
 		std::string logDirectory{};
 		std::string logFilename{};
 		size_t fileMaxSize{std::numeric_limits<decltype(fileMaxSize)>::max()};
