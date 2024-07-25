@@ -391,14 +391,31 @@ void B2buaServer::_init() {
 	mCore->setVideoPort(videoPortMin == videoPortMax ? videoPortMin : -1);
 	mCore->setVideoPortRange(videoPortMin, videoPortMax);
 
-	// set no-RTP timeout
-	const auto noRTPTimeout = config->get<ConfigInt>("no-rtp-timeout")->read();
-	if (noRTPTimeout <= 0) {
-		LOGF("'%s' must be higher than 0", config->getCompleteName().c_str());
+	// Set no-RTP timeout
+	const auto* noRTPTimeoutParameter = config->get<ConfigDuration<chrono::seconds>>("no-rtp-timeout");
+	const auto noRTPTimeout = noRTPTimeoutParameter->read();
+	if (noRTPTimeout <= 0ms) {
+		const auto parameterName = noRTPTimeoutParameter->getCompleteName();
+		throw FlexisipException{"invalid value for '" + parameterName + "', duration must be strictly positive"};
 	}
-	mCore->setNortpTimeout(noRTPTimeout);
+	mCore->setNortpTimeout(static_cast<int>(chrono::duration_cast<chrono::seconds>(noRTPTimeout).count()));
 
-	mCore->setInCallTimeout(config->get<ConfigInt>("max-call-duration")->read());
+	// Set no-RTP on hold timeout
+	const auto* noRTPOnHoldTimeoutParameter = config->get<ConfigDuration<chrono::seconds>>("no-rtp-on-hold-timeout");
+	const auto noRTPOnHoldTimeout = noRTPOnHoldTimeoutParameter->read();
+	if (noRTPOnHoldTimeout <= 0ms) {
+		const auto parameterName = noRTPOnHoldTimeoutParameter->getCompleteName();
+		throw FlexisipException{"invalid value for '" + parameterName + "', duration must be strictly positive"};
+	}
+	mCore->setNortpOnholdTimeout(static_cast<int>(chrono::duration_cast<chrono::seconds>(noRTPOnHoldTimeout).count()));
+
+	const auto* maxCallDurationParameter = config->get<ConfigDuration<chrono::seconds>>("max-call-duration");
+	const auto maxCallDuration = maxCallDurationParameter->read();
+	if (maxCallDuration < 0ms) {
+		const auto parameterName = maxCallDurationParameter->getCompleteName();
+		throw FlexisipException{"invalid value for '" + parameterName + "', duration must be positive"};
+	}
+	mCore->setInCallTimeout(static_cast<int>(chrono::duration_cast<chrono::seconds>(maxCallDuration).count()));
 
 	// Get transport from flexisip configuration
 	const auto& b2buaTransport = Factory::get()->createTransports();
@@ -527,17 +544,24 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	        "sip:127.0.0.1:5060;transport=tcp",
 	    },
 	    {
-	        Integer,
+	        DurationS,
 	        "no-rtp-timeout",
-	        "Duration after which the B2BUA will terminate a call if no RTP packet is received from the other call "
-	        "participant. Unit: seconds.",
+	        "Duration after which the B2BUA will terminate a call if no RTP packets are received from the other call "
+	        "participant.",
 	        "30",
 	    },
 	    {
-	        Integer,
+	        DurationS,
+	        "no-rtp-on-hold-timeout",
+	        "Duration after which the B2BUA will terminate a call that is on hold if no RTP packets are received from "
+	        "the other call participant.",
+	        "3600",
+	    },
+	    {
+	        DurationS,
 	        "max-call-duration",
 	        "Any call bridged through the B2BUA that has been running for longer than this amount of seconds will be "
-	        "terminated. 0 to disable and let calls run unbounded.",
+	        "terminated. Set to 0 to disable and let calls run unbounded.",
 	        "0",
 	    },
 	    {
