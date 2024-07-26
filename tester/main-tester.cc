@@ -54,9 +54,35 @@ void findLogInFlexisipOutput(process::ExitedNormally* exitedNormally) {
 		if (!proxyStarted && concatenated.find("Starting flexisip proxy-server") != string::npos) {
 			proxyStarted = true;
 		}
-		fullLog += "|" + chunk;
+		if (!chunk.empty()) fullLog += "|" + chunk;
 		previousChunk = std::move(chunk);
 	} while (chrono::system_clock::now() < deadline);
+	cout << fullLog;
+	fullLog = "";
+	const auto deadlineerr = chrono::system_clock::now() + timeout;
+	do {
+		auto& standardOut = EXPECT_VARIANT(pipe::ReadOnly&).in(exitedNormally->mStderr);
+		const auto& chunk = [&standardOut, &fullLog] {
+			try {
+				return EXPECT_VARIANT(string).in(standardOut.read(0xFF));
+			} catch (const exception& exc) {
+				ostringstream msg{};
+				msg << "Something went wrong reading flexisip stdout: " << exc.what()
+				    << ". Read so far ('|' indicates chunk boundaries): " << fullLog;
+				throw runtime_error{msg.str()};
+			}
+		}();
+		const auto& concatenated = previousChunk + chunk;
+		// TODO: Choose which logs to look at. Maybe more than one log if there are multiple services.
+		//  kind of array with logs search, service type and if its found or not?
+		if (!proxyStarted && concatenated.find("Starting flexisip proxy-server") != string::npos) {
+			proxyStarted = true;
+		}
+		if (!chunk.empty()) fullLog += "|" + chunk;
+		previousChunk = std::move(chunk);
+	} while (chrono::system_clock::now() < deadlineerr);
+
+	cout << fullLog;
 
 	BC_ASSERT_TRUE(proxyStarted);
 }
@@ -74,7 +100,6 @@ void findLogInFlexisipOutput(process::ExitedNormally* exitedNormally) {
 void callAndStopMain() {
 	vector<string> args{
 	    "flexisip",
-	    "--verbose",
 	    "-c /home/ndelpech/Development/clion_flexisip/cmake-build-debug/install/etc/flexisip/flexisip.conf",
 	};
 	// TODO: More c++-like definition of args for use of modifications?
@@ -86,12 +111,7 @@ void callAndStopMain() {
 	char* argv[] = {&arg0[0], &arg1[0], &arg2[0], nullptr};
 	int argc = sizeof(argv) / sizeof(char*) - 1;
 
-	process::Process test([&argc, &argv]() {
-		auto errCode = _main(argc, argv);
-		SLOGE << "blabla";
-		SLOGD << "deb";
-		exit(errCode);
-	});
+	process::Process test([&argc, &argv]() { exit(_main(argc, argv)); });
 
 	auto* running = get_if<process::Running>(&test.state());
 	BC_HARD_ASSERT_NOT_NULL(running);
@@ -129,58 +149,6 @@ void callAndStopMain() {
 	BC_ASSERT_CPP_EQUAL((int)exitedNormally->mExitCode, EXIT_SUCCESS);
 	// TODO: Test that return value == EXIT_SUCCESS with timeout
 }
-// void callAndStopMain() {
-//	vector<string> args{
-//	    "flexisip",
-//	    "--verbose",
-//	    "-c /home/ndelpech/Development/clion_flexisip/cmake-build-debug/install/etc/flexisip/flexisip.conf",
-//	};
-//	//	char arg0[] = "flexisip";
-//	//	char arg1[] = "-c";
-//	//	char arg2[] = "/home/ndelpech/Development/clion_flexisip/cmake-build-debug/install/etc/flexisip/flexisip.conf";
-//	//	// TODO: Set and write conf to test flexisip services
-//	//	//  and set the log output to something that can be caught in the parent process
-//	//	char* argv[] = {&arg0[0], &arg1[0], &arg2[0], nullptr};
-//	//	cout << sizeof(argv) << "/" << sizeof(char*) << endl;
-//	//	int argc = sizeof(argv) / sizeof(char*) - 1;
-//	//	_main(argc, reinterpret_cast<char**>(&argv[0]));
-//	//_main((int)args.size(), reinterpret_cast<char**>(&arg0[0]));
-//	auto childPid = fork();
-//	if (childPid) {
-//		// Parent process
-//		// TODO: Loop iterate until log stating that flexisip started properly is received
-//		//  then or if not received sent sigint to child
-//		//  or child autokills himself with timer and callback sending sigint and check if child process still living
-//
-//		// TODO: Which log should we check?
-//
-//		// Send kill(pid,2) pour vérifier si le processus est encore en cours
-//		sleep(5);
-//		kill(childPid, SIGINT);
-//
-//		int status = -1;
-//		// TODO: iterate loop and exit after 1 or 2 sec if still not exited
-//		waitpid(childPid, &status, 0);
-//		if (WIFEXITED(status))
-//			cout << "pid " << childPid << " return value " << status << "-" << WEXITSTATUS(status) << endl;
-//	} else {
-//		// Spawned process
-//		// TODO: More c++-like definition of args for use of modifications?
-//		char arg0[] = "flexisip";
-//		char arg1[] = "-c";
-//		char arg2[] = "/home/ndelpech/Development/clion_flexisip/cmake-build-debug/install/etc/flexisip/flexisip.conf";
-//		// TODO: Set and write conf to test flexisip services
-//		//  and set the log output to something that can be caught in the parent process
-//		char* argv[] = {&arg0[0], &arg1[0], &arg2[0], nullptr};
-//		int argc = sizeof(argv) / sizeof(char*) - 1;
-//
-//		int returnValue = _main(argc, reinterpret_cast<char**>(&argv[0]));
-//
-//		// TODO: Test that return value == EXIT_SUCCESS with timeout
-//		BC_ASSERT_CPP_EQUAL(returnValue, EXIT_SUCCESS);
-//		exit(returnValue);
-//	}
-// }
 
 namespace {
 TestSuite _("mainTester",
