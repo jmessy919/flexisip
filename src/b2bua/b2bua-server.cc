@@ -391,14 +391,31 @@ void B2buaServer::_init() {
 	mCore->setVideoPort(videoPortMin == videoPortMax ? videoPortMin : -1);
 	mCore->setVideoPortRange(videoPortMin, videoPortMax);
 
-	// set no-RTP timeout
-	const auto noRTPTimeout = config->get<ConfigInt>("no-rtp-timeout")->read();
-	if (noRTPTimeout <= 0) {
-		LOGF("'%s' must be higher than 0", config->getCompleteName().c_str());
+	// Set no-RTP timeout
+	const auto* noRTPTimeoutParameter = config->get<ConfigDuration<chrono::seconds>>("no-rtp-timeout");
+	const auto noRTPTimeout = noRTPTimeoutParameter->read();
+	if (noRTPTimeout <= 0ms) {
+		const auto parameterName = noRTPTimeoutParameter->getCompleteName();
+		throw FlexisipException{"invalid value for '" + parameterName + "', duration must be strictly positive"};
 	}
-	mCore->setNortpTimeout(noRTPTimeout);
+	mCore->setNortpTimeout(static_cast<int>(chrono::duration_cast<chrono::seconds>(noRTPTimeout).count()));
 
-	mCore->setInCallTimeout(config->get<ConfigInt>("max-call-duration")->read());
+	// Set no-RTP on hold timeout
+	const auto* noRTPOnHoldTimeoutParameter = config->get<ConfigDuration<chrono::seconds>>("no-rtp-on-hold-timeout");
+	const auto noRTPOnHoldTimeout = noRTPOnHoldTimeoutParameter->read();
+	if (noRTPOnHoldTimeout <= 0ms) {
+		const auto parameterName = noRTPOnHoldTimeoutParameter->getCompleteName();
+		throw FlexisipException{"invalid value for '" + parameterName + "', duration must be strictly positive"};
+	}
+	mCore->setNortpOnholdTimeout(static_cast<int>(chrono::duration_cast<chrono::seconds>(noRTPOnHoldTimeout).count()));
+
+	const auto* maxCallDurationParameter = config->get<ConfigDuration<chrono::seconds>>("max-call-duration");
+	const auto maxCallDuration = maxCallDurationParameter->read();
+	if (maxCallDuration < 0ms) {
+		const auto parameterName = maxCallDurationParameter->getCompleteName();
+		throw FlexisipException{"invalid value for '" + parameterName + "', duration must be positive"};
+	}
+	mCore->setInCallTimeout(static_cast<int>(chrono::duration_cast<chrono::seconds>(maxCallDuration).count()));
 
 	// Get transport from flexisip configuration
 	const auto& b2buaTransport = Factory::get()->createTransports();
@@ -478,54 +495,97 @@ namespace {
 // Statically define default configuration items
 auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct& root) {
 	ConfigItemDescriptor items[] = {
-	    {String, "application",
-	     "The type of application that will handle calls bridged through the B2BUA. Possible values:\n"
-	     "- `trenscrypter` Bridge different encryption types on both ends transparently.\n"
-	     "- `sip-bridge` Bridge calls through an external SIP provider. (e.g. for PSTN gateways)",
-	     "trenscrypter"},
-	    {String, "transport", "SIP uri on which the back-to-back user agent server is listening on.",
-	     "sip:127.0.0.1:6067;transport=tcp"},
-	    {IntegerRange, "audio-port",
-	     "Audio port to use for RTP and RTCP traffic. You can set a specific port or a range of ports.\n"
-	     "Examples: 'audio-port=12345' or 'audio-port=1024-65535'",
-	     "1024-65535"},
-	    {IntegerRange, "video-port",
-	     "Video port to use for RTP and RTCP traffic. You can set a specific port or a range of ports.\n"
-	     "Examples: 'video-port=12345' or 'video-port=1024-65535'",
-	     "1024-65535"},
-	    {String, "user-agent",
-	     "Value of User-Agent header. Use the following syntax: <name>[/<version>] where <version> can bet set to "
-	     "'{version}' that is a placeholder for the Flexisip version.",
-	     "Flexisip-B2BUA/{version}"},
-	    {String, "data-directory",
-	     "Directory where to store b2bua core local files\n"
-	     "Default",
-	     DEFAULT_B2BUA_DATA_DIR},
-	    {String, "outbound-proxy",
-	     "The Flexisip proxy URI to which the B2bua server should send all its outgoing SIP requests.",
-	     "sip:127.0.0.1:5060;transport=tcp"},
-	    {Integer, "no-rtp-timeout",
-	     "Duration after which the B2BUA will terminate a call if no RTP packet is received from the other call "
-	     "participant. Unit: seconds.",
-	     "30"},
-	    {Integer, "max-call-duration",
-	     "Any call bridged through the B2BUA that has been running for longer than this amount of seconds will be "
-	     "terminated. 0 to disable and let calls run unbounded.",
-	     "0"},
-	    {String, "video-codec",
-	     "When not null, force outgoing video call to use the specified codec.\n"
-	     "Warning: all outgoing calls will list only this codec, which means incoming calls must use it too.",
-	     ""},
-	    {Boolean, "one-connection-per-account",
-	     "Make the B2BUA use a separate connection (port) for each (external) account it manages. This can be used to "
-	     "work around DoS protection and rate-limiting systems on external proxies.",
-	     "false"},
-	    config_item_end};
+	    {
+	        String,
+	        "application",
+	        "The type of application that will handle calls bridged through the B2BUA. Possible values:\n"
+	        "- `trenscrypter` Bridge different encryption types on both ends transparently.\n"
+	        "- `sip-bridge` Bridge calls through an external SIP provider. (e.g. for PSTN gateways)",
+	        "trenscrypter",
+	    },
+	    {
+	        String,
+	        "transport",
+	        "SIP uri on which the back-to-back user agent server is listening on.",
+	        "sip:127.0.0.1:6067;transport=tcp",
+	    },
+	    {
+	        IntegerRange,
+	        "audio-port",
+	        "Audio port to use for RTP and RTCP traffic. You can set a specific port or a range of ports.\n"
+	        "Examples: 'audio-port=12345' or 'audio-port=1024-65535'",
+	        "1024-65535",
+	    },
+	    {
+	        IntegerRange,
+	        "video-port",
+	        "Video port to use for RTP and RTCP traffic. You can set a specific port or a range of ports.\n"
+	        "Examples: 'video-port=12345' or 'video-port=1024-65535'",
+	        "1024-65535",
+	    },
+	    {
+	        String,
+	        "user-agent",
+	        "Value of User-Agent header. Use the following syntax: <name>[/<version>] where <version> can bet set to "
+	        "'{version}' that is a placeholder for the Flexisip version.",
+	        "Flexisip-B2BUA/{version}",
+	    },
+	    {
+	        String,
+	        "data-directory",
+	        "Directory where to store b2bua core local files\n"
+	        "Default",
+	        DEFAULT_B2BUA_DATA_DIR,
+	    },
+	    {
+	        String,
+	        "outbound-proxy",
+	        "The Flexisip proxy URI to which the B2bua server should send all its outgoing SIP requests.",
+	        "sip:127.0.0.1:5060;transport=tcp",
+	    },
+	    {
+	        DurationS,
+	        "no-rtp-timeout",
+	        "Duration after which the B2BUA will terminate a call if no RTP packets are received from the other call "
+	        "participant.",
+	        "30",
+	    },
+	    {
+	        DurationS,
+	        "no-rtp-on-hold-timeout",
+	        "Duration after which the B2BUA will terminate a call that is on hold if no RTP packets are received from "
+	        "the other call participant.",
+	        "3600",
+	    },
+	    {
+	        DurationS,
+	        "max-call-duration",
+	        "Any call bridged through the B2BUA that has been running for longer than this amount of seconds will be "
+	        "terminated. Set to 0 to disable and let calls run unbounded.",
+	        "0",
+	    },
+	    {
+	        String,
+	        "video-codec",
+	        "When not null, force outgoing video call to use the specified codec.\n"
+	        "Warning: all outgoing calls will list only this codec, which means incoming calls must use it too.",
+	        "",
+	    },
+	    {
+	        Boolean,
+	        "one-connection-per-account",
+	        "Make the B2BUA use a separate connection (port) for each (external) account it manages. This can be used "
+	        "to "
+	        "work around DoS protection and rate-limiting systems on external proxies.",
+	        "false",
+	    },
+	    config_item_end,
+	};
 
 	root.addChild(
 	        make_unique<GenericStruct>(b2bua::configSection, "Flexisip back-to-back user agent server parameters.", 0))
 	    ->addChildrenValues(items);
 });
-} // namespace
 
+} // namespace
 } // namespace flexisip

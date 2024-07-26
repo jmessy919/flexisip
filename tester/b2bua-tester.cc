@@ -1587,6 +1587,91 @@ static void unknownMediaAttrAreFilteredOutOnReinvites() {
 	BC_ASSERT_CPP_EQUAL(customAttrInResponse, "not found");
 }
 
+void onHoldCallIsTerminatedAfterNoRTPOnHoldTimeoutTriggers() {
+	Server proxy{{
+	    {"global/transports", "sip:127.0.0.1:0;transport=tcp"},
+	    {"b2bua-server/transport", "sip:127.0.0.1:0;transport=tcp"},
+	    {"b2bua-server/application", "trenscrypter"},
+	    // Forward everything to the b2bua
+	    {"module::B2bua/enabled", "true"},
+	    {"module::Registrar/enabled", "true"},
+	    {"module::Registrar/reg-domains", "example.org"},
+	    // Media Relay has problem when everyone is running on localhost
+	    {"module::MediaRelay/enabled", "false"},
+	    // B2bua use writable-dir instead of var folder
+	    {"b2bua-server/data-directory", bcTesterWriteDir()},
+	    {"b2bua-server/no-rtp-on-hold-timeout", "1"},
+	}};
+	proxy.start();
+
+	// Instantiate and start B2BUA server.
+	const auto& confMan = proxy.getConfigManager();
+	const auto& configRoot = *confMan->getRoot();
+	configRoot.get<GenericStruct>("b2bua-server")
+	    ->get<ConfigString>("outbound-proxy")
+	    ->set("sip:127.0.0.1:" + string{proxy.getFirstPort()} + ";transport=tcp");
+	const auto& b2bua = make_shared<flexisip::B2buaServer>(proxy.getRoot(), confMan);
+	b2bua->init();
+	configRoot.get<GenericStruct>("module::B2bua")
+	    ->get<ConfigString>("b2bua-server")
+	    ->set("sip:127.0.0.1:" + to_string(b2bua->getTcpPort()) + ";transport=tcp");
+	proxy.getAgent()->findModule("B2bua")->reload();
+
+	// Instantiate clients and create call.
+	auto builder = ClientBuilder(*proxy.getAgent());
+	auto pauser = builder.build("pauser@example.org");
+	auto pausee = builder.build("pausee@example.org");
+	CoreAssert asserter{pauser, proxy, pausee};
+	const auto& callFromPauser = pauser.invite(pausee);
+	BC_HARD_ASSERT(callFromPauser != nullptr);
+	BC_HARD_ASSERT(pausee.hasReceivedCallFrom(pauser));
+	const auto& pauserCall = pauser.getCurrentCall();
+	const auto& pauseeCall = pausee.getCurrentCall();
+	BC_HARD_ASSERT(pauseeCall.has_value());
+	pauseeCall->accept();
+	asserter
+	    .iterateUpTo(
+	        8,
+	        [&pauserCall]() { return LOOP_ASSERTION(pauserCall->getState() == linphone::Call::State::StreamsRunning); },
+	        500ms)
+	    .assert_passed();
+
+	// Pause call.
+	callFromPauser->pause();
+	asserter
+	    .iterateUpTo(
+	        8,
+	        [&pauseeCall, &pauserCall]() {
+		        FAIL_IF(pauserCall->getState() != linphone::Call::State::Paused);
+		        FAIL_IF(pauseeCall->getState() != linphone::Call::State::PausedByRemote);
+		        return ASSERTION_PASSED();
+	        },
+	        500ms)
+	    .assert_passed();
+
+	// Check both clients are in the right call state.
+	BC_ASSERT_ENUM_EQUAL(pauserCall->getState(), linphone::Call::State::Paused);
+	BC_ASSERT_ENUM_EQUAL(pauseeCall->getState(), linphone::Call::State::PausedByRemote);
+	// Check both clients have the right media direction.
+	BC_ASSERT_ENUM_EQUAL(pauserCall->getAudioDirection(), linphone::MediaDirection::SendOnly);
+	BC_ASSERT_ENUM_EQUAL(pauseeCall->getAudioDirection(), linphone::MediaDirection::RecvOnly);
+
+	pauserCall->setRTCPEnabled(false);
+	// TODO: find a better way to interrupt sending of RTP packets
+	const_cast<RtpSession*>(pauserCall->getRtpSession())->rtp.gs.rem_addrlen = 0;
+
+	asserter
+	    .iterateUpTo(
+	        0x20,
+	        [&pauserCall, &pauseeCall]() {
+		        FAIL_IF(pauserCall->getState() != linphone::Call::State::Released);
+		        FAIL_IF(pauseeCall->getState() != linphone::Call::State::Released);
+		        return ASSERTION_PASSED();
+	        },
+	        3s)
+	    .assert_passed();
+}
+
 const char VP8[] = "vp8";
 // const char H264[] = "h264";
 
@@ -1620,6 +1705,7 @@ TestSuite _{
         CLASSY_TEST(pauseWithAudioInactive),
         CLASSY_TEST(answerToPauseWithAudioInactive),
         CLASSY_TEST(unknownMediaAttrAreFilteredOutOnReinvites),
+        CLASSY_TEST(onHoldCallIsTerminatedAfterNoRTPOnHoldTimeoutTriggers),
     },
 };
 } // namespace

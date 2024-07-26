@@ -78,6 +78,10 @@ void ClientCall::setStaticPictureFps(float fps) {
 	mCall->getCore()->setStaticPictureFps(fps);
 }
 
+void ClientCall::setRTCPEnabled(bool enabled) const {
+	::linphone_call_get_meta_rtp_transport(mCall->cPtr(), 0)->session->rtcp.enabled = enabled;
+}
+
 const std::shared_ptr<linphone::Call>& ClientCall::getLinphoneCall(const ClientCall& wrapper) {
 	return wrapper.mCall;
 }
