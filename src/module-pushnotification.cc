@@ -129,7 +129,7 @@ ModuleInfo<PushNotification> PushNotification::sInfo(
 	         "a clients that haven't published any token for VoIP and background push notifications. In that case, "
 	         "several PNs are sent subsequently until the call is picked up, declined or canceled. This parameter can "
 	         "be overridden by the client by using the 'pn-call-remote-push-interval' push parameter.\n"
-	         "A value of zero will cause the deactivation of push notification repetitions and the sending of the"
+	         "A value of zero will cause the deactivation of push notification repetitions and the sending of the "
 	         "final notification. Thus, only the first push notification will be sent.\n"
 	         "The value must be in [0;30]",
 	         "0"},
@@ -159,7 +159,7 @@ ModuleInfo<PushNotification> PushNotification::sInfo(
 	         "org.linphone.prod.pem com.somephone.dev.pem etc... The files should be .pem format, and made of "
 	         "certificate "
 	         "followed by private key.\n"
-	         "This is also the path to the directory where to find Voice Over IP certificates (certicates to use "
+	         "This is also the path to the directory where to find Voice Over IP certificates (certificates to use "
 	         "PushKit). "
 	         "They should bear the appid of the application, suffixed by the release mode and .pem extension, and made "
 	         "of "
@@ -215,7 +215,7 @@ ModuleInfo<PushNotification> PushNotification::sInfo(
 	         "sound. If 'pn-call-snd' or 'pn-msg-snd' contact parameters were not set during user agent registration, "
 	         "the placeholder is replaced with 'empty'.\n"
 	         " - $msgid: For iOS only, replaced by respective contact parameter values ('pn-call-str', 'pn-msg-str', "
-	         "or 'pn-groupchat-str') if the triggering SIP message is a call invite, pending message, or groupchat "
+	         "or 'pn-groupchat-str') if the triggering SIP message is a call invite, pending message, or group chat "
 	         "invitation. If these parameters weren't set during user agent registration, placeholders are replaced by "
 	         "'IC_MSG', 'IM_MSG', or 'IG_MSG'. This allows customization of the push notification title.\n"
 	         " - $uid: Refers to the UUID present in the '+sip.instance' parameter value when the recipient of the "

@@ -9,7 +9,7 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
@@ -103,7 +103,7 @@ void SociAuthDB::declareConfig(GenericStruct* mc) {
 	     "The configuration parameters of the Soci backend.\n"
 	     "The basic format is \"key=value key2=value2\". For a mysql backend, this "
 	     "is a valid config: \"db=mydb user=user password='pass' host=myhost.com\".\n"
-	     "Please refer to the Soci documentation of your backend, for intance: "
+	     "Please refer to the Soci documentation of your backend, for instance: "
 	     "http://soci.sourceforge.net/doc/release/4.0/backends/mysql/",
 	     "db=mydb user=myuser password='mypass' host=myhost.com"},
 

@@ -52,7 +52,6 @@ static char const* compute_branch(nta_agent_t* sa,
                                   char const* string_server,
                                   const shared_ptr<OutgoingTransaction>& outTr);
 
-
 ModuleInfo<ForwardModule> ForwardModule::sInfo(
     "Forward",
     "This module executes the basic routing task of SIP requests and pass them to the transport layer. "
@@ -77,7 +76,7 @@ ModuleInfo<ForwardModule> ForwardModule::sInfo(
 	         "The conditions are matched in the order they appear in the configuration file. The first fulfilled "
 	         "condition determines the route that is prepended."
 	         "If the request does not match any condition, no route is prepended.\n"
-	         "The file may be empty, or no path may be specified, in which case no route is preprended either. "
+	         "The file may be empty, or no path may be specified, in which case no route is prepended either. "
 	         "Here is a an example of a valid routes configuration file:\n"
 	         "<sip:example.org;transport=tls>     request.uri.domain == 'example.org'\n"
 	         "<sip:10.0.0.2:5070;transport=tcp>   request.uri.params contains 'user=phone'\n"
@@ -97,7 +96,7 @@ ModuleInfo<ForwardModule> ForwardModule::sInfo(
 	        {Boolean, "rewrite-req-uri", "Rewrite request-uri's host and port according to prepended route.", "false"},
 	        {Boolean, "add-path", "Add a path header of this proxy", "true"},
 	        {String, "default-transport",
-	         "For SIP URIs, in asbsence of transport parameter, assume the given transport "
+	         "For SIP URIs, in absence of transport parameter, assume the given transport "
 	         "is to be used. Possible values are udp, tcp or tls.",
 	         "udp"},
 	        {StringList, "params-to-remove", "List of URL and contact params to remove",

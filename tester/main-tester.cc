@@ -106,9 +106,10 @@ void callAndStopMain() {
 	char arg0[] = "flexisip";
 	char arg1[] = "-c";
 	char arg2[] = "/home/ndelpech/Development/clion_flexisip/cmake-build-debug/install/etc/flexisip/flexisip.conf";
+	char arg3[] = "-d";
 	// TODO: Set and write conf to test flexisip services
 	//  and set the log output to something that can be caught in the parent process
-	char* argv[] = {&arg0[0], &arg1[0], &arg2[0], nullptr};
+	char* argv[] = {&arg0[0], &arg1[0], &arg2[0], &arg3[0], nullptr};
 	int argc = sizeof(argv) / sizeof(char*) - 1;
 
 	process::Process test([&argc, &argv]() { exit(_main(argc, argv)); });

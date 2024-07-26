@@ -404,7 +404,7 @@ void ModuleRegistrar::declareConfig(GenericStruct& moduleConfig) {
 	        String,
 	        "db-implementation",
 	        "Implementation used for storing the contact URIs of each address of record. Two backends are available:\n"
-	        " - redis : contacts are stored in a Redis database, which allows persistent and shared storage accross "
+	        " - redis : contacts are stored in a Redis database, which allows persistent and shared storage across "
 	        "multiple Flexisip instances.\n"
 	        " - internal : contacts are stored in RAM. Of course, if flexisip is restarted, all the contact URIs are "
 	        "lost until clients update their registration.\n"

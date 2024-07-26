@@ -63,7 +63,7 @@ ModuleInfo<B2bua> B2bua::sInfo(
     ModuleInfoBase::ModuleOid::B2bua,
 
     [](GenericStruct& moduleConfig) {
-	    ConfigItemDescriptor configs[] = {{String, "b2bua-server", "A sip uri where to send all the relevent requests.",
+	    ConfigItemDescriptor configs[] = {{String, "b2bua-server", "A sip uri where to send all the relevant requests.",
 	                                       "sip:127.0.0.1:6067;transport=tcp"},
 	                                      config_item_end};
 	    moduleConfig.get<ConfigBoolean>("enabled")->setDefault("false");

@@ -721,7 +721,7 @@ ConfigManager::ConfigManager()
 	    // process settings
 	    {StringList, "default-servers",
 	     "Servers started by default when no --server option is specified on command line. "
-	     "Possible values are 'proxy', 'presence', 'conference', 'regevent' separated by whitespaces.",
+	     "Possible values are 'proxy', 'presence', 'conference', 'regevent' separated by  whitespaces.",
 	     "proxy"},
 	    {Boolean, "auto-respawn",
 	     "Automatically respawn flexisip in case of abnormal termination (crashes). This has an effect if "
@@ -817,7 +817,7 @@ ConfigManager::ConfigManager()
 	     "It is HIGHLY RECOMMENDED to specify a canonical name for 'sips' transport, so that the proxy can advertise "
 	     "this information in Record-Route headers, which allows TLS cname check to be performed by clients.\n"
 	     "Specifying a sip uri with transport=tls is not allowed: the 'sips' scheme must be used instead. As requested "
-	     "by SIP RFC, IPv6 address must be enclosed within brakets.\n"
+	     "by SIP RFC, IPv6 address must be enclosed within brackets.\n"
 	     "Here are some examples to understand:\n"
 	     " - listen on all local interfaces for udp and tcp, on standard port:\n"
 	     "\ttransports=sip:*\n"
@@ -840,7 +840,7 @@ ConfigManager::ConfigManager()
 	     "localhost"},
 	    {DurationS, "idle-timeout", "Time interval after which inactive connections are closed.", "3600"},
 	    {DurationS, "keepalive-interval",
-	     "Time interval for sending \"\\r\\n\\r\\n\" keepalives packets on inbound and outbound "
+	     "Time interval for sending \"\\r\\n\\r\\n\" keepalive packets on inbound and outbound "
 	     "connections. "
 	     "A value of zero stands for no keepalive. The main purpose of sending keepalives is to keep connection alive "
 	     "across NATs, but it also"
@@ -848,7 +848,7 @@ ConfigManager::ConfigManager()
 	     "flexisip.",
 	     "1800"},
 	    {DurationS, "proxy-to-proxy-keepalive-interval",
-	     "Time interval for sending \"\\r\\n\\r\\n\" keepalives packets specifically for proxy "
+	     "Time interval for sending \"\\r\\n\\r\\n\" keepalive packets specifically for proxy "
 	     "to proxy connections. Indeed, while it is undesirable to send frequent keepalives to mobile clients because "
 	     "it drains their battery,"
 	     " sending frequent keepalives has proven to be helpful to keep connections up between proxy nodes in a very "

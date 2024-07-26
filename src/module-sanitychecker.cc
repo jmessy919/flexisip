@@ -69,10 +69,10 @@ private:
 
 ModuleInfo<ModuleSanityChecker> ModuleSanityChecker::sInfo(
     "SanityChecker",
-    "The SanitChecker module checks that required fields of a SIP message are present to avoid unecessary checking "
+    "The SanitChecker module checks that required fields of a SIP message are present to avoid unnecessary checking "
     "while "
     "processing message further.\n"
-    "If the message doesn't meet these sanity check criterias, then it is stopped and bad request response is sent.",
+    "If the message doesn't meet these sanity check criteria, then it is stopped and bad request response is sent.",
     {"DoSProtection"},
     ModuleInfoBase::ModuleOid::SanityChecker,
     [](GenericStruct&) {});

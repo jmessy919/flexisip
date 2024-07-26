@@ -381,11 +381,11 @@ void ConferenceServer::bindAddresses() {
 	if (mMediaConfig.textEnabled) {
 		// Binding loaded chat room
 		for (const auto& chatRoom : mCore->getChatRooms()) {
-			const auto &peerAddress = chatRoom->getPeerAddress();
+			const auto& peerAddress = chatRoom->getPeerAddress();
 			// If the peer address is not one of the focus uris
-			if (std::find_if(mConfServerUris.cbegin(), mConfServerUris.cend(), [&peerAddress] (const auto &p) {
-				return peerAddress->weakEqual(linphone::Factory::get()->createAddress(p.second));
-			}) == mConfServerUris.cend()) {
+			if (std::find_if(mConfServerUris.cbegin(), mConfServerUris.cend(), [&peerAddress](const auto& p) {
+				    return peerAddress->weakEqual(linphone::Factory::get()->createAddress(p.second));
+			    }) == mConfServerUris.cend()) {
 				bindChatRoom(peerAddress->asStringUriOnly(), mTransport.str(), nullptr);
 			}
 		}
@@ -535,7 +535,7 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	    {String, "transport", "URI where the conference server must listen. Only one URI can be specified.",
 	     "sip:127.0.0.1:6064;transport=tcp"},
 	    {StringList, "conference-factory-uris",
-	     "List of SIP URIs used by clients to create a conference. This implicitely defines the list of SIP domains "
+	     "List of SIP URIs used by clients to create a conference. This implicitly defines the list of SIP domains "
 	     "managed by the conference server. For example:\n"
 	     "conference-factory-uris=sip:conference-factory@sip.linphone.org sip:conference-factory@sip.linhome.org",
 	     ""},
@@ -570,13 +570,14 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	     "Examples: 'video-port=12345' or 'video-port=1024-65535'",
 	     "1024-65535"},
 	    {String, "database-backend",
-	     "Choose the type of database backend that the conference server will use persistency of chatrooms and "
+	     "Choose the type of database backend that the conference server will use persistence of chat rooms and "
 	     "conferences data.\n"
 	     "Provided that the requested Soci modules are installed, the supported database backends are: "
 	     "`mysql`, `sqlite3`",
 	     "mysql"},
 	    {String, "database-connection-string",
-	     "The configuration parameters of the database backend used for persistency of chatrooms and conference data.\n"
+	     "The configuration parameters of the database backend used for persistence of chat rooms and conference "
+	     "data.\n"
 	     "The basic format is \"key=value key2=value2\". For a MySQL backend, this "
 	     "is a valid config: \"db=mydb user=user password='pass' host=myhost.com\".\n"
 	     "Please refer to the Soci documentation of your backend, for instance: "
@@ -616,7 +617,7 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	     "Whether the conference server will delete chat rooms that have no participants registered.\n", "true"},
 	    {String, "state-directory", "Directory where the conference server state files are stored.\n", DEFAULT_LIB_DIR},
 
-	    // Deprecated paramters:
+	    // Deprecated parameters:
 	    {String, "conference-factory-uri",
 	     "uri where the client must ask to create a conference. For example:\n"
 	     "conference-factory-uri=sip:conference-factory@sip.linphone.org",
@@ -633,7 +634,7 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	auto uS = make_unique<GenericStruct>(
 	    "conference-server",
 	    "Flexisip conference server parameters.\n"
-	    "The Flexisip conference server is in charge of groupchat and audio/video conferences."
+	    "The Flexisip conference server is in charge of group chat and audio/video conferences."
 	    "It follows the concepts of RFC4579 for conference establishment and management, and as such factory and focus "
 	    "URIs must be configured.\n"
 	    "It requires a MariaDB/MySQL database in order to persistently store chatroom or conference state "

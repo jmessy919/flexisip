@@ -9,7 +9,7 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
@@ -66,7 +66,7 @@ void Authentication::declareConfig(GenericStruct& moduleConfig) {
 	     "\tsubjectAltNames.DNS, subjectAltNames.URI, subjectAltNames.IP and CN",
 	     ""},
 	    {Boolean, "trust-domain-certificates",
-	     "Accept requests which the client certificate enables to trust the domaine of its Request-URI.", "false"},
+	     "Accept requests which the client certificate enables to trust the domain of its Request-URI.", "false"},
 	    {Boolean, "new-auth-on-407",
 	     "When receiving a proxy authenticate challenge, generate a new challenge for "
 	     "this proxy.",
@@ -305,7 +305,7 @@ ModuleInfo<Authentication> Authentication::sInfo(
     " * if the request is received via a TLS transport and 'require-peer-certificate' is set in transport definition "
     "in [Global] section for this transport, then the From header of the request is matched with the CN claimed by "
     "the client certificate. The CN must contain sip:user@domain or alternate name with URI=sip:user@domain "
-    "corresponding to the URI in the from header for the request to be accepted. Optionnaly, the property "
+    "corresponding to the URI in the from header for the request to be accepted. Optionally, the property "
     "tls-client-certificate-required-subject may contain a regular expression for additional checks to execute on "
     "certificate subjects.\n"
     " * if no TLS client based authentication can be performed, or has failed, then a SIP digest authentication is "

@@ -52,9 +52,9 @@ ModuleInfo<Transcoder> Transcoder::sInfo(
 	        {StringList, "rc-user-agents",
 	         "Whitespace separated list of user-agent strings for which audio rate control is performed.", ""},
 	        {StringList, "audio-codecs",
-	         "Whitespace seprated list of audio codecs, in order of preference. The 'telephone-event' codec is "
+	         "Whitespace separated list of audio codecs, in order of preference. The 'telephone-event' codec is "
 	         "necessary "
-	         "for inband DTMF processing.",
+	         "for in-band DTMF processing.",
 	         "speex/8000 amr/8000 iLBC/8000 gsm/8000 pcmu/8000 pcma/8000 telephone-event/8000"},
 	        {Boolean, "remove-bw-limits", "Remove the bandwidth limitations from SDP offers and answers", "false"},
 	        {Boolean, "block-retransmissions",

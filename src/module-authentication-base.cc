@@ -9,7 +9,7 @@
 
     This program is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
     GNU Affero General Public License for more details.
 
     You should have received a copy of the GNU Affero General Public License
@@ -28,7 +28,6 @@
 #include "eventlogs/writers/event-log-writer.hh"
 #include "module-toolbox.hh"
 #include "utils/string-utils.hh"
-
 
 using namespace std;
 
@@ -49,7 +48,7 @@ void ModuleAuthenticationBase::declareConfig(GenericStruct& moduleConfig) {
 	    {StringList, "available-algorithms",
 	     "List of digest algorithms to use for password hashing. Think this setting as filter applied after fetching "
 	     "the credentials of a user from the user database. For example, if a user has its password hashed by MD5 and "
-	     "SHA-256 but 'available-algorithms' only has MD5, then only a MD5-based challenged will be submited to the "
+	     "SHA-256 but 'available-algorithms' only has MD5, then only a MD5-based challenged will be submitted to the "
 	     "UAC.\n"
 	     "Furthermore, should a user have several hashed passwords and these are present in the list, then a challenge "
 	     "header will be put in the 401 response for each fetched password in the order given by the list.\n"
@@ -74,9 +73,10 @@ void ModuleAuthenticationBase::declareConfig(GenericStruct& moduleConfig) {
 	     "\trealm=regex:sip:.*@sip\\.(.*)\\.com\n",
 	     ""},
 	    {String, "realm-regex",
-	     "Extraction regex applied on the URI of the 'from' header (or P-Prefered-Identity header if present) in order "
-	     "to extract the realm. The realm is found out by getting the first slice of the URI that matches the regular "
-	     "expression. If it has one or more capturing parentheses, the content of the first one is used as realm.\n"
+	     "Extraction regex applied on the URI of the 'from' header (or P-Preferred-Identity header if present) in "
+	     "order to extract the realm. The realm is found out by getting the first slice of the URI that matches the "
+	     "regular expression. If it has one or more capturing parentheses, the content of the first one is used as "
+	     "realm.\n"
 	     "If no regex is specified, then the realm will be the domain part of the URI.\n"
 	     "\n"
 	     "For instance, given auth-domains=sip.example.com, you might use 'sip:.*@sip\\.(.*)\\.com' in order to "
@@ -201,7 +201,7 @@ void ModuleAuthenticationBase::configureAuthStatus(FlexisipAuthStatus& as, const
 	string realm{};
 	if (mRealmExtractor) {
 		auto userUriStr = url_as_string(ev->getHome(), userUri);
-		LOGD("AuthStatus[%p]: searching for realm in %s URI (%s)", &as, ppi ? "P-Prefered-Identity" : "From",
+		LOGD("AuthStatus[%p]: searching for realm in %s URI (%s)", &as, ppi ? "P-Preferred-Identity" : "From",
 		     userUriStr);
 
 		realm = mRealmExtractor->extract(userUriStr);

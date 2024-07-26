@@ -67,7 +67,7 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	     " * ':to' : the URI of the users list which the sender want to subscribe to. (mandatory)\n",
 	     ""},
 	    {Integer, "rls-database-max-thread", "Max number of threads.", "50"},
-	    {Integer, "rls-database-max-thread-queue-size", "Max legnth of threads queue.", "50"},
+	    {Integer, "rls-database-max-thread-queue-size", "Max length of threads queue.", "50"},
 	    {String, "soci-user-with-phone-request",
 	     "Soci SQL request used to obtain the username associated with a phone alias.\n"
 	     "The string MUST contains the ':phone' keyword which will be replaced by the phone number to look for.\n"
@@ -88,7 +88,7 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	    {Integer, "max-presence-elements", "Maximum number of presence element by identity saved in memory.", "10"},
 
 	    // Hidden parameters
-	    {String, "bypass-condition", "If user agent contains it, can bypass extended notifiy verification.", "false"},
+	    {String, "bypass-condition", "If user agent contains it, can bypass extended notify verification.", "false"},
 	    {Boolean, "leak-detector", "Enable belle-sip leak detector", "false"},
 
 	    // Deprecated parameters
@@ -101,7 +101,7 @@ auto& defineConfig = ConfigManager::defaultInit().emplace_back([](GenericStruct&
 	     "The use of the :from & :to parameters are mandatory.",
 	     ""},
 	    {Integer, "max-thread", "Max number of threads.", "50"},
-	    {Integer, "max-thread-queue-size", "Max legnth of threads queue.", "50"},
+	    {Integer, "max-thread-queue-size", "Max length of threads queue.", "50"},
 	    {Integer, "last-activity-retention-time",
 	     "Duration in milliseconds during which the last activity is kept in memory. Default is 1 day.", "86400000"},
 	    config_item_end};
@@ -707,8 +707,7 @@ void PresenceServer::processSubscribeRequestEvent(const belle_sip_request_event_
 			// List subscription
 			if (supported && belle_sip_list_find_custom(belle_sip_header_supported_get_supported(supported),
 			                                            (belle_sip_compare_func)strcasecmp, "eventlist")) {
-				SLOGD << "Subscribe for resource list "
-				      << "for dialog [" << BELLE_SIP_OBJECT(dialog.get()) << "]";
+				SLOGD << "Subscribe for resource list " << "for dialog [" << BELLE_SIP_OBJECT(dialog.get()) << "]";
 				// will be release when last PresentityPresenceInformationListener is released
 				shared_ptr<ListSubscription> listSubscription;
 				belle_sip_header_content_type_t* contentType =
