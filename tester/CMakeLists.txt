@@ -70,6 +70,7 @@ add_executable(flexisip_tester
 	${CMAKE_CURRENT_BINARY_DIR}/flexisip-tester-config.hh flexisip-tester-config.hh.in
 	fork-call-tester.cc
 	fork-context-tester.cc
+	main-tester.cc
 	mediarelay-tester.cc
 	module-dos-tester.cc
 	module-info-tester.cc
@@ -237,9 +238,9 @@ endif()
 
 if(ENABLE_OPENID_CONNECT)
 	target_sources(flexisip_tester PRIVATE
-	tests/auth/auth-openid-connect-tester.cc
-	tests/auth/bearer-scheme-tester.cc
-)
+		tests/auth/auth-openid-connect-tester.cc
+		tests/auth/bearer-scheme-tester.cc
+	)
 endif()
 
 target_compile_options(flexisip_tester PRIVATE ${CPP_BUILD_FLAGS} ${CXX_BUILD_FLAGS})

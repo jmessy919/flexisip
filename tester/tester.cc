@@ -119,7 +119,7 @@ void flexisip_tester_set_factory_resources_path(const std::string& path) {
 void flexisip_tester_init() {
 	// Initialize logs
 	LogManager::Parameters logParams{};
-	logParams.level = BCTBX_LOG_WARNING;
+	logParams.level = BCTBX_LOG_DEBUG;
 	logParams.enableSyslog = false;
 	logParams.enableStdout = true;
 	logParams.enableUserErrors = true;
