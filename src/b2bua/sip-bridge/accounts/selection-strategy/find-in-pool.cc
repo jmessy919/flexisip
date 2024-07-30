@@ -13,7 +13,7 @@ using namespace std::string_literals;
 FindInPool::FindInPool(std::shared_ptr<AccountPool> accountPool,
                        const config::v2::account_selection::FindInPool& config)
     : AccountSelectionStrategy(accountPool), mAccountLookup(mAccountPool->getOrCreateView({
-                                                 InterpolatedString(
+                                                 TemplateString(
                                                      [&] {
 	                                                     // Backward compat.: This field was previously an enum of "uri"
 	                                                     // | "alias"
@@ -25,7 +25,7 @@ FindInPool::FindInPool(std::shared_ptr<AccountPool> accountPool,
                                                      "}"),
                                                  resolve(kAccountFields),
                                              })),
-      mSourceTemplate(InterpolatedString(config.source, "{", "}"), resolve(kLinphoneCallFields)) {
+      mSourceTemplate(TemplateString(config.source, "{", "}"), resolve(kLinphoneCallFields)) {
 }
 
 std::shared_ptr<Account> FindInPool::chooseAccountForThisCall(const linphone::Call& incomingCall) const {

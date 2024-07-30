@@ -13,7 +13,7 @@
 
 namespace flexisip::utils::string_interpolation {
 
-class InterpolatedString {
+class TemplateString {
 public:
 	struct Members {
 		std::string templateString{};
@@ -51,7 +51,7 @@ public:
 	/**
 	 * @throws MissingClosingDelimiter
 	 */
-	explicit InterpolatedString(std::string templateString, std::string_view startDelim, std::string_view endDelim);
+	explicit TemplateString(std::string templateString, std::string_view startDelim, std::string_view endDelim);
 
 	Members&& extractMembers() && {
 		return std::move(m);

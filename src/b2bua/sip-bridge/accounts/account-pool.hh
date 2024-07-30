@@ -31,13 +31,13 @@
 #include "b2bua/sip-bridge/configuration/v2/v2.hh"
 #include "libhiredis-wrapper/replication/redis-client.hh"
 #include "utils/constant-rate-task-queue.hh"
-#include "utils/string-interpolation/preprocessed-interpolated-string.hh"
+#include "utils/string-interpolation/template-formatter.hh"
 
 namespace flexisip::b2bua::bridge {
 
 class AccountPool : public redis::async::SessionListener {
 public:
-	using LookupTemplate = utils::string_interpolation::PreprocessedInterpolatedString<const Account&>;
+	using LookupTemplate = utils::string_interpolation::TemplateFormatter<const Account&>;
 	using AccountLookupTable = std::unordered_map<std::string, std::shared_ptr<Account>>;
 	struct IndexedView {
 		LookupTemplate interpolator;

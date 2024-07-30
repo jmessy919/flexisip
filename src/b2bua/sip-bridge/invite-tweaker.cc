@@ -33,8 +33,8 @@ constexpr auto resolver = resolve(kInviteTweakerFields);
 } // namespace
 
 InviteTweaker::InviteTweaker(const config::v2::OutgoingInvite& config, linphone::Core& core)
-    : mToHeader(InterpolatedString(config.to, "{", "}"), resolver),
-      mFromHeader(InterpolatedString(config.from.empty() ? "{account.uri}" : config.from, "{", "}"), resolver),
+    : mToHeader(TemplateString(config.to, "{", "}"), resolver),
+      mFromHeader(TemplateString(config.from.empty() ? "{account.uri}" : config.from, "{", "}"), resolver),
       mOutboundProxyOverride([&]() -> decltype(mOutboundProxyOverride) {
 	      if (!config.outboundProxy) return nullptr;
 

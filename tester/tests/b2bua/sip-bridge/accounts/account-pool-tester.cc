@@ -66,7 +66,7 @@ std::optional<SuiteScope> SUITE_SCOPE;
 
 AccountPool::LookupTemplate configTemplateString(string&& templateString) {
 	return AccountPool::LookupTemplate(
-	    utils::string_interpolation::InterpolatedString(std::move(templateString), "<", ">"), resolve(kAccountFields));
+	    utils::string_interpolation::TemplateString(std::move(templateString), "<", ">"), resolve(kAccountFields));
 }
 
 const auto& byUriTemplate = configTemplateString("<uri>");

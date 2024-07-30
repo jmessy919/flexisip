@@ -6,7 +6,7 @@
 
 #include "flexisip/logmanager.hh"
 
-#include "utils/string-interpolation/preprocessed-interpolated-string.hh"
+#include "utils/string-interpolation/template-formatter.hh"
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
 
@@ -24,7 +24,7 @@ std::ostream& operator<<(std::ostream& ostr, const StringViewMold& mold) {
 }
 
 void tryParse(std::string template_) {
-	PreprocessedInterpolatedString<const linphone::Call&>(InterpolatedString(template_, "{", "}"),
+	TemplateFormatter<const linphone::Call&>(TemplateString(template_, "{", "}"),
 	                                                      resolve(kLinphoneCallFields));
 }
 
@@ -59,7 +59,7 @@ void missingClosingDelim() {
 	try {
 		tryParse("sip:{from.hostport");
 		BC_FAIL("expected exception");
-	} catch (const InterpolatedString::MissingClosingDelimiter& err) {
+	} catch (const TemplateString::MissingClosingDelimiter& err) {
 		BC_ASSERT_CPP_EQUAL(err.startDelimPos, charCount("sip:"));
 		BC_ASSERT_CPP_EQUAL(err.expectedDelim, "}");
 		SLOGD << "Preview of caught exception .what():" << err.what();

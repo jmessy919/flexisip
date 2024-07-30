@@ -8,17 +8,17 @@
 #include <sstream>
 #include <unordered_set>
 
-#include "interpolated-string.hh"
+#include "template-string.hh"
 
 namespace flexisip::utils::string_interpolation {
 
-template <typename... Args>
-class PreprocessedInterpolatedString {
+template <typename... Context>
+class TemplateFormatter {
 public:
-	using Substituter = std::function<std::string(const Args&...)>;
+	using Substituter = std::function<std::string(const Context&...)>;
 	using Resolver = std::function<Substituter(std::string_view)>;
 
-	PreprocessedInterpolatedString(InterpolatedString&& parsed, Resolver resolver) {
+	TemplateFormatter(TemplateString&& parsed, Resolver resolver) {
 		auto [templateString, pieces, symbols] = std::move(parsed).extractMembers();
 		mTemplateString = std::move(templateString);
 		mPieces = std::move(pieces);
@@ -32,14 +32,14 @@ public:
 		}
 	}
 
-	std::string format(const Args&... args) const {
+	std::string format(const Context&... context) const {
 		assert(mPieces.size() == mSubstitutions.size() + 1);
 		std::ostringstream stream{};
 		auto pieceIter = mPieces.begin();
 		stream << toStringView(*pieceIter++);
 		auto substitutionsIter = mSubstitutions.begin();
 		for (; pieceIter != mPieces.end(); ++pieceIter, ++substitutionsIter) {
-			stream << (*substitutionsIter)(args...);
+			stream << (*substitutionsIter)(context...);
 			stream << toStringView(*pieceIter);
 		}
 		return stream.str();
@@ -54,7 +54,7 @@ private:
 		return mold.cast(mTemplateString);
 	}
 
-	friend std::hash<PreprocessedInterpolatedString>;
+	friend std::hash<TemplateFormatter>;
 
 	std::string mTemplateString{};
 	std::vector<StringViewMold> mPieces{};
