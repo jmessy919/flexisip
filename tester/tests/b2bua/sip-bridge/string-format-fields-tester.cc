@@ -2,7 +2,7 @@
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-#include "b2bua/sip-bridge/variable-substitution.hh"
+#include "b2bua/sip-bridge/string-format-fields.hh"
 
 #include "flexisip/logmanager.hh"
 
@@ -13,7 +13,7 @@
 namespace flexisip::tester {
 namespace {
 using namespace utils::string_interpolation;
-using namespace b2bua::bridge::variable_substitution;
+using namespace b2bua::bridge;
 
 bool operator==(const StringViewMold& left, const StringViewMold& right) {
 	return left.start == right.start && left.size == right.size;
@@ -25,7 +25,7 @@ std::ostream& operator<<(std::ostream& ostr, const StringViewMold& mold) {
 
 void tryParse(std::string template_) {
 	PreprocessedInterpolatedString<const linphone::Call&>(InterpolatedString(template_, "{", "}"),
-	                                                      resolve( kLinphoneCallFields ));
+	                                                      resolve(kLinphoneCallFields));
 }
 
 std::size_t charCount(std::string_view view) {

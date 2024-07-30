@@ -4,11 +4,10 @@
 
 #include "find-in-pool.hh"
 
-#include "b2bua/sip-bridge/variable-substitution.hh"
+#include "b2bua/sip-bridge/string-format-fields.hh"
 
 namespace flexisip::b2bua::bridge::account_strat {
 using namespace utils::string_interpolation;
-using namespace variable_substitution;
 using namespace std::string_literals;
 
 FindInPool::FindInPool(std::shared_ptr<AccountPool> accountPool,

@@ -2,13 +2,15 @@
  *  SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
+#include "b2bua/sip-bridge/accounts/account-pool.hh"
+
 #include <soci/session.h>
 #include <soci/sqlite3/soci-sqlite3.h>
 
 #include "b2bua/b2bua-server.hh"
-#include "b2bua/sip-bridge/accounts/account-pool.hh"
 #include "b2bua/sip-bridge/accounts/loaders/sql-account-loader.hh"
 #include "b2bua/sip-bridge/accounts/loaders/static-account-loader.hh"
+#include "b2bua/sip-bridge/string-format-fields.hh"
 #include "tester.hh"
 #include "utils/core-assert.hh"
 #include "utils/redis-server.hh"
@@ -16,8 +18,6 @@
 #include "utils/test-patterns/test.hh"
 #include "utils/test-suite.hh"
 #include "utils/tmp-dir.hh"
-
-#include "b2bua/sip-bridge/variable-substitution.hh"
 
 namespace flexisip::tester {
 using namespace std;
@@ -66,8 +66,7 @@ std::optional<SuiteScope> SUITE_SCOPE;
 
 AccountPool::LookupTemplate configTemplateString(string&& templateString) {
 	return AccountPool::LookupTemplate(
-	    utils::string_interpolation::InterpolatedString(std::move(templateString), "<", ">"),
-	    variable_substitution::resolve(variable_substitution::kAccountFields));
+	    utils::string_interpolation::InterpolatedString(std::move(templateString), "<", ">"), resolve(kAccountFields));
 }
 
 const auto& byUriTemplate = configTemplateString("<uri>");

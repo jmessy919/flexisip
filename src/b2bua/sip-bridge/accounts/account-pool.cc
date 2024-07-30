@@ -22,7 +22,7 @@
 
 #include "flexisip/logmanager.hh"
 
-#include "b2bua/sip-bridge/variable-substitution.hh"
+#include "b2bua/sip-bridge/string-format-fields.hh"
 
 namespace flexisip::b2bua::bridge {
 using namespace std;
@@ -46,7 +46,7 @@ AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
                        IndexedView{
                            .interpolator = LookupTemplate(
                                utils::string_interpolation::InterpolatedString(kDefaultTemplateString, "{", "}"),
-                               variable_substitution::resolve(variable_substitution::kAccountFields)),
+                               resolve(kAccountFields)),
                        })
               .first->second),
       mRegistrationQueue(*mSuRoot,

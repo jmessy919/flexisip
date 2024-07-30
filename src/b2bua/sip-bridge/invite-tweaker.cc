@@ -9,14 +9,13 @@
 #include <linphone++/call_params.hh>
 #include <linphone++/core.hh>
 
-#include "b2bua/sip-bridge/variable-substitution.hh"
+#include "b2bua/sip-bridge/string-format-fields.hh"
 #include "flexisip/logmanager.hh"
 
 namespace flexisip::b2bua::bridge {
 using namespace utils::string_interpolation;
 
 namespace {
-using namespace variable_substitution;
 
 const auto kInviteTweakerFields = FieldsOf<linphone::Call const&, Account const&>{
     {
