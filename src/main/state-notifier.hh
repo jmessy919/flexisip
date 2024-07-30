@@ -17,6 +17,21 @@
 */
 
 #pragma once
-#include "exceptions/exit.hh"
 
-int _main(int argc, char* argv[]);
+namespace flexisip {
+
+class StateNotifier {
+public:
+	StateNotifier();
+	explicit StateNotifier(int flags);
+	~StateNotifier();
+
+	void notify();
+	ssize_t read(void* buf, size_t nbBytes = 0);
+
+private:
+	int mPipe[2] = {-1};
+	bool mNotified{};
+};
+
+} // namespace flexisip

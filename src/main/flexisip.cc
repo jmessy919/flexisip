@@ -101,15 +101,16 @@
 #include "flexisip.hh"
 
 using namespace std;
-using namespace flexisip;
+namespace flexisip {
 
 #define ENABLE_SERVICE_SERVERS ENABLE_PRESENCE || ENABLE_CONFERENCE || ENABLE_B2BUA
 
 static int run = 1;
 static pid_t monitor_pid = -1;
 static pid_t flexisip_pid = -1;
-static int pipe_wdog_flexisip[2] = {-1}; // Pipe in which flexisip will write to notify the watchdog that it has started
 static shared_ptr<sofiasip::SuRoot> root{};
+// Used by flexisip to notify the watchdog that it has started
+static std::optional<StateNotifier> flexisipNotifier = std::nullopt;
 
 /*
  * Get the identifier of the current thread.
@@ -317,10 +318,7 @@ static void forkAndDetach(
 
 	/* Creation of the flexisip process */
 	fork_flexisip:
-		err = pipe(pipe_wdog_flexisip);
-		if (err == -1) {
-			throw Exit{EXIT_FAILURE, "could not create pipes: "s + strerror(errno)};
-		}
+		flexisipNotifier = StateNotifier();
 		flexisip_pid = fork();
 		if (flexisip_pid < 0) {
 			throw Exit{EXIT_FAILURE, "could not fork: "s + strerror(errno)};
@@ -330,7 +328,6 @@ static void forkAndDetach(
 			/* This is the real flexisip process now.
 			 * We can proceed with real start
 			 */
-			close(pipe_wdog_flexisip[0]);
 			set_process_name("flexisip-" + functionName);
 			makePidFile(pidfile);
 			return;
@@ -342,15 +339,13 @@ static void forkAndDetach(
 		 * We are in the watch-dog process again
 		 * Waiting for successful initialisation of the flexisip process
 		 */
-		close(pipe_wdog_flexisip[1]);
-		err = read(pipe_wdog_flexisip[0], buf, sizeof(buf));
+		err = flexisipNotifier->read(buf);
 		if (err == -1 || err == 0) {
 			string message{};
 			if (err == -1) message = "[WDOG] read error from flexisip, "s + strerror(errno);
 			close(pipe_launcher_wdog[1]); // close launcher pipe to signify the error
 			throw Exit{EXIT_FAILURE, message};
 		}
-		close(pipe_wdog_flexisip[0]);
 
 	/*
 	 * Flexisip has successfully started.
@@ -549,17 +544,6 @@ getFunctionName(bool startProxy, bool startPresence, bool startConference, bool 
 	return (functions.empty()) ? "none" : functions;
 }
 
-static void notifyWatchDog() {
-	static bool notified = false;
-	if (!notified) {
-		if (write(pipe_wdog_flexisip[1], "ok", 3) == -1) {
-			LOGF("Failed to write starter pipe: %s", strerror(errno));
-		}
-		close(pipe_wdog_flexisip[1]);
-		notified = true;
-	}
-}
-
 static string version() {
 	ostringstream version;
 	version << FLEXISIP_GIT_VERSION "\n";
@@ -610,7 +594,15 @@ static string getPkcsPassphrase(TCLAP::ValueArg<string>& pkcsFile) {
 	return passphrase;
 }
 
-int _main(int argc, char* argv[]) {
+// TODO: Tester que le mode démon fonctionne encore
+int _main(int argc, char* argv[], std::optional<StateNotifier>&& notifier) {
+	SLOGD << "argc " << argc;
+	for (int i = 0; i < argc; i++) {
+		SLOGD << argv[i];
+	}
+	if (notifier != nullopt) {
+		flexisipNotifier = notifier;
+	}
 	shared_ptr<Agent> a;
 	StunServer* stun = NULL;
 	unique_ptr<CommandLineInterface> proxy_cli;
@@ -906,14 +898,15 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 	/*
 	 * Log initialisation.
 	 * This must be done after forking in order the log file be reopen after respawn should Flexisip crash.
-	 * The condition intent to avoid log initialisation should the user have passed command line options that doesn't
-	 * require to start the server e.g. dumping default configuration file.
+	 * The condition intent to avoid log initialisation should the user have passed command line options that
+	 * doesn't require to start the server e.g. dumping default configuration file.
 	 */
 	if (!dumpDefault.getValue().length() && !listOverrides.getValue().length() && !listModules && !listSections &&
 	    !dumpMibs && !dumpAll) {
 		if (cfg->getGlobal()->get<ConfigByteSize>("max-log-size")->read() !=
 		    static_cast<ConfigByteSize::ValueType>(-1)) {
-			LOGF("Setting 'global/max-log-size' parameter has been forbidden since log size control was delegated to "
+			LOGF("Setting 'global/max-log-size' parameter has been forbidden since log size control was delegated "
+			     "to "
 			     "logrotate. Please edit /etc/logrotate.d/flexisip-logrotate for log rotation customization.");
 		}
 
@@ -945,16 +938,16 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 	}
 
 	/*
-	 * From now on, we are a flexisip daemon, that is a process that will run proxy, presence, regevent or conference
-	 * server.
+	 * From now on, we are a flexisip daemon, that is a process that will run proxy, presence, regevent or
+	 * conference server.
 	 */
 	LOGN("Starting flexisip %s-server version %s", fName.c_str(), FLEXISIP_GIT_VERSION);
 
 	increaseFDLimit();
 
 	/*
-	 * We create an Agent in all cases, because it will declare config items that are necessary for presence server to
-	 * run.
+	 * We create an Agent in all cases, because it will declare config items that are necessary for presence server
+	 * to run.
 	 */
 	auto authDb = std::make_shared<AuthDb>(cfg);
 	auto registrarDb = std::make_shared<RegistrarDb>(root, cfg);
@@ -984,7 +977,7 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 		}
 
 		if (daemonMode) {
-			notifyWatchDog();
+			flexisipNotifier->notify();
 		}
 
 		if (cfg->getRoot()->get<GenericStruct>("stun-server")->get<ConfigBoolean>("enabled")->read()) {
@@ -1011,7 +1004,7 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 			presenceServer->enableLongTermPresence(authDb, registrarDb);
 		}
 		if (daemonMode) {
-			notifyWatchDog();
+			flexisipNotifier->notify();
 		}
 		try {
 			presenceServer->init();
@@ -1033,7 +1026,7 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 #ifdef ENABLE_CONFERENCE
 		auto conferenceServer = make_shared<ConferenceServer>(a->getPreferredRoute(), root, cfg, registrarDb);
 		if (daemonMode) {
-			notifyWatchDog();
+			flexisipNotifier->notify();
 		}
 		try {
 			conferenceServer->init();
@@ -1052,7 +1045,7 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 #ifdef ENABLE_CONFERENCE
 		auto regEventServer = make_unique<RegistrationEvent::Server>(root, cfg, registrarDb);
 		if (daemonMode) {
-			notifyWatchDog();
+			flexisipNotifier->notify();
 		}
 		try {
 			regEventServer->init();
@@ -1068,7 +1061,7 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 #if ENABLE_B2BUA
 		auto b2buaServer = make_shared<B2buaServer>(root, cfg);
 		if (daemonMode) {
-			notifyWatchDog();
+			flexisipNotifier->notify();
 		}
 		try {
 			b2buaServer->init();
@@ -1080,8 +1073,8 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 #endif // ENABLE_B2BUA
 	}
 
-	// TODO: Log in the if to indicate that the server started properly?
-	//  or deeper? Suroot seems a bit low level
+	// TODO: Notify here even with watchdog?
+	if (!daemonMode && flexisipNotifier != nullopt) flexisipNotifier->notify();
 	if (run) root->run();
 
 	a->unloadConfig();
@@ -1131,5 +1124,7 @@ TCLAP::SwitchArg           trackAllocs("",  "track-allocations", "Tracks allocat
 	}
 #endif
 
+	SLOGD << "returning";
 	return errcode;
 }
+} // namespace flexisip
