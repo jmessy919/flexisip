@@ -52,14 +52,14 @@ inline std::pair<std::string_view, std::string_view> popVarName(std::string_view
 }
 
 /**
- * Builds a (sub-)Resolver from a transformation function and fields map
+ * @brief Builds a (sub-)Resolver from a transformation function and fields map
+ *
+ * @param fields Available fields in this resolution context
+ * @param transformer Callable to extract a new sub-context (field) from the current context
  */
-template <typename Transformer = std::nullopt_t, typename... Context>
-class FieldsResolver {
-public:
-	using Fields = FieldsOf<Context...>;
-
-	auto operator()(std::string_view dotPath) const {
+template <typename... Context, typename Transformer = std::nullopt_t>
+constexpr auto resolve(FieldsOf<Context...> const& fields, Transformer transformer = std::nullopt) {
+	return [transformer, &fields](const auto dotPath) {
 		const auto& [varName, furtherPath] = popVarName(dotPath);
 		const auto& resolver = fields.find(varName);
 		if (resolver == fields.end()) {
@@ -68,7 +68,7 @@ public:
 
 		const auto& substituter = resolver->second(furtherPath);
 
-		return [substituter, transformer = this->transformer](const auto&... args) {
+		return [substituter, transformer](const auto&... args) {
 			if constexpr (!std::is_same_v<Transformer, std::nullopt_t>) {
 				return substituter(transformer(args...));
 			} else {
@@ -76,18 +76,8 @@ public:
 				std::ignore = transformer; // Suppress unused warning
 			}
 		};
-	}
-
-	// Available fields in this resolution context
-	const Fields& fields;
-	// Callable to extract a new sub-context (field) from the current context
-	Transformer transformer = std::nullopt;
-};
-
-template <typename... Context>
-FieldsResolver(const FieldsOf<Context...>&) -> FieldsResolver<std::nullopt_t, Context...>;
-template <typename... Context, typename Transformer>
-FieldsResolver(const FieldsOf<Context...>&, Transformer) -> FieldsResolver<Transformer, Context...>;
+	};
+}
 
 const auto kLinphoneAddressFields = FieldsOf<std::shared_ptr<const linphone::Address>>{
     {"", leaf([](const auto& address) { return address->asStringUriOnly(); })},
@@ -110,9 +100,9 @@ const auto kLinphoneAddressFields = FieldsOf<std::shared_ptr<const linphone::Add
 };
 
 const auto kLinphoneCallFields = FieldsOf<linphone::Call>{
-    {"to", FieldsResolver{kLinphoneAddressFields, [](const auto& call) { return call.getToAddress(); }}},
-    {"from", FieldsResolver{kLinphoneAddressFields, [](const auto& call) { return call.getRemoteAddress(); }}},
-    {"requestUri", FieldsResolver{kLinphoneAddressFields, [](const auto& call) { return call.getRequestAddress(); }}},
+    {"to", resolve(kLinphoneAddressFields, [](const auto& call) { return call.getToAddress(); })},
+    {"from", resolve(kLinphoneAddressFields, [](const auto& call) { return call.getRemoteAddress(); })},
+    {"requestUri", resolve(kLinphoneAddressFields, [](const auto& call) { return call.getRequestAddress(); })},
 };
 
 const auto kSofiaUriFields = FieldsOf<SipUri>{
@@ -135,31 +125,10 @@ const auto kSofiaUriFields = FieldsOf<SipUri>{
 };
 
 const auto kAccountFields = FieldsOf<Account>{
-    {"uri", FieldsResolver{kLinphoneAddressFields,
-                           [](const auto& account) {
-	                           return account.getLinphoneAccount()->getParams()->getIdentityAddress();
-                           }}},
-    {"alias", FieldsResolver{kSofiaUriFields, [](const auto& account) { return account.getAlias(); }}},
+    {"uri",
+     resolve(kLinphoneAddressFields,
+             [](const auto& account) { return account.getLinphoneAccount()->getParams()->getIdentityAddress(); })},
+    {"alias", resolve(kSofiaUriFields, [](const auto& account) { return account.getAlias(); })},
 };
 
 } // namespace flexisip::b2bua::bridge::variable_substitution
-
-namespace std {
-
-// Same as hash<nullptr_t>
-template <>
-struct hash<nullopt_t> {
-	size_t operator()(const nullopt_t&) const {
-		return 0;
-	}
-};
-
-template <typename Transformer, typename... Context>
-struct hash<flexisip::b2bua::bridge::variable_substitution::FieldsResolver<Transformer, Context...>> {
-	using Target = flexisip::b2bua::bridge::variable_substitution::FieldsResolver<Transformer, Context...>;
-	size_t operator()(const Target& resolver) const {
-		return hash<const typename Target::Fields*>()(addressof(resolver.fields)) ^
-		       hash<Transformer>()(resolver.transformer);
-	}
-};
-} // namespace std

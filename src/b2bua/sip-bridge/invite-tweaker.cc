@@ -21,15 +21,15 @@ using namespace variable_substitution;
 const auto kInviteTweakerFields = FieldsOf<linphone::Call const&, Account const&>{
     {
         "incoming",
-        FieldsResolver{kLinphoneCallFields, [](const auto& call, const auto&) -> const auto& { return call; }},
+        resolve(kLinphoneCallFields, [](const auto& call, const auto&) -> const auto& { return call; }),
     },
     {
         "account",
-        FieldsResolver{kAccountFields, [](const auto&, const auto& account) -> const auto& { return account; }},
+        resolve(kAccountFields, [](const auto&, const auto& account) -> const auto& { return account; }),
     },
 };
 
-constexpr auto resolver = FieldsResolver{kInviteTweakerFields};
+constexpr auto resolver = resolve(kInviteTweakerFields);
 
 } // namespace
 

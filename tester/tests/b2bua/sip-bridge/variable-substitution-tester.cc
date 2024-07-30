@@ -25,7 +25,7 @@ std::ostream& operator<<(std::ostream& ostr, const StringViewMold& mold) {
 
 void tryParse(std::string template_) {
 	PreprocessedInterpolatedString<const linphone::Call&>(InterpolatedString(template_, "{", "}"),
-	                                                      FieldsResolver{ kLinphoneCallFields });
+	                                                      resolve( kLinphoneCallFields ));
 }
 
 std::size_t charCount(std::string_view view) {

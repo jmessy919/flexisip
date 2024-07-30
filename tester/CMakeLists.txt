@@ -118,7 +118,6 @@ add_executable(flexisip_tester
 	tests/utils/flow-factory-tester.cc
 	tests/utils/flow-tester.cc
 	tests/utils/flow-factory-helper-tester.cc
-	tests/utils/hashed-function-tester.cc
 	tests/utils/limited-unordered-map-tester.cc
 	tests/utils/socket-address-tester.cc
 	tests/utils/soft-ptr-tester.cc
@@ -167,7 +166,6 @@ if(ENABLE_SOCI)
 		tests/auth/db/authdb-soci-tester.cc
 		tests/eventlogs/writers/database-event-log-writer-tester.cc
 		tests/presence/list-subscription/external-list-subscription-tester.cc
-		tests/utils/string-interpolation/preprocessed-interpolated-string-tester.cc
 	)
 endif()
 

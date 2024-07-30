@@ -24,9 +24,9 @@ FindInPool::FindInPool(std::shared_ptr<AccountPool> accountPool,
                                                      }(),
                                                      "{",
                                                      "}"),
-                                                 FieldsResolver{kAccountFields},
+                                                 resolve(kAccountFields),
                                              })),
-      mSourceTemplate(InterpolatedString(config.source, "{", "}"), FieldsResolver{kLinphoneCallFields}) {
+      mSourceTemplate(InterpolatedString(config.source, "{", "}"), resolve(kLinphoneCallFields)) {
 }
 
 std::shared_ptr<Account> FindInPool::chooseAccountForThisCall(const linphone::Call& incomingCall) const {

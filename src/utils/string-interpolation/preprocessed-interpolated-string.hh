@@ -9,7 +9,6 @@
 #include <unordered_set>
 
 #include "interpolated-string.hh"
-#include "utils/hashed-function.hh"
 
 namespace flexisip::utils::string_interpolation {
 
@@ -17,10 +16,9 @@ template <typename... Args>
 class PreprocessedInterpolatedString {
 public:
 	using Substituter = std::function<std::string(const Args&...)>;
-	using Resolver = HashedFunction<Substituter(std::string_view)>;
+	using Resolver = std::function<Substituter(std::string_view)>;
 
-	PreprocessedInterpolatedString(InterpolatedString&& parsed, Resolver resolver)
-	    : mHash(std::hash<InterpolatedString>()(parsed) ^ std::hash<Resolver>()(resolver)) {
+	PreprocessedInterpolatedString(InterpolatedString&& parsed, Resolver resolver) {
 		auto [templateString, pieces, symbols] = std::move(parsed).extractMembers();
 		mTemplateString = std::move(templateString);
 		mPieces = std::move(pieces);
@@ -51,10 +49,6 @@ public:
 		return mTemplateString;
 	}
 
-	bool operator<(const PreprocessedInterpolatedString& rhs) const {
-		return mHash < rhs.mHash;
-	}
-
 private:
 	std::string_view toStringView(StringViewMold mold) const {
 		return mold.cast(mTemplateString);
@@ -62,20 +56,9 @@ private:
 
 	friend std::hash<PreprocessedInterpolatedString>;
 
-	const std::size_t mHash{};
 	std::string mTemplateString{};
 	std::vector<StringViewMold> mPieces{};
 	std::vector<Substituter> mSubstitutions{};
 };
 
 } // namespace flexisip::utils::string_interpolation
-
-namespace std {
-template <typename... Args>
-struct hash<flexisip::utils::string_interpolation::PreprocessedInterpolatedString<Args...>> {
-	size_t operator()(
-	    const flexisip::utils::string_interpolation::PreprocessedInterpolatedString<Args...>& interpolated) const {
-		return interpolated.mHash;
-	}
-};
-} // namespace std

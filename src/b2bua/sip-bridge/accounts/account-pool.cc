@@ -46,7 +46,7 @@ AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
                        IndexedView{
                            .interpolator = LookupTemplate(
                                utils::string_interpolation::InterpolatedString(kDefaultTemplateString, "{", "}"),
-                               variable_substitution::FieldsResolver{variable_substitution::kAccountFields}),
+                               variable_substitution::resolve(variable_substitution::kAccountFields)),
                        })
               .first->second),
       mRegistrationQueue(*mSuRoot,
