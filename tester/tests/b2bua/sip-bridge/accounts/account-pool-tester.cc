@@ -10,7 +10,6 @@
 #include "b2bua/b2bua-server.hh"
 #include "b2bua/sip-bridge/accounts/loaders/sql-account-loader.hh"
 #include "b2bua/sip-bridge/accounts/loaders/static-account-loader.hh"
-#include "b2bua/sip-bridge/string-format-fields.hh"
 #include "tester.hh"
 #include "utils/core-assert.hh"
 #include "utils/redis-server.hh"
@@ -64,14 +63,6 @@ struct SuiteScope {
 
 std::optional<SuiteScope> SUITE_SCOPE;
 
-AccountPool::LookupTemplate configTemplateString(string&& templateString) {
-	return AccountPool::LookupTemplate(
-	    utils::string_interpolation::TemplateString(std::move(templateString), "<", ">"), resolve(kAccountFields));
-}
-
-const auto& byUriTemplate = configTemplateString("<uri>");
-const auto& byAliasTemplate = configTemplateString("<alias>");
-
 void globalSqlTest() {
 	///////// ARRANGE
 	Session commandsSession{};
@@ -91,8 +82,8 @@ void globalSqlTest() {
 	                 make_unique<SQLAccountLoader>(SUITE_SCOPE->suRoot,
 	                                               std::get<config::v2::SQLLoader>(SUITE_SCOPE->poolConfig.loader)),
 	                 &registrarConf};
-	const auto& accountsByUri = pool.getOrCreateView(AccountPool::LookupTemplate(byUriTemplate)).view;
-	const auto& accountsByAlias = pool.getOrCreateView(AccountPool::LookupTemplate(byAliasTemplate)).view;
+	const auto& accountsByUri = pool.getOrCreateView("{uri}").view;
+	const auto& accountsByAlias = pool.getOrCreateView("{alias}").view;
 
 	asserter
 	    .wait([&pool] {
@@ -275,8 +266,8 @@ void emptyThenPublishSqlTest() {
 	                 make_unique<SQLAccountLoader>(SUITE_SCOPE->suRoot,
 	                                               std::get<config::v2::SQLLoader>(SUITE_SCOPE->poolConfig.loader)),
 	                 &registrarConf};
-	const auto& accountsByUri = pool.getOrCreateView(AccountPool::LookupTemplate(byUriTemplate)).view;
-	const auto& accountsByAlias = pool.getOrCreateView(AccountPool::LookupTemplate(byAliasTemplate)).view;
+	const auto& accountsByUri = pool.getOrCreateView("{uri}").view;
+	const auto& accountsByAlias = pool.getOrCreateView("{alias}").view;
 
 	asserter
 	    .wait([&pool] {

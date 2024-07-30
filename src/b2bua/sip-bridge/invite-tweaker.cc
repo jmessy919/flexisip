@@ -28,13 +28,11 @@ const auto kInviteTweakerFields = FieldsOf<linphone::Call const&, Account const&
     },
 };
 
-constexpr auto resolver = resolve(kInviteTweakerFields);
-
 } // namespace
 
 InviteTweaker::InviteTweaker(const config::v2::OutgoingInvite& config, linphone::Core& core)
-    : mToHeader(TemplateString(config.to, "{", "}"), resolver),
-      mFromHeader(TemplateString(config.from.empty() ? "{account.uri}" : config.from, "{", "}"), resolver),
+    : mToHeader(config.to, kInviteTweakerFields),
+      mFromHeader(config.from.empty() ? "{account.uri}" : config.from, kInviteTweakerFields),
       mOutboundProxyOverride([&]() -> decltype(mOutboundProxyOverride) {
 	      if (!config.outboundProxy) return nullptr;
 

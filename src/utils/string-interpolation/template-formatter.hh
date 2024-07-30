@@ -8,17 +8,19 @@
 #include <sstream>
 #include <unordered_set>
 
-#include "template-string.hh"
+#include "utils/string-interpolation/template-string.hh"
+#include "utils/string-interpolation/variable-substitution.hh"
 
 namespace flexisip::utils::string_interpolation {
 
+// TODO DOC
 template <typename... Context>
 class TemplateFormatter {
 public:
 	using Substituter = std::function<std::string(const Context&...)>;
 	using Resolver = std::function<Substituter(std::string_view)>;
 
-	TemplateFormatter(TemplateString&& parsed, Resolver resolver) {
+	explicit TemplateFormatter(TemplateString&& parsed, Resolver resolver) {
 		auto [templateString, pieces, symbols] = std::move(parsed).extractMembers();
 		mTemplateString = std::move(templateString);
 		mPieces = std::move(pieces);
@@ -30,6 +32,11 @@ public:
 		} catch (const ContextlessResolutionError& err) {
 			throw ResolutionError(mTemplateString, err.offendingToken);
 		}
+	}
+
+	// Convenience ctor
+	explicit TemplateFormatter(std::string templateStr, const FieldsOf<Context...>& fields)
+	    : TemplateFormatter(TemplateString(std::move(templateStr), "{", "}"), resolve(fields)) {
 	}
 
 	std::string format(const Context&... context) const {

@@ -37,10 +37,10 @@ namespace flexisip::b2bua::bridge {
 
 class AccountPool : public redis::async::SessionListener {
 public:
-	using LookupTemplate = utils::string_interpolation::TemplateFormatter<const Account&>;
+	using Formatter = utils::string_interpolation::TemplateFormatter<const Account&>;
 	using AccountLookupTable = std::unordered_map<std::string, std::shared_ptr<Account>>;
 	struct IndexedView {
-		LookupTemplate interpolator;
+		Formatter formatter;
 		AccountLookupTable view{};
 	};
 	// Map of template string -> indexed view of accounts
@@ -61,7 +61,7 @@ public:
 
 	std::shared_ptr<Account> getAccountRandomly() const;
 
-	const IndexedView& getOrCreateView(LookupTemplate&&);
+	const IndexedView& getOrCreateView(std::string);
 	const IndexedView& getDefaultView() const;
 
 	auto size() const {

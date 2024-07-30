@@ -24,8 +24,7 @@ std::ostream& operator<<(std::ostream& ostr, const StringViewMold& mold) {
 }
 
 void tryParse(std::string template_) {
-	TemplateFormatter<const linphone::Call&>(TemplateString(template_, "{", "}"),
-	                                                      resolve(kLinphoneCallFields));
+	TemplateFormatter<const linphone::Call&>(template_, kLinphoneCallFields);
 }
 
 std::size_t charCount(std::string_view view) {

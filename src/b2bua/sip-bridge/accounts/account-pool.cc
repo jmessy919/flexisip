@@ -40,15 +40,12 @@ AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
                          RedisParameters const* redisConf)
     : mSuRoot{suRoot}, mCore{core}, mLoader{std::move(loader)}, mAccountParams{mCore->createAccountParams()},
       mMaxCallsPerLine(pool.maxCallsPerLine), mPoolName{poolName},
-      mDefaultView(
-          mViews
-              .emplace(kDefaultTemplateString,
-                       IndexedView{
-                           .interpolator = LookupTemplate(
-                               utils::string_interpolation::TemplateString(kDefaultTemplateString, "{", "}"),
-                               resolve(kAccountFields)),
-                       })
-              .first->second),
+      mDefaultView(mViews
+                       .emplace(kDefaultTemplateString,
+                                IndexedView{
+                                    .formatter = Formatter(kDefaultTemplateString, kAccountFields),
+                                })
+                       .first->second),
       mRegistrationQueue(*mSuRoot,
                          chrono::milliseconds{pool.registrationThrottlingRateMs},
                          [this](const auto& account) { addNewAccount(account); }) {
@@ -171,10 +168,9 @@ std::shared_ptr<Account> AccountPool::getAccountRandomly() const {
 	return nullptr;
 }
 
-const AccountPool::IndexedView& AccountPool::getOrCreateView(AccountPool::LookupTemplate&& lookupTemplate) {
-	auto key = lookupTemplate.getTemplate();
+const AccountPool::IndexedView& AccountPool::getOrCreateView(std::string lookupTemplate) {
 	const auto [iterator, inserted] =
-	    mViews.emplace(std::move(key), IndexedView{.interpolator = std::move(lookupTemplate)});
+	    mViews.emplace(lookupTemplate, IndexedView{.formatter = Formatter(lookupTemplate, kAccountFields)});
 	auto& [_key, view] = *iterator;
 	if (!inserted) {
 		// Already created
@@ -296,7 +292,7 @@ void AccountPool::onAccountUpdate(const string& uri, const optional<config::v2::
 	// Account updated
 
 	const auto& updatedAccount = accountByUriIt->second;
-	auto previousBindings = vector<tuple<string, const LookupTemplate&, AccountLookupTable&>>();
+	auto previousBindings = vector<tuple<string, const Formatter&, AccountLookupTable&>>();
 	previousBindings.reserve(mViews.size());
 	for (auto& [_key, view] : mViews) {
 		// Skip main view, only update secondary views
