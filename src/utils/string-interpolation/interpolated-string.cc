@@ -28,22 +28,4 @@ InterpolatedString::InterpolatedString(std::string templateString,
 	m.templateString = std::move(templateString);
 }
 
-std::string InterpolatedString::canonical() const {
-	auto canonical = std::string(m.templateString);
-	for (const auto [start, size] : m.symbols) {
-		canonical[start - 1] = canonical[start + size] = '\0';
-	}
-
-	return canonical;
-}
-
 } // namespace flexisip::utils::string_interpolation
-
-namespace std {
-using flexisip::utils::string_interpolation::InterpolatedString;
-
-size_t hash<InterpolatedString>::operator()(const InterpolatedString& interpolated) const {
-	return hash<string>()(interpolated.canonical());
-}
-
-} // namespace std

@@ -121,7 +121,6 @@ add_executable(flexisip_tester
 	tests/utils/limited-unordered-map-tester.cc
 	tests/utils/socket-address-tester.cc
 	tests/utils/soft-ptr-tester.cc
-	tests/utils/string-interpolation/interpolated-string-tester.cc
 	thread-pool-tester.cc
 	tls-connection-tester.cc
 	utils-tester.cc

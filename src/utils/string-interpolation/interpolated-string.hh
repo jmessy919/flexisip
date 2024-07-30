@@ -30,15 +30,15 @@ public:
 		      startDelimPos(startDelimPos) {
 		}
 
-		const char* what() const noexcept override {
-			std::ostringstream what{};
-			what << "Missing closing delimiter. Expected '" << expectedDelim << "' but reached end of string:\n";
-			what << invalidTemplate << "\n";
-			what << std::string(startDelimPos, ' ') << "^substitution template started here";
+	const char* what() const noexcept override {
+		std::ostringstream what{};
+		what << "Missing closing delimiter. Expected '" << expectedDelim << "' but reached end of string:\n";
+		what << invalidTemplate << "\n";
+		what << std::string(startDelimPos, ' ') << "^substitution template started here";
 
-			mWhat = what.str();
-			return mWhat.c_str();
-		}
+		mWhat = what.str();
+		return mWhat.c_str();
+	}
 
 		std::string invalidTemplate;
 		std::string expectedDelim;
@@ -57,20 +57,8 @@ public:
 		return std::move(m);
 	}
 
-	std::string canonical() const;
-
 private:
 	Members m{};
 };
 
 } // namespace flexisip::utils::string_interpolation
-
-namespace std {
-/* Two `InterpolatedString`s hash to the same value if and only if they have the same pieces and the same symbols in the
- * same order, regardless of the delimiter used
- */
-template <>
-struct hash<flexisip::utils::string_interpolation::InterpolatedString> {
-	size_t operator()(const flexisip::utils::string_interpolation::InterpolatedString&) const;
-};
-} // namespace std
