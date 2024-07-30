@@ -39,10 +39,14 @@ class AccountPool : public redis::async::SessionListener {
 public:
 	using LookupTemplate = utils::string_interpolation::PreprocessedInterpolatedString<const Account&>;
 	using AccountLookupTable = std::unordered_map<std::string, std::shared_ptr<Account>>;
+	struct IndexedView {
+		LookupTemplate interpolator;
+		AccountLookupTable view{};
+	};
+	// Map of template string -> indexed view of accounts
 	// Must be a std::map (and not an unordered_map) to guarantee that references returned by `getOrCreateView` will
-	// remain as long as the corresponding key
-	using MapOfViews = std::map<LookupTemplate, AccountLookupTable>;
-	using IndexedView = MapOfViews::value_type;
+	// remain as long as the corresponding key exists in the map
+	using MapOfViews = std::map<std::string, IndexedView>;
 
 	AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
 	            const std::shared_ptr<B2buaCore>& core,
@@ -61,13 +65,13 @@ public:
 	const IndexedView& getDefaultView() const;
 
 	auto size() const {
-		return mDefaultView.second.size();
+		return mDefaultView.view.size();
 	}
 	auto begin() const {
-		return mDefaultView.second.begin();
+		return mDefaultView.view.begin();
 	}
 	auto end() const {
-		return mDefaultView.second.end();
+		return mDefaultView.view.end();
 	}
 
 	bool allAccountsLoaded() const {

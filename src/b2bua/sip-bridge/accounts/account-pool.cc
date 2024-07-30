@@ -30,6 +30,8 @@ using namespace nlohmann;
 using namespace flexisip::redis;
 using namespace flexisip::redis::async;
 
+const auto& kDefaultTemplateString = "{uri}"s;
+
 AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
                          const std::shared_ptr<B2buaCore>& core,
                          const config::v2::AccountPoolName& poolName,
@@ -39,11 +41,14 @@ AccountPool::AccountPool(const std::shared_ptr<sofiasip::SuRoot>& suRoot,
     : mSuRoot{suRoot}, mCore{core}, mLoader{std::move(loader)}, mAccountParams{mCore->createAccountParams()},
       mMaxCallsPerLine(pool.maxCallsPerLine), mPoolName{poolName},
       mDefaultView(
-          *mViews
-               .emplace(LookupTemplate(utils::string_interpolation::InterpolatedString("{uri}", "{", "}"),
-                                       variable_substitution::FieldsResolver{variable_substitution::kAccountFields}),
-                        IndexedView::second_type())
-               .first),
+          mViews
+              .emplace(kDefaultTemplateString,
+                       IndexedView{
+                           .interpolator = LookupTemplate(
+                               utils::string_interpolation::InterpolatedString(kDefaultTemplateString, "{", "}"),
+                               variable_substitution::FieldsResolver{variable_substitution::kAccountFields}),
+                       })
+              .first->second),
       mRegistrationQueue(*mSuRoot,
                          chrono::milliseconds{pool.registrationThrottlingRateMs},
                          [this](const auto& account) { addNewAccount(account); }) {
@@ -167,8 +172,10 @@ std::shared_ptr<Account> AccountPool::getAccountRandomly() const {
 }
 
 const AccountPool::IndexedView& AccountPool::getOrCreateView(AccountPool::LookupTemplate&& lookupTemplate) {
-	const auto [iterator, inserted] = mViews.emplace(std::move(lookupTemplate), IndexedView::second_type());
-	auto& view = *iterator;
+	auto key = lookupTemplate.getTemplate();
+	const auto [iterator, inserted] =
+	    mViews.emplace(std::move(key), IndexedView{.interpolator = std::move(lookupTemplate)});
+	auto& [_key, view] = *iterator;
 	if (!inserted) {
 		// Already created
 		return view;
@@ -176,7 +183,7 @@ const AccountPool::IndexedView& AccountPool::getOrCreateView(AccountPool::Lookup
 
 	// Populate the new view
 	auto& [interpolated, map] = view;
-	const auto& defaultView = mDefaultView.second;
+	const auto& defaultView = mDefaultView.view;
 	map.reserve(defaultView.size());
 	for (const auto& [_, account] : defaultView) {
 		const auto [slot, inserted] = map.emplace(interpolated.format(*account), account);
@@ -198,19 +205,20 @@ const AccountPool::IndexedView& AccountPool::getDefaultView() const {
 }
 
 void AccountPool::reserve(size_t sizeToReserve) {
-	for (auto& [_, view] : mViews) {
-		view.reserve(sizeToReserve);
+	for (auto& [_key, view] : mViews) {
+		view.view.reserve(sizeToReserve);
 	}
 }
 
 bool AccountPool::tryEmplace(const shared_ptr<Account>& account) {
-	const auto& uri = mDefaultView.first.format(*account);
+	auto& [interpolator, view] = mDefaultView;
+	const auto& uri = interpolator.format(*account);
 	if (uri.empty()) {
 		SLOGE << "AccountPool::tryEmplace called with empty uri, nothing happened";
 		return false;
 	}
 
-	auto [_, isInsertedUri] = mDefaultView.second.try_emplace(uri, account);
+	auto [_, isInsertedUri] = view.try_emplace(uri, account);
 	if (!isInsertedUri) {
 		SLOGE << "AccountPool::tryEmplace uri[" << uri << "] already present, nothing happened";
 		return false;
@@ -222,7 +230,7 @@ bool AccountPool::tryEmplace(const shared_ptr<Account>& account) {
 }
 
 void AccountPool::tryEmplaceInViews(const shared_ptr<Account>& account) {
-	for (auto& view : mViews) {
+	for (auto& [_key, view] : mViews) {
 		// Skip main view, only update secondary views
 		if (addressof(view) == addressof(mDefaultView)) continue;
 
@@ -248,7 +256,7 @@ void AccountPool::accountUpdateNeeded(const RedisAccountPub& redisAccountPub) {
 }
 
 void AccountPool::onAccountUpdate(const string& uri, const optional<config::v2::Account>& accountToUpdate) {
-	auto& defaultView = mDefaultView.second;
+	auto& defaultView = mDefaultView.view;
 	// Account deleted
 	if (!accountToUpdate.has_value()) {
 		const auto accountByUriIt = defaultView.find(uri);
@@ -260,7 +268,7 @@ void AccountPool::onAccountUpdate(const string& uri, const optional<config::v2::
 		const auto& account = *accountByUriIt->second;
 		mCore->removeAccount(account.getLinphoneAccount());
 
-		for (auto& view : mViews) {
+		for (auto& [_key, view] : mViews) {
 			// Skip main view, only update secondary views
 			if (addressof(view) == addressof(mDefaultView)) continue;
 
@@ -290,7 +298,7 @@ void AccountPool::onAccountUpdate(const string& uri, const optional<config::v2::
 	const auto& updatedAccount = accountByUriIt->second;
 	auto previousBindings = vector<tuple<string, const LookupTemplate&, AccountLookupTable&>>();
 	previousBindings.reserve(mViews.size());
-	for (auto& view : mViews) {
+	for (auto& [_key, view] : mViews) {
 		// Skip main view, only update secondary views
 		if (addressof(view) == addressof(mDefaultView)) continue;
 

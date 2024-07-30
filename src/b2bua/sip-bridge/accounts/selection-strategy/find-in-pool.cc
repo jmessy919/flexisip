@@ -32,12 +32,13 @@ FindInPool::FindInPool(std::shared_ptr<AccountPool> accountPool,
 std::shared_ptr<Account> FindInPool::chooseAccountForThisCall(const linphone::Call& incomingCall) const {
 	const auto& source = mSourceTemplate.format(incomingCall);
 
+	const auto& [interpolator, view] = mAccountLookup;
 	auto log = pumpstream(FLEXISIP_LOG_DOMAIN, BCTBX_LOG_DEBUG);
-	log << "FindInPool strategy attempted to find an account matching " << mAccountLookup.first.getTemplate() << " == '"
+	log << "FindInPool strategy attempted to find an account matching " << interpolator.getTemplate() << " == '"
 	    << source << "' for call '" << incomingCall.getCallLog()->getCallId() << "': ";
 
-	const auto maybeAccount = mAccountLookup.second.find(source);
-	if (maybeAccount == mAccountLookup.second.end()) {
+	const auto maybeAccount = view.find(source);
+	if (maybeAccount == view.end()) {
 		log << "not found";
 		return {};
 	}

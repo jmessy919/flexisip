@@ -92,8 +92,8 @@ void globalSqlTest() {
 	                 make_unique<SQLAccountLoader>(SUITE_SCOPE->suRoot,
 	                                               std::get<config::v2::SQLLoader>(SUITE_SCOPE->poolConfig.loader)),
 	                 &registrarConf};
-	const auto& accountsByUri = pool.getOrCreateView(AccountPool::LookupTemplate(byUriTemplate)).second;
-	const auto& accountsByAlias = pool.getOrCreateView(AccountPool::LookupTemplate(byAliasTemplate)).second;
+	const auto& accountsByUri = pool.getOrCreateView(AccountPool::LookupTemplate(byUriTemplate)).view;
+	const auto& accountsByAlias = pool.getOrCreateView(AccountPool::LookupTemplate(byAliasTemplate)).view;
 
 	asserter
 	    .wait([&pool] {
@@ -276,8 +276,8 @@ void emptyThenPublishSqlTest() {
 	                 make_unique<SQLAccountLoader>(SUITE_SCOPE->suRoot,
 	                                               std::get<config::v2::SQLLoader>(SUITE_SCOPE->poolConfig.loader)),
 	                 &registrarConf};
-	const auto& accountsByUri = pool.getOrCreateView(AccountPool::LookupTemplate(byUriTemplate)).second;
-	const auto& accountsByAlias = pool.getOrCreateView(AccountPool::LookupTemplate(byAliasTemplate)).second;
+	const auto& accountsByUri = pool.getOrCreateView(AccountPool::LookupTemplate(byUriTemplate)).view;
+	const auto& accountsByAlias = pool.getOrCreateView(AccountPool::LookupTemplate(byAliasTemplate)).view;
 
 	asserter
 	    .wait([&pool] {
