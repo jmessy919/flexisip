@@ -7,7 +7,7 @@
 #include "account-selection-strategy.hh"
 
 #include "b2bua/sip-bridge/configuration/v2/v2.hh"
-#include "utils/string-interpolation/preprocessed-interpolated-string.hh"
+#include "utils/string-interpolation/template-formatter.hh"
 
 namespace flexisip::b2bua::bridge::account_strat {
 
@@ -18,8 +18,8 @@ public:
 	std::shared_ptr<Account> chooseAccountForThisCall(const linphone::Call&) const override;
 
 private:
-	config::v2::account_selection::AccountLookUp mLookUpField;
-	utils::string_interpolation::PreprocessedInterpolatedString<const linphone::Call&> mSourceTemplate;
+	const AccountPool::IndexedView& mAccountLookup;
+	utils::string_interpolation::TemplateFormatter<const linphone::Call&> mSourceTemplate;
 };
 
 } // namespace flexisip::b2bua::bridge::account_strat

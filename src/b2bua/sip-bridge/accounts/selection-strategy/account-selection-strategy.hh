@@ -22,7 +22,7 @@ public:
 		return *mAccountPool;
 	}
 
-private:
+protected:
 	std::shared_ptr<AccountPool> mAccountPool;
 };
 
