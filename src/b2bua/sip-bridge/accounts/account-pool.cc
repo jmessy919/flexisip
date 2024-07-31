@@ -178,13 +178,13 @@ const AccountPool::IndexedView& AccountPool::getOrCreateView(std::string lookupT
 	}
 
 	// Populate the new view
-	auto& [interpolated, map] = view;
+	auto& [formatter, map] = view;
 	const auto& defaultView = mDefaultView.view;
 	map.reserve(defaultView.size());
 	for (const auto& [_, account] : defaultView) {
-		const auto [slot, inserted] = map.emplace(interpolated.format(*account), account);
+		const auto [slot, inserted] = map.emplace(formatter.format(*account), account);
 		if (!inserted) {
-			SLOGW << "AccountPool::getOrCreateView - Collision: Template '" << interpolated.getTemplate()
+			SLOGW << "AccountPool::getOrCreateView - Collision: Template '" << formatter.getTemplate()
 			      << "' produced key '" << slot->first << "' for account '"
 			      << account->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly()
 			      << "' which is the same as that of previously inserted account '"
@@ -207,8 +207,8 @@ void AccountPool::reserve(size_t sizeToReserve) {
 }
 
 bool AccountPool::tryEmplace(const shared_ptr<Account>& account) {
-	auto& [interpolator, view] = mDefaultView;
-	const auto& uri = interpolator.format(*account);
+	auto& [formatter, view] = mDefaultView;
+	const auto& uri = formatter.format(*account);
 	if (uri.empty()) {
 		SLOGE << "AccountPool::tryEmplace called with empty uri, nothing happened";
 		return false;
@@ -230,10 +230,10 @@ void AccountPool::tryEmplaceInViews(const shared_ptr<Account>& account) {
 		// Skip main view, only update secondary views
 		if (addressof(view) == addressof(mDefaultView)) continue;
 
-		auto& [interpolator, map] = view;
-		const auto [slot, inserted] = map.try_emplace(interpolator.format(*account), account);
+		auto& [formatter, map] = view;
+		const auto [slot, inserted] = map.try_emplace(formatter.format(*account), account);
 		if (!inserted) {
-			SLOGW << "AccountPool::tryEmplaceInViews - Collision: Template '" << interpolator.getTemplate()
+			SLOGW << "AccountPool::tryEmplaceInViews - Collision: Template '" << formatter.getTemplate()
 			      << "' produced key '" << slot->first << "' for account '"
 			      << account->getLinphoneAccount()->getParams()->getIdentityAddress()->asStringUriOnly()
 			      << "' which is the same as that of previously inserted account '"
@@ -268,8 +268,8 @@ void AccountPool::onAccountUpdate(const string& uri, const optional<config::v2::
 			// Skip main view, only update secondary views
 			if (addressof(view) == addressof(mDefaultView)) continue;
 
-			auto& [interpolator, map] = view;
-			map.erase(interpolator.format(account));
+			auto& [formatter, map] = view;
+			map.erase(formatter.format(account));
 		}
 
 		defaultView.erase(accountByUriIt);
@@ -298,8 +298,8 @@ void AccountPool::onAccountUpdate(const string& uri, const optional<config::v2::
 		// Skip main view, only update secondary views
 		if (addressof(view) == addressof(mDefaultView)) continue;
 
-		auto& [interpolator, map] = view;
-		previousBindings.emplace_back(interpolator.format(*updatedAccount), interpolator, map);
+		auto& [formatter, map] = view;
+		previousBindings.emplace_back(formatter.format(*updatedAccount), formatter, map);
 	}
 
 	updatedAccount->setAlias(accountToUpdate->alias);
@@ -316,8 +316,8 @@ void AccountPool::onAccountUpdate(const string& uri, const optional<config::v2::
 	}
 	handlePassword(*accountToUpdate, address);
 
-	for (auto& [previousKey, interpolator, map] : previousBindings) {
-		auto newKey = interpolator.format(*updatedAccount);
+	for (auto& [previousKey, formatter, map] : previousBindings) {
+		auto newKey = formatter.format(*updatedAccount);
 		if (newKey == previousKey) continue;
 
 		assert(map.erase(previousKey) != 0);
