@@ -81,7 +81,7 @@ void NonceStore::cleanExpired() {
 	time_t now = getCurrentTime();
 	size_t size = 0;
 	for (auto it = mNc.begin(); it != mNc.end();) {
-		if (now > it->second.expires) {
+		if (now >= it->second.expires) {
 			LOGD("Cleaning expired nonce %s", it->first.c_str());
 			auto eraseIt = it;
 			++it;
