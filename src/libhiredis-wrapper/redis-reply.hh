@@ -26,6 +26,11 @@ class Status : public std::string_view {
 public:
 	friend std::ostream& operator<<(std::ostream&, const Status&);
 };
+// An empty command reply
+class Nil {
+public:
+	friend std::ostream& operator<<(std::ostream&, const Nil&);
+};
 using Integer = decltype(redisReply::integer);
 // The session disconnected before being able to get the result of this command
 class Disconnected {
@@ -130,7 +135,7 @@ private:
 // Union of types that a Redis command callback may receive as input.
 // This is only a view into the underlying redisReply* returned by hiredis. It is UNSAFE to keep around for longer than
 // the lifetime of the pointed-to struct. (I.e.: Do not copy out of the callback function, it does *not* own the data)
-using Reply = std::variant<String, Array, Integer, Error, Disconnected, Status>;
+using Reply = std::variant<String, Array, Integer, Error, Disconnected, Status, Nil>;
 
 // Try to get type-safe view into the redisReply. Throws std::runtime_error if the `redisReply::type` is
 // unknown/unimplemented
