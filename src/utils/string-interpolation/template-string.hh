@@ -13,6 +13,11 @@
 
 namespace flexisip::utils::string_interpolation {
 
+/** A string that contains replaceable parts (symbols)
+ *
+ * E.g.: "sip:{user}@{domain}" where '{' and '}' are the start and end delimiters respectively
+ *    or "sip:<user>@<domain>"  with '<' and '>' as delimiters. Etc.
+ */
 class TemplateString {
 public:
 	struct Members {
@@ -30,15 +35,15 @@ public:
 		      startDelimPos(startDelimPos) {
 		}
 
-	const char* what() const noexcept override {
-		std::ostringstream what{};
-		what << "Missing closing delimiter. Expected '" << expectedDelim << "' but reached end of string:\n";
-		what << invalidTemplate << "\n";
-		what << std::string(startDelimPos, ' ') << "^substitution template started here";
+		const char* what() const noexcept override {
+			std::ostringstream what{};
+			what << "Missing closing delimiter. Expected '" << expectedDelim << "' but reached end of string:\n";
+			what << invalidTemplate << "\n";
+			what << std::string(startDelimPos, ' ') << "^substitution template started here";
 
-		mWhat = what.str();
-		return mWhat.c_str();
-	}
+			mWhat = what.str();
+			return mWhat.c_str();
+		}
 
 		std::string invalidTemplate;
 		std::string expectedDelim;

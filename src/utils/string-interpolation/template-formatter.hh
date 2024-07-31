@@ -13,14 +13,15 @@
 
 namespace flexisip::utils::string_interpolation {
 
-// TODO DOC
+/** Produce a string representation of a given context (one or more objects)
+ *
+ * The template string and substitution functions are passed at construction time, then the method `.format` can be
+ * repeatedly called with different contexts to fill the template and produce new strings.
+ */
 template <typename... Context>
 class TemplateFormatter {
 public:
-	using Substituter = std::function<std::string(const Context&...)>;
-	using Resolver = std::function<Substituter(std::string_view)>;
-
-	explicit TemplateFormatter(TemplateString&& parsed, Resolver resolver) {
+	explicit TemplateFormatter(TemplateString&& parsed, Resolver<const Context&...> resolver) {
 		auto [templateString, pieces, symbols] = std::move(parsed).extractMembers();
 		mTemplateString = std::move(templateString);
 		mPieces = std::move(pieces);
@@ -65,7 +66,7 @@ private:
 
 	std::string mTemplateString{};
 	std::vector<StringViewMold> mPieces{};
-	std::vector<Substituter> mSubstitutions{};
+	std::vector<Substituter<const Context&...>> mSubstitutions{};
 };
 
 } // namespace flexisip::utils::string_interpolation
