@@ -24,10 +24,13 @@
 #include <type_traits>
 
 #include <sofia-sip/nta.h>
+#include <sofia-sip/nta_tport.h>
+#include <sofia-sip/tport.h>
 
 #include "flexisip/logmanager.hh"
 #include "flexisip/sofia-wrapper/msg-sip.hh"
 #include "flexisip/sofia-wrapper/su-root.hh"
+#include "flexisip/flexisip-exception.hh"
 
 #include "nta-outgoing-transaction.hh"
 #include "sofia-wrapper/utilities.hh"
@@ -36,7 +39,7 @@ namespace sofiasip {
 
 /**
  * NtaAgent instances are in charge of listening the network and notify the upper code layer when an incoming
- * SIP message is received. It is also the entry point when the upper code layer need to send SIP messages on
+ * SIP message is received. It is also the entry point when the upper code layer need to send SIP messages on
  * the network or reply to SIP requests.
  *
  * Use createOutgoingTransaction() to send a request to another SIP agent.
@@ -45,17 +48,52 @@ class NtaAgent {
 public:
 	/**
 	 * Instantiate an NtaAgent.
-	 * @param root The event loop that will be use to treat incoming network events.
-	 * @param contactURI The default contact URI to use when sending SIP requests. This parameter
+	 * @param root 			The event loop that will be used to process incoming network events.
+	 * @param contactURI 	The default contact URI to use when sending SIP requests. This parameter
 	 * is used to define which local address and port the agent will listen on.
+	 * @param callback		Function called when a new SIP message is received
+	 * @param magic			User data which are then reachable from the callback function
+	 * @param tags			NTA tagged arguments...
 	 */
-	template <typename UriT>
-	NtaAgent(const std::shared_ptr<SuRoot>& root, const UriT& contactURI) : mRoot{root} {
+	template <typename UriT, typename... Tags>
+	NtaAgent(const std::shared_ptr<SuRoot>& root,
+	         const UriT& contactURI,
+	         nta_message_f* callback,
+	         nta_agent_magic_t* magic,
+	         Tags... tags)
+	    : mRoot{root} {
 		auto* nativeContactURI = toSofiaSipUrlUnion(contactURI);
-		mNativePtr = nta_agent_create(mRoot->getCPtr(), nativeContactURI, nullptr, nullptr, TAG_END());
+		mNativePtr = nta_agent_create(mRoot->getCPtr(), nativeContactURI, callback, magic, std::forward<Tags>(tags)...);
 		if (mNativePtr == nullptr) {
 			throw std::runtime_error{"creating nta_agent_t failed"};
 		}
+	}
+
+	/**
+	 * Instantiate an NtaAgent.
+	 * @param root 			The event loop that will be used to process incoming network events.
+	 * @param contactURI 	The default contact URI to use when sending SIP requests. This parameter
+	 * is used to define which local address and port the agent will listen on.
+	 * @param callback		Function called when a new SIP message is received
+	 * @param magic			User data which are then reachable from the callback function
+	 */
+	template <typename UriT>
+	NtaAgent(const std::shared_ptr<SuRoot>& root,
+	         const UriT& contactURI,
+	         nta_message_f* callback,
+	         nta_agent_magic_t* magic)
+	    : NtaAgent{root, contactURI, callback, magic, TAG_END()} {
+	}
+
+	/**
+	 * Instantiate an NtaAgent.
+	 * @param root 			The event loop that will be used to process incoming network events.
+	 * @param contactURI 	The default contact URI to use when sending SIP requests. This parameter
+	 * is used to define which local address and port the agent will listen on.
+	 */
+	template <typename UriT>
+	NtaAgent(const std::shared_ptr<SuRoot>& root, const UriT& contactURI)
+	    : NtaAgent{root, contactURI, nullptr, nullptr, TAG_END()} {
 	}
 	NtaAgent(const NtaAgent&) = delete;
 	NtaAgent(NtaAgent&&) = delete;
@@ -106,8 +144,15 @@ public:
 		return transaction;
 	}
 
+	/*
+	 * Return the port on which the agent is listening.
+	 */
+	const char* getPort() {
+		const auto firstTransport = ::tport_primaries(::nta_agent_tports(mNativePtr));
+		return ::tport_name(firstTransport)->tpn_port;
+	}
+
 private:
-	// Private methods
 	void onOutgoingTransactionResponse(nta_outgoing_t* transaction, const sip_t* response) noexcept {
 		auto it = mTransactions.find(transaction);
 		if (it == mTransactions.end()) {
@@ -120,7 +165,6 @@ private:
 		}
 	}
 
-	// Private attributes
 	nta_agent_t* mNativePtr{nullptr};
 	std::shared_ptr<SuRoot> mRoot{nullptr};
 	std::map<nta_outgoing_t*, std::shared_ptr<NtaOutgoingTransaction>> mTransactions{};
